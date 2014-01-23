@@ -57,6 +57,8 @@ let rec serve_until_block tag th =
 let test_mount =
   let init_req = ref None in
   let mount () =
+    Unix.(try access srcdir [F_OK] with Unix_error _ -> mkdir srcdir 0o700);
+    Unix.(try access mntdir [F_OK] with Unix_error _ -> mkdir mntdir 0o700);
     let req, st = Profuse.mount [|"test"|] mntdir state in
     fuse_conn := Some req.Fuse.chan;
     fs_state := st;
