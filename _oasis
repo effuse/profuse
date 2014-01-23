@@ -1,0 +1,40 @@
+OASISFormat: 0.3
+Name:        profuse
+Version:     0.1.0
+Synopsis:    FUSE protocol version 7.8
+Authors:     David Sheets
+License:     ISC
+Plugins:     META (0.3), DevFiles (0.3)
+BuildTools:  ocamlbuild
+
+Library profuse
+  Path: lib
+  FindlibName: profuse
+  Modules: View, Opcode, Fuse, In_common, Struct_common
+  BuildDepends: unix-errno, unix-sys-stat, unix-dirent, unix-unistd, unix-fcntl, fd-send-recv, ctypes, ctypes.foreign
+  NativeOpt: -w @f@p@u@s@40
+  ByteOpt:   -w @f@p@u@s@40
+
+Library linux
+  Path: linux
+  FindlibName: linux
+  FindlibParent: profuse
+  Modules: Profuse, Lofs
+  BuildDepends: profuse
+  NativeOpt: -w @f@p@u@s@40
+  ByteOpt:   -w @f@p@u@s@40
+
+Executable lofs_main
+  Path: linux
+  MainIs: lofs_main.ml
+  Custom: true
+  CompiledObject: best
+  Install: false
+  BuildDepends: profuse.linux
+  NativeOpt: -w @f@p@u@s@40
+  ByteOpt:   -w @f@p@u@s@40
+
+Test linux_7_8
+  Run: true
+  Command: make
+  WorkingDirectory: linux_test
