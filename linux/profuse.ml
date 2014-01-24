@@ -211,6 +211,10 @@ module Server : SERVER = functor (Fs : RW_FULL) -> struct
         (Unsigned.UInt32.to_int32 (getf i Init.flags))
       | Getattr -> ""
       | Lookup name -> name
+      | Mknod (m,name) -> Printf.sprintf "mode=%ld rdev=%ld %s"
+        (Unsigned.UInt32.to_int32 (getf m Mknod.mode))
+        (Unsigned.UInt32.to_int32 (getf m Mknod.rdev))
+        name
       | _ -> "FIX ME"
       )
 
