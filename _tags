@@ -1,0 +1,64 @@
+# OASIS_START
+# DO NOT EDIT (digest: 700a3318c11973d357fd6d3fa72c6717)
+# Ignore VCS directories, you can use the same kind of rule outside
+# OASIS_START/STOP if you want to exclude directories that contains
+# useless stuff for the build process
+<**/.svn>: -traverse
+<**/.svn>: not_hygienic
+".bzr": -traverse
+".bzr": not_hygienic
+".hg": -traverse
+".hg": not_hygienic
+".git": -traverse
+".git": not_hygienic
+"_darcs": -traverse
+"_darcs": not_hygienic
+# Library profuse
+"lib/profuse.cmxs": use_profuse
+<lib/profuse.{cma,cmxa}>: oasis_library_profuse_byte
+<lib/*.ml{,i}>: oasis_library_profuse_byte
+<lib/profuse.{cma,cmxa}>: oasis_library_profuse_native
+<lib/*.ml{,i}>: oasis_library_profuse_native
+<lib/*.ml{,i}>: pkg_unix-errno
+<lib/*.ml{,i}>: pkg_unix-sys-stat
+<lib/*.ml{,i}>: pkg_unix-dirent
+<lib/*.ml{,i}>: pkg_unix-unistd
+<lib/*.ml{,i}>: pkg_unix-fcntl
+<lib/*.ml{,i}>: pkg_fd-send-recv
+<lib/*.ml{,i}>: pkg_ctypes
+<lib/*.ml{,i}>: pkg_ctypes.foreign
+# Library linux
+"linux/linux.cmxs": use_linux
+<linux/linux.{cma,cmxa}>: oasis_library_linux_byte
+<linux/*.ml{,i}>: oasis_library_linux_byte
+<linux/linux.{cma,cmxa}>: oasis_library_linux_native
+<linux/*.ml{,i}>: oasis_library_linux_native
+# Executable lofs_main
+<linux/lofs_main.{native,byte}>: oasis_executable_lofs_main_byte
+<linux/*.ml{,i}>: oasis_executable_lofs_main_byte
+<linux/lofs_main.{native,byte}>: oasis_executable_lofs_main_native
+<linux/*.ml{,i}>: oasis_executable_lofs_main_native
+<linux/lofs_main.{native,byte}>: use_linux
+<linux/lofs_main.{native,byte}>: use_profuse
+<linux/lofs_main.{native,byte}>: pkg_unix-errno
+<linux/lofs_main.{native,byte}>: pkg_unix-sys-stat
+<linux/lofs_main.{native,byte}>: pkg_unix-dirent
+<linux/lofs_main.{native,byte}>: pkg_unix-unistd
+<linux/lofs_main.{native,byte}>: pkg_unix-fcntl
+<linux/lofs_main.{native,byte}>: pkg_fd-send-recv
+<linux/lofs_main.{native,byte}>: pkg_ctypes
+<linux/lofs_main.{native,byte}>: pkg_ctypes.foreign
+<linux/*.ml{,i}>: use_linux
+<linux/*.ml{,i}>: use_profuse
+<linux/*.ml{,i}>: pkg_unix-errno
+<linux/*.ml{,i}>: pkg_unix-sys-stat
+<linux/*.ml{,i}>: pkg_unix-dirent
+<linux/*.ml{,i}>: pkg_unix-unistd
+<linux/*.ml{,i}>: pkg_unix-fcntl
+<linux/*.ml{,i}>: pkg_fd-send-recv
+<linux/*.ml{,i}>: pkg_ctypes
+<linux/*.ml{,i}>: pkg_ctypes.foreign
+<linux/lofs_main.{native,byte}>: custom
+# OASIS_STOP
+true: debug
+
