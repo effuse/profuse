@@ -22,7 +22,10 @@ module Lwt_th = Lwt_preemptive
 module Server = Profuse.Server(Lofs.Linux_7_8)
 
 let mntdir = "mnt"
+let mntpath = Filename.concat mntdir
 let srcdir = "lofs"
+let srcpath = Filename.concat srcdir
+
 let max_wait_s = 0.01
 
 let limit k msg lwt =
@@ -77,7 +80,7 @@ let test_ops =
   let read () =
     let string = "a short read test\n" in
     let file = "read" in
-    let path = Filename.concat srcdir file in
+    let path = srcpath file in
     let len = String.length string in
     let w = Unix.(openfile path [O_CREAT; O_WRONLY; O_DSYNC] 0o600) in
     Printf.eprintf "before lofs write\n%!";
@@ -87,7 +90,7 @@ let test_ops =
     Printf.eprintf "after lofs write\n%!";
     run_fuse "read" (fun () ->
       let fd = Unix.(
-        openfile (Filename.concat mntdir file) [] 0o000
+        openfile (mntpath file) [] 0o000
       ) in
       let s = String.create (2*len) in
       Printf.eprintf "before fuse read\n%!";
@@ -106,15 +109,15 @@ let test_ops =
     let to_mode_t = PosixTypes.(Ctypes.(Unsigned.(coerce uint32_t mode_t))) in
     let to_dev_t  = PosixTypes.(Ctypes.(Unsigned.(coerce uint64_t dev_t))) in
     let file = nod_file in
-    let path = Filename.concat srcdir file in
+    let path = srcpath file in
     Unix.(assert_raises (Unix_error (ENOENT, "access", path))
             (fun () -> access path [F_OK]));
     run_fuse "mknod" (fun () ->
-      let path = Filename.concat mntdir file in
+      let path = mntpath file in
       Unix_sys_stat.mknod path
         (to_mode_t (Unsigned.UInt32.of_int 0o600))
         (to_dev_t  (Unsigned.UInt64.of_int 0));
-      Unix_unistd.(access path [F_OK])
+      Unix_unistd.(access path [Unix.F_OK])
     );
     Unix.(access path [F_OK])
   in
@@ -125,7 +128,7 @@ let test_ops =
     let file = nod_file in
     run_fuse "write" (fun () ->
       let fd = Unix.(
-        openfile (Filename.concat mntdir file) [O_WRONLY] 0o600
+        openfile (mntpath file) [O_WRONLY] 0o600
       ) in
       Printf.eprintf "before fuse write\n%!";
       let bytes_written = Unix.write fd string 0 len in
@@ -133,7 +136,7 @@ let test_ops =
       assert_equal ~msg:"wrote expected number of bytes" bytes_written len;
       Unix_unistd.close fd
     );
-    let path = Filename.concat srcdir file in
+    let path = srcpath file in
     let r = Unix.(openfile path [O_RDONLY] 0o000) in
     let s = String.create (2*len) in
     Printf.eprintf "before lofs read\n%!";
@@ -147,10 +150,25 @@ let test_ops =
   in
 
   "ops", [
-    "read", `Quick,read;
-    "mknod",`Quick,mknod;
-    "write",`Quick,write;
+    "read",   `Quick,read;
+    "mknod",  `Quick,mknod;
+    "write",  `Quick,write;
   ]
+
+let test_errs =
+  let enoent () =
+    let file = "unicorn" in
+    run_fuse "enoent" (fun () ->
+      let path = mntpath file in
+      Unix.(assert_raises (Unix_error (ENOENT, "open", path))
+              (fun () -> openfile path  [] 0o000))
+    )
+  in
+
+  "errs", [
+    "enoent", `Quick,enoent;
+  ]
+
 
 let test_unmount =
   let unmount () =
@@ -174,5 +192,6 @@ Printexc.record_backtrace true;
 Alcotest.run "profuse_linux" [
   test_mount;
   test_ops;
+  test_errs;
   test_unmount;
 ]
