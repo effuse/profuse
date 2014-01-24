@@ -54,6 +54,10 @@ let rec serve_until_block tag th =
     Printf.eprintf "stopping serve_until_block(%s)\n%!" tag;
     return ()
 
+let run_fuse tag fn = Lwt_main.run begin
+  (serve_until_block tag (return !fs_state)) <&> (Lwt_th.detach fn ())
+end
+
 let test_mount =
   let init_req = ref None in
   let mount () =
@@ -81,40 +85,54 @@ let test_ops =
     assert_equal ~msg:"wrote expected number of bytes" bytes_written len;
     let () = Unix.close w in
     Printf.eprintf "after lofs write\n%!";
-    Lwt_main.run begin (serve_until_block "read" (return !fs_state)) <&>
-        (Lwt_th.detach (fun () ->
-          let fd = Unix.(
-            openfile (Filename.concat mntdir file) [] 0o000
-          ) in
-          let s = String.create (2*len) in
-          Printf.eprintf "before fuse read\n%!";
-          let bytes_read = Unix.read fd s 0 (2*len) in
-          Printf.eprintf "after fuse read\n%!";
-          assert_equal ~msg:"read same number bytes written" bytes_read len;
-          assert_equal ~msg:"read back same bytes written"
-            string (String.sub s 0 len);
-          Unix_unistd.close fd
-         ) ())
-    end;
+    run_fuse "read" (fun () ->
+      let fd = Unix.(
+        openfile (Filename.concat mntdir file) [] 0o000
+      ) in
+      let s = String.create (2*len) in
+      Printf.eprintf "before fuse read\n%!";
+      let bytes_read = Unix.read fd s 0 (2*len) in
+      Printf.eprintf "after fuse read\n%!";
+      assert_equal ~msg:"read same number bytes written" bytes_read len;
+      assert_equal ~msg:"read back same bytes written"
+        string (String.sub s 0 len);
+      Unix_unistd.close fd
+    );
     Unix.unlink path
+  in
+
+  let nod_file = "nod" in
+  let mknod () =
+    let to_mode_t = PosixTypes.(Ctypes.(Unsigned.(coerce uint32_t mode_t))) in
+    let to_dev_t  = PosixTypes.(Ctypes.(Unsigned.(coerce uint64_t dev_t))) in
+    let file = nod_file in
+    let path = Filename.concat srcdir file in
+    Unix.(assert_raises (Unix_error (ENOENT, "access", path))
+            (fun () -> access path [F_OK]));
+    run_fuse "mknod" (fun () ->
+      let path = Filename.concat mntdir file in
+      Unix_sys_stat.mknod path
+        (to_mode_t (Unsigned.UInt32.of_int 0o600))
+        (to_dev_t  (Unsigned.UInt64.of_int 0));
+      Unix_unistd.(access path [F_OK])
+    );
+    Unix.(access path [F_OK])
   in
 
   let write () =
     let string = "a short write test\n" in
     let len = String.length string in
-    let file = "write" in
-    Lwt_main.run begin (serve_until_block "write" (return !fs_state)) <&>
-        (Lwt_th.detach (fun () ->
-          let fd = Unix.(
-            openfile (Filename.concat mntdir file) [O_CREAT; O_WRONLY] 0o600
-          ) in
-          Printf.eprintf "before fuse write\n%!";
-          let bytes_written = Unix.write fd string 0 len in
-          Printf.eprintf "after fuse write\n%!";
-          assert_equal ~msg:"wrote expected number of bytes" bytes_written len;
-          Unix_unistd.close fd
-         ) ())
-    end;
+    let file = nod_file in
+    run_fuse "write" (fun () ->
+      let fd = Unix.(
+        openfile (Filename.concat mntdir file) [O_WRONLY] 0o600
+      ) in
+      Printf.eprintf "before fuse write\n%!";
+      let bytes_written = Unix.write fd string 0 len in
+      Printf.eprintf "after fuse write\n%!";
+      assert_equal ~msg:"wrote expected number of bytes" bytes_written len;
+      Unix_unistd.close fd
+    );
     let path = Filename.concat srcdir file in
     let r = Unix.(openfile path [O_RDONLY] 0o000) in
     let s = String.create (2*len) in
@@ -130,6 +148,7 @@ let test_ops =
 
   "ops", [
     "read", `Quick,read;
+    "mknod",`Quick,mknod;
     "write",`Quick,write;
   ]
 
