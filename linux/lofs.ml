@@ -151,29 +151,25 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
       (* TODO: log? *)
       write_error req Unix.ENOENT;
       st
-    | Unix.Unix_error (Unix.ENOENT,_,_) ->
-      (* TODO: clean up tables *)
-      write_error req Unix.ENOENT;
-      st
   )
 
   let opendir op req st = Out.(
+    let fh = alloc_fh () in
     try
       let { path } = get_node st (nodeid req) in
       let dir = Unix.opendir path in
-      let fh = alloc_fh () in
       Hashtbl.replace fh_table fh (Dir (path, dir, 0));
       write_reply req (Open.create ~fh ~open_flags:0l); (* TODO: open_flags?? *)
       st
     with Not_found ->
+      free_fh fh;
       (* TODO: log? *)
       Printf.eprintf "opendir not found\n%!";
       write_error req Unix.ENOENT;
       st
-    | Unix.Unix_error (Unix.ENOENT,_,_) ->
-      (* TODO: clean up tables *)
-      write_error req Unix.ENOENT;
-      st
+    | Unix.Unix_error (e,c,s) ->
+      free_fh fh;
+      raise (Unix.Unix_error (e,c,s))
   )
 
   let forget n req st = Out.(
@@ -189,17 +185,14 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
   )
 
   let respond_with_entry node req = Out.(
-    try
-      let nodeid = node.id in
-      let generation = node.gen in
-      let stats = Unix.LargeFile.lstat node.path in
-      write_reply req
-        (Out.Entry.create ~nodeid ~generation
-           ~entry_valid:0L ~entry_valid_nsec:0l ~attr_valid:0L ~attr_valid_nsec:0l
-           ~store_attr:(store_attr_of_stats stats))
-    with Unix.Unix_error (Unix.ENOENT,_,_) ->
-      (* TODO: clean up tables *)
-      write_error req Unix.ENOENT
+    let nodeid = node.id in
+    let generation = node.gen in
+    let stats = Unix.LargeFile.lstat node.path in
+    write_reply req
+      (Out.Entry.create ~nodeid ~generation
+         ~entry_valid:0L ~entry_valid_nsec:0l
+         ~attr_valid:0L ~attr_valid_nsec:0l
+         ~store_attr:(store_attr_of_stats stats))
   )
 
   let lookup name req st =
@@ -225,6 +218,7 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
     let handle = try Hashtbl.find fh_table fh
       with Not_found ->
         (* TODO: log invalid fh error *)
+        Printf.eprintf "readdir: invalid fd; should be EBADF?\n%!";
         raise Not_found
     in
     match handle with
@@ -255,6 +249,7 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
     st
 
   let open_ op req st = Out.(
+    let fh = alloc_fh () in
     try
       let { path } = get_node st (nodeid req) in
       let mode = Ctypes.getf op In.Open.mode in (* TODO: is only file_perm? *)
@@ -263,16 +258,16 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
         List.rev_map to_open_flag_exn (of_code ~host flags)
       ) in
       let file = Unix.openfile path flags (Int32.to_int mode) in
-      let fh = alloc_fh () in
       Hashtbl.replace fh_table fh (File (path, file));
       Out.(write_reply req (Open.create ~fh ~open_flags:0l)); (* TODO: flags *)
       st
     with Not_found ->
       (* TODO: log? *)
+      free_fh fh;
       write_error req Unix.ENOENT; st
-    | Unix.Unix_error (Unix.ENOENT,_,_) ->
-      (* TODO: clean up tables *)
-      write_error req Unix.ENOENT; st
+    | Unix.Unix_error (e,c,s) ->
+      free_fh fh;
+      raise (Unix.Unix_error (e,c,s))
   )
 
   let read r req st =
@@ -292,6 +287,7 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
     | Dir (_,_,_) -> Out.write_error req Unix.EISDIR; st
     with Not_found ->
       (* TODO: log invalid fh error *)
+      Printf.eprintf "read: invalid fd; should be EBADF?\n%!";
       raise Not_found
 
   (* TODO: anything? *)
@@ -411,7 +407,7 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
       Out.(write_reply req (Hdr.packet ~count:0));
       st
     with Unix.Unix_error(err,_,_) ->
-      Out.write_error req err; (* TODO: correct? *)
+      Out.write_error req err;
       st
 
   (* TODO: do mknod + open *)
@@ -479,6 +475,7 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
   (* TODO: more? *)
   let destroy req st = Out.(write_reply req (Hdr.packet ~count:0)); st
 
+  (* TODO: do *)
   let setattr s req st =
     let { path } = get_node st (nodeid req) in
     let valid = Ctypes.getf s In.Setattr.valid in
