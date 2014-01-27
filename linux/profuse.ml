@@ -221,7 +221,7 @@ module Server : SERVER = functor (Fs : RW_FULL) -> struct
       )
 
   let dispatch req t =
-    match req.Fuse.pkt with
+    try (match req.Fuse.pkt with
     | In.Init _ -> raise (Fuse.ProtocolError (req.Fuse.chan,"INIT after mount"))
     | In.Getattr -> Fs.getattr req t
     | In.Opendir op -> Fs.opendir op req t
@@ -258,7 +258,8 @@ module Server : SERVER = functor (Fs : RW_FULL) -> struct
     | In.Bmap b -> Fs.bmap b req t
     | In.Destroy -> Fs.destroy req t
     | In.Setattr s -> Fs.setattr s req t
-    | In.Other _ -> Out.write_error req Unix.ENOSYS; t    
+    | In.Other _ -> Out.write_error req Unix.ENOSYS; t
+    ) with Unix.Unix_error(e,_,_) -> Out.write_error req e; t
 
   let serve chan t =
     let req = In.read chan () in

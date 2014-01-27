@@ -246,9 +246,11 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
     | File (_,_) -> write_error req Unix.EBADF; st (* TODO: correct? *)
   )
 
+  (* Can raise Unix.Unix_error *)
   let readlink req st =
     let node = get_node st (nodeid req) in
-    let target = Unix.readlink node.path in (* TODO: error? *)
+    (* errors caught by our caller *)
+    let target = Unix.readlink node.path in
     Out.(write_reply req (Readlink.create ~target));
     st
 
@@ -305,18 +307,20 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
     with Not_found ->
       Out.write_error req Unix.EBADF; st
 
-  (* TODO: errors? *)
+  (* Can raise Unix.Unix_error *)
   let symlink name target req st = Out.(
     let ({ path } as pnode) = get_node st (nodeid req) in
     let path = Filename.concat path name in
+    (* errors caught by our caller *)
     Unix.symlink target path;
     lookup name req st (* TODO: still increment lookups? *)
   )
 
-  (* TODO: errors? *)
+  (* Can raise Unix.Unix_error *)
   let rename r src dest req st = Out.(
     let { path } = get_node st (nodeid req) in
     let newdir = get_node st (Ctypes.getf r In.Rename.newdir) in
+    (* errors caught by our caller *)
     Unix.rename (Filename.concat path src) (Filename.concat newdir.path dest);
     try
       let node = lookup_node newdir dest in (* TODO: still increment lookups? *)
@@ -329,19 +333,21 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
       st
   )
 
-  (* TODO: errors? *)
+  (* Can raise Unix.Unix_error *)
   let unlink name req st = Out.(
     let { path } = get_node st (nodeid req) in
     let path = Filename.concat path name in
+    (* errors caught by our caller *)
     Unix.unlink path;
     write_reply req (Hdr.packet ~count:0);
     st
   )
 
-  (* TODO: errors? *)
+  (* Can raise Unix.Unix_error *)
   let rmdir name req st = Out.(
     let { path } = get_node st (nodeid req) in
     let path = Filename.concat path name in
+    (* errors caught by our caller *)
     Unix.rmdir path;
     write_reply req (Hdr.packet ~count:0);
     st
@@ -353,7 +359,7 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
   (* TODO: do *)
   let fsync f req st = Out.write_error req Unix.ENOSYS; st
 
-  (* TODO: errors *)
+  (* Can raise Unix.Unix_error *)
   (* TODO: write flags? *)
   let write w req st =
     let fh = Ctypes.getf w In.Write.fh in
@@ -362,6 +368,7 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
     try match Hashtbl.find fh_table fh with
     | File (path, fd) -> Out.(
       let data = Ctypes.(to_voidp (CArray.start (getf w In.Write.data))) in
+      (* errors caught by our caller *)
       let off = Unix.LargeFile.lseek fd offset Unix.SEEK_SET in
       assert (off=offset); (* TODO: necessary? *)
       let size = Unix_unistd.write fd data size in
@@ -373,11 +380,12 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
       (* TODO: log invalid fh error *)
       raise Not_found
 
-  (* TODO: errors *)
+  (* Can raise Unix.Unix_error *)
   let link l name req st =
     let { path } = get_node st (nodeid req) in
     let oldnode = get_node st (Ctypes.getf l In.Link.oldnodeid) in
     let path = Filename.concat path name in
+    (* errors caught by our caller *)
     Unix.link oldnode.path path;
     lookup name req st (* TODO: still increment lookups? *)
 

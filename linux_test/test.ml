@@ -188,12 +188,51 @@ let test_errs =
     run_fuse "enoent" (fun () ->
       let path = mntpath file in
       Unix.(assert_raises (Unix_error (ENOENT, "open", path))
-              (fun () -> openfile path  [] 0o000))
+              (fun () -> openfile path [] 0o000))
     )
   in
 
+  let symlink_eexist () =
+    let file = "symlink" in
+    let path = srcpath file in
+    ignore (Unix.system ("touch "^path));
+    run_fuse "symlink_eexist" (fun () ->
+      let path = mntpath file in
+      Unix.(assert_raises (Unix_error (EEXIST, "symlink", path))
+              (fun () -> Unix_unistd.symlink "unicorn" path))
+    );
+    Unix.unlink path
+  in
+
+  let eloop () =
+    let file = "symlink" in
+    let path = srcpath file in
+    Unix.symlink file path;
+    run_fuse "eloop" (fun () ->
+      let path = mntpath file in
+      Unix.(assert_raises (Unix_error (ELOOP, "open", path))
+              (fun () -> openfile path [] 0o000))
+    );
+    Unix.unlink path
+  in
+
+  let readlink_eacces () =
+    let dir = "bad_dir" in
+    let path = srcpath dir in
+    Unix.mkdir path 0o000;
+    run_fuse "readlink_eacces" (fun () ->
+      let path = Filename.concat (mntpath dir) "symlink" in
+      Unix.(assert_raises (Unix_error (EACCES, "readlink", path))
+              (fun () -> Unix_unistd.readlink path))
+    );
+    Unix.rmdir path
+  in
+
   "errs", [
-    "enoent", `Quick,enoent;
+    "enoent",         `Quick,enoent;
+    "symlink_eexist", `Quick,symlink_eexist;
+    "eloop",          `Quick,eloop;
+    "readlink_eacces",`Quick,readlink_eacces;
   ]
 
 
