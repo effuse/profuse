@@ -104,6 +104,18 @@ let test_ops =
     Unix.unlink path
   in
 
+  let readlink () =
+    let file = "symlink" in
+    let path = srcpath file in
+    let lnk = "unicorn" in
+    Unix.symlink "unicorn" path;
+    run_fuse "readlink" (fun () ->
+      let lnk_v = Unix_unistd.readlink (mntpath file) in
+      assert_equal ~msg:(lnk_v ^ " <> " ^ lnk) lnk_v lnk
+    );
+    Unix.unlink path
+  in
+
   let nod_file = "nod" in
   let mknod () =
     let to_mode_t = PosixTypes.(Ctypes.(Unsigned.(coerce uint32_t mode_t))) in
@@ -120,6 +132,19 @@ let test_ops =
       Unix_unistd.(access path [Unix.F_OK])
     );
     Unix.(access path [F_OK])
+  in
+
+  let symlink () =
+    let file = "symlink" in
+    let lnk = "unicorn" in
+    run_fuse "symlink" (fun () ->
+      let path = mntpath file in
+      Unix_unistd.symlink lnk path
+    );
+    let path = srcpath file in
+    let lnk_v = Unix.readlink path in
+    assert_equal ~msg:(lnk_v ^ " <> " ^ lnk) lnk_v lnk;
+    Unix.unlink path
   in
 
   let write () =
@@ -150,9 +175,11 @@ let test_ops =
   in
 
   "ops", [
-    "read",   `Quick,read;
-    "mknod",  `Quick,mknod;
-    "write",  `Quick,write;
+    "read",     `Quick,read;
+    "readlink", `Quick,readlink;
+    "mknod",    `Quick,mknod;
+    "symlink",  `Quick,symlink;
+    "write",    `Quick,write;
   ]
 
 let test_errs =

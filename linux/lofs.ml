@@ -307,7 +307,9 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
 
   (* TODO: errors? *)
   let symlink name target req st = Out.(
-    Unix.symlink target name;
+    let ({ path } as pnode) = get_node st (nodeid req) in
+    let path = Filename.concat path name in
+    Unix.symlink target path;
     lookup name req st (* TODO: still increment lookups? *)
   )
 

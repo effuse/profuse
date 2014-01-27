@@ -209,7 +209,9 @@ module Server : SERVER = functor (Fs : RW_FULL) -> struct
         (getf i Init.major) (getf i Init.minor)
         (getf i Init.max_readahead)
         (Unsigned.UInt32.to_int32 (getf i Init.flags))
-      | Getattr -> ""
+      | Getattr | Readlink -> ""
+      | Symlink (name,target) -> name ^ " -> " ^ target
+      | Forget f -> string_of_int (getf f Forget.nlookup)
       | Lookup name -> name
       | Mknod (m,name) -> Printf.sprintf "mode=%ld rdev=%ld %s"
         (Unsigned.UInt32.to_int32 (getf m Mknod.mode))
