@@ -184,15 +184,26 @@ let mount argv mnt st =
           (Opcode.to_string (getf hdr Hdr.opcode))))
   )
 
-(** Can raise Fuse.ExecError *)
-let unmount_path mnt =
-  let cmd = Printf.sprintf "%s -u %s" fusermount mnt in
+let exec_unmount_path args mnt =
+  let cmd = Printf.sprintf "%s %s %s" fusermount args mnt in
   check_status cmd (Unix.system cmd)
+
+(** Can raise Fuse.ExecError *)
+let unmount_path = exec_unmount_path "-u"
 
 (** Can raise Fuse.ExecError *)
 let unmount fs = Fuse.(
   Unix.close fs.fd;
   unmount_path fs.mnt
+)
+
+(** Can raise Fuse.ExecError *)
+let detach_path = exec_unmount_path "-u -z"
+
+(** Can raise Fuse.ExecError *)
+let detach fs = Fuse.(
+  Unix.close fs.fd;
+  detach_path fs.mnt
 )
 
 module Server : SERVER = functor (Fs : RW_FULL) -> struct
