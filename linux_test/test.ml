@@ -174,12 +174,28 @@ let test_ops =
     Unix.unlink path
   in
 
+  let create () =
+    let string = "a short create test\n" in
+    let len = String.length string in
+    let file = "create" in
+    run_fuse "create" (fun () ->
+      let fd = Unix.(
+        openfile (mntpath file) [O_CREAT; O_WRONLY; O_TRUNC] 0o600
+      ) in
+      let bytes_written = Unix.write fd string 0 len in
+      assert_equal ~msg:"wrote expected number of bytes" bytes_written len;
+      Unix_unistd.close fd
+    );
+    Unix.unlink (srcpath file)
+  in
+
   "ops", [
     "read",     `Quick,read;
     "readlink", `Quick,readlink;
     "mknod",    `Quick,mknod;
     "symlink",  `Quick,symlink;
     "write",    `Quick,write;
+    "create",   `Quick,create;
   ]
 
 let test_errs =

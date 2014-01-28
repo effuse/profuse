@@ -65,7 +65,6 @@ module type RW_SIMPLE = sig
   val rename  : In.Rename.t structure -> string -> string -> t fs_fn
   val unlink  : string -> t fs_fn
   val rmdir   : string -> t fs_fn
-  val create  : In.Create.t structure -> string -> t fs_fn
   val mknod   : In.Mknod.t structure -> string -> t fs_fn
   val write   : In.Write.t structure -> t fs_fn
   val mkdir   : In.Mkdir.t structure -> string -> t fs_fn
@@ -76,6 +75,7 @@ module type RW_FULL = sig
   include RO_FULL
   include RW_SIMPLE with type t := t
 
+  val create      : In.Create.t structure -> string -> t fs_fn (* SHOULD *)
   val fsync       : In.Fsync.t structure -> t fs_fn
   val fsyncdir    : In.Fsync.t structure -> t fs_fn
   val setxattr    : In.Setxattr.t structure -> t fs_fn
@@ -228,6 +228,8 @@ module Server : SERVER = functor (Fs : RW_FULL) -> struct
         (Unsigned.UInt32.to_int32 (getf m Mknod.mode))
         (Unsigned.UInt32.to_int32 (getf m Mknod.rdev))
         name
+      | Create (c,name) -> Printf.sprintf "flags=%ld mode=%ld %s"
+        (getf c Create.flags) (getf c Create.mode) name
       | _ -> "FIX ME"
       )
 

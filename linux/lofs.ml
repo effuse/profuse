@@ -184,12 +184,22 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
       write_error req Unix.ENOENT; st
   )
 
+  let store_entry node = Out.(
+    let nodeid = node.id in
+    let generation = node.gen in
+    let stats = Unix.LargeFile.lstat node.path in
+    Entry.store ~nodeid ~generation
+      ~entry_valid:0L ~entry_valid_nsec:0l
+      ~attr_valid:0L ~attr_valid_nsec:0l
+      ~store_attr:(store_attr_of_stats stats)
+  )
+
   let respond_with_entry node req = Out.(
     let nodeid = node.id in
     let generation = node.gen in
     let stats = Unix.LargeFile.lstat node.path in
     write_reply req
-      (Out.Entry.create ~nodeid ~generation
+      (Entry.create ~nodeid ~generation
          ~entry_valid:0L ~entry_valid_nsec:0l
          ~attr_valid:0L ~attr_valid_nsec:0l
          ~store_attr:(store_attr_of_stats stats))
@@ -237,7 +247,7 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
           with End_of_file -> []
         end 0);
       st
-    | File (_,_) -> write_error req Unix.EBADF; st (* TODO: correct? *)
+    | File (_,_) -> write_error req Unix.EBADF; st
   )
 
   (* Can raise Unix.Unix_error *)
@@ -410,12 +420,33 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
       Out.write_error req err;
       st
 
-  (* TODO: do mknod + open *)
-  let create c name req st = Out.write_error req Unix.ENOSYS; st
-    (*let { path } = get_node (nodeid req) in
+  let create c name req st = Out.(
+    let fh = alloc_fh () in
+    try
+      let ({ path } as pnode) = get_node st (nodeid req) in
+      let mode = Ctypes.getf c In.Create.mode in (* TODO: is only file_perm? *)
       let flags = Ctypes.getf c In.Create.flags in
-      let mode = Ctypes.getf c In.Create.mode in
-    *)
+      let flags = Unix_fcntl.Oflags.(
+        List.rev_map to_open_flag_exn (of_code ~host flags)
+      ) in
+      let path = Filename.concat path name in
+      let file = Unix.(
+        openfile path (O_WRONLY::O_CREAT::O_TRUNC::flags) (Int32.to_int mode)
+      ) in
+      Hashtbl.replace fh_table fh (File (path, file));
+      write_reply req
+        (Create.create
+           ~store_entry:(store_entry (lookup_node pnode name))
+           ~store_open:(Open.store ~fh ~open_flags:0l));(* TODO: flags *)
+      st
+    with Not_found ->
+      (* TODO: log? *)
+      free_fh fh;
+      write_error req Unix.ENOENT; st
+    | Unix.Unix_error (e,c,s) ->
+      free_fh fh;
+      raise (Unix.Unix_error (e,c,s))
+  )
 
   let mknod m name req st =
     let ({ path } as pnode) = get_node st (nodeid req) in

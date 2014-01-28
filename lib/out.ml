@@ -23,10 +23,13 @@ module type LINUX_7_8 = sig
   include module type of Out_common
   include module type of Out_linux_7_8
 end
+  with module Open = Out_common.Open
+
 module type OSX_7_8 = sig
   include module type of Out_common
   include module type of Out_osx_7_8
 end
+  with module Open = Out_common.Open
 
 module Linux_7_8 : LINUX_7_8 = struct
   include Out_common
