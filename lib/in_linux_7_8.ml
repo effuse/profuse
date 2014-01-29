@@ -55,29 +55,13 @@ module Setxattr = struct
 end
 
 module Setattr = struct
-  module Valid = struct
-    let onbit  = Int32.shift_left 1l
-
-    let none = 0l
-
-    let mode   = onbit 0
-    let uid    = onbit 1
-    let gid    = onbit 2
-    let size   = onbit 3
-    let atime  = onbit 4
-    let mtime  = onbit 5
-    let handle = onbit 6
-
-    let is_set flags bit = (Int32.logand flags bit) <> none
-  end
-
   type t
   let t : t structure typ = structure "In_Setattr"
   let ( -:* ) s x = field t s x
   let valid      = "valid"      -:* int32_of_32
   let padding    = "padding"    -:* uint32_t
   let fh         = "fh"         -:* int64_of_64
-  let size       = "size"       -:* uint64_t
+  let size       = "size"       -:* int64_of_64 (* artificial 1EiB limit; wah. *)
   let unused1    = "unused1"    -:* uint64_t
   let atime      = "atime"      -:* uint64_t
   let mtime      = "mtime"      -:* uint64_t
