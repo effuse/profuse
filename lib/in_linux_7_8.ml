@@ -55,6 +55,8 @@ module Setxattr = struct
 end
 
 module Setattr = struct
+  module Valid = SetattrValid
+
   type t
   let t : t structure typ = structure "In_Setattr"
   let ( -:* ) s x = field t s x

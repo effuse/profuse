@@ -15,6 +15,8 @@
  *
  *)
 
+(* FUSE client-side integration tests with a cooperative server *)
+
 open OUnit
 open Lwt
 
@@ -147,16 +149,16 @@ let test_ops =
     Unix.unlink path
   in
 
+  let write_string = "a short write test\n" in
   let write () =
-    let string = "a short write test\n" in
-    let len = String.length string in
+    let len = String.length write_string in
     let file = nod_file in
     run_fuse "write" (fun () ->
       let fd = Unix.(
         openfile (mntpath file) [O_WRONLY] 0o600
       ) in
       Printf.eprintf "before fuse write\n%!";
-      let bytes_written = Unix.write fd string 0 len in
+      let bytes_written = Unix.write fd write_string 0 len in
       Printf.eprintf "after fuse write\n%!";
       assert_equal ~msg:"wrote expected number of bytes" bytes_written len;
       Unix_unistd.close fd
@@ -169,9 +171,59 @@ let test_ops =
     Printf.eprintf "after lofs read\n%!";
     assert_equal ~msg:"read back same number of bytes written" bytes_read len;
     assert_equal ~msg:"read back same bytes written"
-      string (String.sub s 0 len);
-    let () = Unix.close r in
-    Unix.unlink path
+      write_string (String.sub s 0 len);
+    Unix.close r
+  in
+
+  let truncate () =
+    let file = nod_file in
+    run_fuse "truncate" (fun () ->
+      let path = mntpath file in
+      let wstr = String.copy write_string in
+      let wlen = String.length wstr in
+      let tlen = 17 in
+      let tstr = String.sub write_string 0 tlen in
+      let ftlen = 13 in
+      let ftstr = String.sub write_string 0 ftlen in
+      Unix_unistd.truncate path (Int64.of_int tlen);
+      let s = String.create (2*tlen) in
+      let fd = Unix.openfile path [] 0o000 in
+      (try
+         let bytes_read = Unix.read fd s 0 (2*tlen) in
+         assert_equal ~msg:"read only non-truncated bytes" bytes_read tlen;
+         assert_equal ~msg:"read truncated substring" tstr (String.sub s 0 tlen);
+         String.iteri (fun i _ -> if i >= tlen then wstr.[i] <- '\000') wstr;
+         Unix_unistd.truncate path (Int64.of_int wlen)
+       with exn -> Unix_unistd.close fd; raise exn);
+      Unix_unistd.close fd;
+      let fd = Unix.(openfile path [O_RDWR] 0o000) in
+      (try
+         let bytes_read = Unix.read fd s 0 (2*tlen) in
+         let msg = Printf.sprintf "truncate extends (%d = %d)" bytes_read wlen in
+         assert_equal ~msg bytes_read wlen;
+         assert_equal ~msg:"truncate extends with 0" wstr (String.sub s 0 wlen);
+         Unix_unistd.ftruncate fd (Int64.of_int ftlen)
+       with exn -> Unix_unistd.close fd; raise exn);
+      Unix_unistd.close fd;
+      let fd = Unix.(openfile path [O_RDWR] 0o000) in
+      (try
+         let bytes_read = Unix.read fd s 0 (2*ftlen) in
+         assert_equal ~msg:"read only non-ftruncated bytes" bytes_read ftlen;
+         assert_equal ~msg:"read ftruncated substring"
+           ftstr (String.sub s 0 ftlen);
+         String.iteri (fun i _ -> if i >= ftlen then wstr.[i] <- '\000') wstr;
+         Unix_unistd.ftruncate fd (Int64.of_int wlen)
+       with exn -> Unix_unistd.close fd; raise exn);
+      Unix_unistd.close fd;
+      let fd = Unix.(openfile path [O_RDWR] 0o000) in
+      (try
+         let bytes_read = Unix.read fd s 0 (2*ftlen) in
+         assert_equal ~msg:"ftruncate extends" bytes_read wlen;
+         assert_equal ~msg:"ftruncate extends with 0" wstr (String.sub s 0 wlen)
+       with exn -> Unix_unistd.close fd; raise exn);
+      Unix_unistd.close fd
+    );
+    Unix.unlink (srcpath file)
   in
 
   let create () =
@@ -195,6 +247,7 @@ let test_ops =
     "mknod",    `Quick,mknod;
     "symlink",  `Quick,symlink;
     "write",    `Quick,write;
+    "truncate", `Quick,truncate;
     "create",   `Quick,create;
   ]
 

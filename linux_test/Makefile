@@ -1,4 +1,4 @@
-.PHONY: all
+.PHONY: all clean
 
 FLAGS=-package oUnit \
       -package alcotest \
@@ -13,8 +13,13 @@ FLAGS=-package oUnit \
       -package lwt.preemptive \
       -g -thread
 
-all: test.ml
-	ocamlfind ocamlopt -o test $(FLAGS) -I ../_build/lib -I ../_build/linux \
+all: run_test
+	./run_test || true
+	$(MAKE) clean
+
+run_test: test.ml
+	ocamlfind ocamlopt -o run_test $(FLAGS) \
+		-I ../_build/lib -I ../_build/linux \
 		../_build/lib/opcode.cmx \
 		../_build/lib/fuse.cmx \
 		../_build/lib/view.cmx \
@@ -33,6 +38,7 @@ all: test.ml
 		../_build/linux/profuse.cmx \
 		../_build/linux/lofs.cmx \
 		-linkpkg test.ml
-	./test || true
-	@echo
-	@rm test.cmi test.cmx test.o test
+
+clean:
+	rm -f test.cmi test.cmx test.o run_test
+	rm -rf lofs mnt

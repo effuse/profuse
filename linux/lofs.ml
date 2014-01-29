@@ -304,7 +304,6 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
   let flush f req st = Out.(write_reply req (Hdr.packet ~count:0)); st
 
   (* TODO: flags? *)
-  (* TODO: distinguish release/releasedir? *)
   let release r req st =
     try
       free_fh (Ctypes.getf r In.Release.fh);
@@ -312,6 +311,9 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
       st
     with Not_found ->
       Out.write_error req Unix.EBADF; st
+
+  (* TODO: distinguish? *)
+  let releasedir = release
 
   (* Can raise Unix.Unix_error *)
   let symlink name target req st = Out.(
@@ -506,23 +508,24 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
   (* TODO: more? *)
   let destroy req st = Out.(write_reply req (Hdr.packet ~count:0)); st
 
-  (* TODO: do *)
-  let setattr s req st =
+  let setattr s req st = In.Setattr.(
     let { path } = get_node st (nodeid req) in
-    let valid = Ctypes.getf s In.Setattr.valid in
-    (if In.Setattr.Valid.(is_set valid mode)
+    let valid = Ctypes.getf s valid in
+    (if Valid.(is_set valid mode) (* TODO: do *)
      then ());
-    (if In.Setattr.Valid.(is_set valid uid)
+    (if Valid.(is_set valid uid) (* TODO: do *)
      then ());
-    (if In.Setattr.Valid.(is_set valid gid)
+    (if Valid.(is_set valid gid) (* TODO: do *)
      then ());
-    (if In.Setattr.Valid.(is_set valid size)
+    (if Valid.(is_set valid size)
+     then Unix.LargeFile.truncate path (Ctypes.getf s size)
+    );
+    (if Valid.(is_set valid atime) (* TODO: do *)
      then ());
-    (if In.Setattr.Valid.(is_set valid atime)
+    (if Valid.(is_set valid mtime) (* TODO: do *)
      then ());
-    (if In.Setattr.Valid.(is_set valid mtime)
-     then ());
-    (if In.Setattr.Valid.(is_set valid handle)
+    (if Valid.(is_set valid handle) (* TODO: do *)
      then ());
     getattr req st
+  )
 end

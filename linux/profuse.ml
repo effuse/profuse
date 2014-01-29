@@ -33,17 +33,18 @@ module type RO_SIMPLE = sig
 
   val string_of_nodeid : uint64 -> t -> string
 
-  val getattr  : t fs_fn
-  val opendir  : In.Open.t structure -> t fs_fn
-  val forget   : int -> t fs_fn
-  val lookup   : string -> t fs_fn
-  val readdir  : In.Read.t structure -> t fs_fn
-  val readlink : t fs_fn
-  val release  : In.Release.t structure -> t fs_fn
-  val open_    : In.Open.t structure -> t fs_fn
-  val read     : In.Read.t structure -> t fs_fn
-  val access   : In.Access.t structure -> t fs_fn
-  val destroy  : t fs_fn
+  val getattr    : t fs_fn
+  val opendir    : In.Open.t structure -> t fs_fn
+  val forget     : int -> t fs_fn
+  val lookup     : string -> t fs_fn
+  val readdir    : In.Read.t structure -> t fs_fn
+  val readlink   : t fs_fn
+  val release    : In.Release.t structure -> t fs_fn
+  val releasedir : In.Release.t structure -> t fs_fn
+  val open_      : In.Open.t structure -> t fs_fn
+  val read       : In.Read.t structure -> t fs_fn
+  val access     : In.Access.t structure -> t fs_fn
+  val destroy    : t fs_fn
 end
 
 module type RO_FULL = sig
@@ -216,7 +217,7 @@ module Server : SERVER = functor (Fs : RW_FULL) -> struct
       (Unsigned.UInt64.to_int64 (getf req.Fuse.hdr Hdr.unique))
       (Fs.string_of_nodeid (getf req.Fuse.hdr Hdr.nodeid) t)
       (match req.Fuse.pkt with
-      | Init i -> Printf.sprintf "major=%d minor=%d max_readahead=%d flags=%ld"
+      | Init i -> Printf.sprintf "major=%d minor=%d max_readahead=%d flags=0x%lX"
         (getf i Init.major) (getf i Init.minor)
         (getf i Init.max_readahead)
         (Unsigned.UInt32.to_int32 (getf i Init.flags))
@@ -230,6 +231,9 @@ module Server : SERVER = functor (Fs : RW_FULL) -> struct
         name
       | Create (c,name) -> Printf.sprintf "flags=%ld mode=%ld %s"
         (getf c Create.flags) (getf c Create.mode) name
+      | Setattr s -> Printf.sprintf "0x%lX[%s]"
+        (getf s Setattr.valid)
+        (String.concat " " (SetattrValid.attrs (getf s Setattr.valid)))
       | _ -> "FIX ME"
       )
 
@@ -242,7 +246,7 @@ module Server : SERVER = functor (Fs : RW_FULL) -> struct
     | In.Lookup name -> Fs.lookup name req t
     | In.Readdir r -> Fs.readdir r req t
     | In.Readlink -> Fs.readlink req t
-    | In.Releasedir r -> Fs.release r req t
+    | In.Releasedir r -> Fs.releasedir r req t
     | In.Open op -> Fs.open_ op req t
     | In.Read r -> Fs.read r req t
     | In.Flush f -> Fs.flush f req t
