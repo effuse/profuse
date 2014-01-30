@@ -82,10 +82,10 @@ module Setattr = struct
   let atimensec  = "atimensec"  -:* uint32_t
   let mtimensec  = "mtimensec"  -:* uint32_t
   let unused3    = "unused3"    -:* uint32_t
-  let mode       = "mode"       -:* uint32_t
+  let mode       = "mode"       -:* int32_of_32
   let unused4    = "unused4"    -:* uint32_t
-  let uid        = "uid"        -:* uint32_t
-  let gid        = "gid"        -:* uint32_t
+  let uid        = "uid"        -:* int_of_32
+  let gid        = "gid"        -:* int_of_32
   let unused5    = "unused5"    -:* uint32_t
 
   let bkuptime     = "bkuptime"     -:* int64_of_64

@@ -503,23 +503,45 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
   let destroy req st = Out.(write_reply req (Hdr.packet ~count:0)); st
 
   let setattr s req st = In.Setattr.(
-    let { path } = get_node st (nodeid req) in
     let valid = Ctypes.getf s valid in
-    (if Valid.(is_set valid mode) (* TODO: do *)
-     then ());
-    (if Valid.(is_set valid uid) (* TODO: do *)
-     then ());
-    (if Valid.(is_set valid gid) (* TODO: do *)
-     then ());
-    (if Valid.(is_set valid size)
-     then Unix.LargeFile.truncate path (Ctypes.getf s size)
-    );
-    (if Valid.(is_set valid atime) (* TODO: do *)
-     then ());
-    (if Valid.(is_set valid mtime) (* TODO: do *)
-     then ());
-    (if Valid.(is_set valid handle) (* TODO: do *)
-     then ());
+    begin
+      if Valid.(is_set valid handle)
+      then get_file_fd (Ctypes.getf s fh) (fun _path fd ->
+        (if Valid.(is_set valid mode) (* TODO: do *)
+         then Printf.eprintf "setting mode of %lX\n%!" (Ctypes.getf s mode));
+        (let set_uid = Valid.(is_set valid uid) in
+         let set_gid = Valid.(is_set valid gid) in
+         if set_uid || set_gid
+         then Unix.fchown fd
+           (if set_uid then Ctypes.getf s uid else -1)
+           (if set_gid then Ctypes.getf s gid else -1)
+        );
+        (if Valid.(is_set valid size)
+         then Unix.LargeFile.ftruncate fd (Ctypes.getf s size));
+        (if Valid.(is_set valid atime) (* TODO: do *)
+         then prerr_endline "setting atime");
+        (if Valid.(is_set valid mtime) (* TODO: do *)
+         then prerr_endline "setting mtime");
+      )
+      else
+        let { path } = get_node st (nodeid req) in
+        (if Valid.(is_set valid mode) (* TODO: do *)
+         then Printf.eprintf "setting mode of %lX\n%!" (Ctypes.getf s mode));
+        (let set_uid = Valid.(is_set valid uid) in
+         let set_gid = Valid.(is_set valid gid) in
+         if set_uid || set_gid
+         then Unix.chown path
+           (if set_uid then Ctypes.getf s uid else -1)
+           (if set_gid then Ctypes.getf s gid else -1)
+        );
+        (if Valid.(is_set valid size)
+         then Unix.LargeFile.truncate path (Ctypes.getf s size)
+        );
+        (if Valid.(is_set valid atime) (* TODO: do *)
+         then prerr_endline "setting atime");
+        (if Valid.(is_set valid mtime) (* TODO: do *)
+         then prerr_endline "setting mtime");
+    end;
     getattr req st
   )
 end

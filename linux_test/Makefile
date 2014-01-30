@@ -13,9 +13,12 @@ FLAGS=-package oUnit \
       -package lwt.preemptive \
       -g -thread
 
-all: run_test
-	./run_test || true
+all: run_test run_as
+	sudo ./run_test || true
 	$(MAKE) clean
+
+run_as:
+	ln -sf `id -u` run_as
 
 run_test: test.ml
 	ocamlfind ocamlopt -o run_test $(FLAGS) \
@@ -40,5 +43,7 @@ run_test: test.ml
 		-linkpkg test.ml
 
 clean:
-	rm -f test.cmi test.cmx test.o run_test
+	sudo fusermount -u mnt || true
+	rm -f test.cmi test.cmx test.o run_as
+	rm -f run_test
 	rm -rf lofs mnt

@@ -59,6 +59,19 @@ let rec serve_until_block tag th =
     Printf.eprintf "stopping serve_until_block(%s)\n%!" tag;
     return ()
 
+let lower_priv =
+  let uid = int_of_string (Unix.readlink "run_as") in
+  Printf.eprintf "using: uid=%d euid=%d duid=%d\n%!"
+    (Unix.getuid ()) (Unix.geteuid ()) uid;
+  fun () -> Unix_unistd.seteuid uid
+
+let as_root fn k =
+  Unix_unistd.seteuid 0;
+  Printf.eprintf "now running as uid %d\n%!" (Unix.geteuid ());
+  let v = fn k in
+  lower_priv ();
+  v
+
 let run_fuse tag fn = Lwt_main.run begin
   (serve_until_block tag (return !fs_state)) <&> (Lwt_th.detach fn ())
 end
@@ -66,9 +79,11 @@ end
 let test_mount =
   let init_req = ref None in
   let mount () =
+    lower_priv ();
     Unix.(try access srcdir [F_OK] with Unix_error _ -> mkdir srcdir 0o700);
     Unix.(try access mntdir [F_OK] with Unix_error _ -> mkdir mntdir 0o700);
-    let req, st = Profuse.mount [|"test"|] mntdir state in
+    let req, st = as_root
+      (Profuse.mount [|"test";"-o";"allow_other"|] mntdir) state in
     fuse_conn := Some req.Fuse.chan;
     fs_state := st;
     init_req  := Some req;
@@ -129,11 +144,44 @@ let test_ops =
     run_fuse "mknod" (fun () ->
       let path = mntpath file in
       Unix_sys_stat.mknod path
-        (to_mode_t (Unsigned.UInt32.of_int 0o600))
+        (to_mode_t (Unsigned.UInt32.of_int 0o777))
         (to_dev_t  (Unsigned.UInt64.of_int 0));
       Unix_unistd.(access path [Unix.F_OK])
     );
     Unix.(access path [F_OK])
+  in
+
+  let chmod () = () in
+
+  let chown () =
+    let file = nod_file in
+    let path = mntpath file in
+    let uid = Unix.geteuid () in
+    let gid = Unix.getegid () in
+    run_fuse "chown" Unix.(LargeFile.(fun () ->
+      Unix_unistd.chown path (-1) (-1);
+      let st = Unix_sys_stat.(Stat.to_unix (stat path)) in
+      let msg = Printf.sprintf "chown noopuid (%d <> %d)" uid st.st_uid in
+      assert_equal ~msg uid st.st_uid;
+      assert_equal ~msg:"chown noopgid" gid st.st_gid;
+      as_root (Unix_unistd.chown path (1)) (-1);
+      let st = Unix_sys_stat.(Stat.to_unix (stat path)) in
+      assert_equal ~msg:("chown setuid (1 <> "^(string_of_int st.st_uid)^")")
+        1 st.st_uid;
+      assert_equal ~msg:"chown setuid but noopgid" gid st.st_gid;
+      as_root (Unix_unistd.chown path (-1)) (1);
+      let st = Unix_sys_stat.(Stat.to_unix (stat path)) in
+      assert_equal ~msg:"chown setgid but noopuid" 1 st.st_uid;
+      assert_equal ~msg:"chown setgid" 1 st.st_gid;
+      let fd = openfile path [] 0o000 in
+      (try
+         as_root (Unix_unistd.fchown fd uid) gid;
+         let st = Unix_sys_stat.(Stat.to_unix (fstat fd)) in
+         assert_equal ~msg:"fchown setuid" uid st.st_uid;
+         assert_equal ~msg:"fchown setgid" gid st.st_gid;
+       with exn -> Unix_unistd.close fd; raise exn);
+      Unix_unistd.close fd
+    ))
   in
 
   let symlink () =
@@ -245,6 +293,7 @@ let test_ops =
     "read",     `Quick,read;
     "readlink", `Quick,readlink;
     "mknod",    `Quick,mknod;
+    "chown",    `Quick,chown;
     "symlink",  `Quick,symlink;
     "write",    `Quick,write;
     "truncate", `Quick,truncate;
@@ -297,11 +346,24 @@ let test_errs =
     Unix.rmdir path
   in
 
+  let chown_eperm () =
+    let file = "eperm" in
+    let path = srcpath file in
+    ignore (Unix.system ("touch "^path));
+    run_fuse "chown_eperm" (fun () ->
+      let path = mntpath file in
+      Unix.(assert_raises (Unix_error (EPERM, "chown", path))
+              (fun () -> Unix_unistd.chown path 1 (-1)))
+    );
+    Unix.unlink path
+  in
+
   "errs", [
     "enoent",         `Quick,enoent;
     "symlink_eexist", `Quick,symlink_eexist;
     "eloop",          `Quick,eloop;
     "readlink_eacces",`Quick,readlink_eacces;
+    "chown_eperm",    `Quick,chown_eperm;
   ]
 
 
@@ -316,7 +378,7 @@ let test_unmount =
       ) in
       ignore (Unix.waitpid [] lsof_pid);*)
       Lwt_main.run (serve_until_block "unmount" (return !fs_state));
-      Profuse.unmount chan
+      as_root Profuse.unmount chan
   in
   "unmount", [
     "unmount",`Quick,unmount;
