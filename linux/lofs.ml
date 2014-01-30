@@ -52,6 +52,17 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
     Hashtbl.remove fh_table fh;
     fh_free := fh::!fh_free
 
+  let get_fd fh =
+    try Hashtbl.find fh_table fh
+    with Not_found -> raise Unix.(Unix_error (EBADF,"",""))
+
+  let get_dir_fd fh f = match get_fd fh with
+    | Dir (path, dir, off) -> f path dir off
+    | File (_,_) -> raise Unix.(Unix_error (ENOTDIR,"",""))
+  let get_file_fd fh f = match get_fd fh with
+    | File (path, fd) -> f path fd
+    | Dir (_,_,_) -> raise Unix.(Unix_error (EISDIR,"",""))
+
   type nodeid = int64
   type node = {
     parent   : nodeid;
@@ -225,14 +236,7 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
       else off
     in
     let fh = Ctypes.getf r In.Read.fh in
-    let handle = try Hashtbl.find fh_table fh
-      with Not_found ->
-        (* TODO: log invalid fh error *)
-        Printf.eprintf "readdir: invalid fd; should be EBADF?\n%!";
-        raise Not_found
-    in
-    match handle with
-    | Dir (path, dir, off) ->
+    get_dir_fd fh (fun path dir off ->
       let off = seek dir off in
       assert (off = req_off);
       write_reply req
@@ -245,9 +249,9 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
             Unix.LargeFile.([off, Int64.of_int stats.st_ino, name,
                              Unix_dirent.File_kind.of_file_kind stats.st_kind])
           with End_of_file -> []
-        end 0);
-      st
-    | File (_,_) -> write_error req Unix.EBADF; st
+        end 0)
+    );
+    st
   )
 
   (* Can raise Unix.Unix_error *)
@@ -284,21 +288,16 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
     let fh = Ctypes.getf r In.Read.fh in
     let offset = Ctypes.getf r In.Read.offset in
     let size = Ctypes.getf r In.Read.size in
-    try match Hashtbl.find fh_table fh with
-    | File (path, fd) -> Out.(
+    get_file_fd fh (fun path fd -> Out.(
       write_reply req
         (Read.create ~size ~data_fn:(fun buf ->
           let ptr = Ctypes.(to_voidp (bigarray_start array1 buf)) in
           let off = Unix.LargeFile.lseek fd offset Unix.SEEK_SET in
           assert (off=offset); (* TODO: necessary? *)
           Unix_unistd.read fd ptr size
-         )));
-      st
-    | Dir (_,_,_) -> Out.write_error req Unix.EISDIR; st
-    with Not_found ->
-      (* TODO: log invalid fh error *)
-      Printf.eprintf "read: invalid fd; should be EBADF?\n%!";
-      raise Not_found
+         )))
+    );
+    st
 
   (* TODO: anything? *)
   let flush f req st = Out.(write_reply req (Hdr.packet ~count:0)); st
@@ -373,20 +372,15 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
     let fh = Ctypes.getf w In.Write.fh in
     let offset = Ctypes.getf w In.Write.offset in
     let size = Ctypes.getf w In.Write.size in
-    try match Hashtbl.find fh_table fh with
-    | File (path, fd) -> Out.(
+    get_file_fd fh (fun path fd -> Out.(
       let data = Ctypes.(to_voidp (CArray.start (getf w In.Write.data))) in
       (* errors caught by our caller *)
       let off = Unix.LargeFile.lseek fd offset Unix.SEEK_SET in
       assert (off=offset); (* TODO: necessary? *)
       let size = Unix_unistd.write fd data size in
-      write_reply req (Write.create ~size);
-      st
-    )
-    | Dir (_,_,_) -> Out.write_error req Unix.EISDIR; st
-    with Not_found ->
-      (* TODO: log invalid fh error *)
-      raise Not_found
+      write_reply req (Write.create ~size)
+    ));
+    st
 
   (* Can raise Unix.Unix_error *)
   let link l name req st =
