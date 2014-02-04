@@ -499,8 +499,7 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
   (* TODO: do *)
   let bmap b req st = Out.write_error req Unix.ENOSYS; st
 
-  (* TODO: more? *)
-  let destroy req st = Out.(write_reply req (Hdr.packet ~count:0)); st
+  let destroy _req _st = ()
 
   let setattr s req st = In.Setattr.(
     let valid = Ctypes.getf s valid in

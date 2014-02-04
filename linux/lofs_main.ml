@@ -24,16 +24,26 @@ let mnt =
 module Server = Profuse.Server(Lofs.Linux_7_8)
 
 ;;
+
 try
   let state = Lofs.({ root = Unix.getcwd () }) in
   let {Fuse.chan}, state = Profuse.mount
     (Array.sub Sys.argv 0 (Array.length Sys.argv - 1)) mnt state in
-  let rec forever state = forever (Server.trace "" chan state) in forever state
-with Fuse.ExecError (exec, cause) ->
-  Printf.eprintf "Couldn't exec '%s': %s\n%!" exec cause;
+  Sys.(set_signal sigint (Signal_handle (fun _ -> Profuse.unmount chan)));
+  let serve = Server.trace chan in
+  let rec forever state = forever (serve "lofs" state) in
+  forever state
+with Fuse.Destroy k -> exit k
+| Fuse.ExecError (exec, cause) ->
+  Printf.eprintf "\nFUSE Couldn't exec '%s': %s\n%!" exec cause;
   Profuse.unmount_path mnt;
   exit 1
 | Fuse.ProtocolError (fs, message) ->
-  Printf.eprintf "%s\n%!" message;
-  Profuse.unmount fs;
+  Printf.eprintf "\nFUSE Protocol error: %s\n%!" message;
+  (try
+     Profuse.unmount fs
+   with Unix.Unix_error (e,syscall,_) ->
+     Printf.eprintf "FUSE encountered UNIX error during unmount.%s: %s\n%!"
+       syscall (Unix.error_message e)
+  );
   exit 1

@@ -19,6 +19,7 @@ type flags = int32
 
 type chan = {
   fd : Unix.file_descr;
+  mutable unique : Unsigned.uint64;
   mnt : string;
   version : int * int;
   max_readahead : int;
@@ -35,6 +36,7 @@ type 'a request = {
 exception UnknownErrno of Unix.error
 exception ExecError of string * string
 exception ProtocolError of chan * string
+exception Destroy of int
 
 type host = {
   unix_fcntl : Unix_fcntl.host;

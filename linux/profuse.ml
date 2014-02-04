@@ -44,7 +44,7 @@ module type RO_SIMPLE = sig
   val open_      : In.Open.t structure -> t fs_fn
   val read       : In.Read.t structure -> t fs_fn
   val access     : In.Access.t structure -> t fs_fn
-  val destroy    : t fs_fn
+  val destroy    : req -> t -> unit
 end
 
 module type RO_FULL = sig
@@ -89,7 +89,7 @@ end
 module type SERVER = functor (Fs : RW_FULL) -> sig
   val string_of_request : In.t Fuse.request -> Fs.t -> string
   val serve : Fuse.chan -> Fs.t -> Fs.t
-  val trace : string -> Fuse.chan -> Fs.t -> Fs.t
+  val trace : Fuse.chan -> string -> Fs.t -> Fs.t
 end
 
 let no_flags = 0l
@@ -148,13 +148,10 @@ let mount argv mnt st =
   let () = Unix.(shutdown rsock SHUTDOWN_ALL) in
 
   let init_fs = Fuse.({
-    mnt; fd; version=(0,0); max_readahead=0; max_write; flags=no_flags;
+    mnt; fd; unique=UInt64.zero; version=(0,0);
+    max_readahead=0; max_write; flags=no_flags;
   }) in
-  let req =
-    try In.read init_fs ()
-    with Opcode.Unknown k ->
-      raise (Fuse.ProtocolError (init_fs, "Unknown opcode: "^(string_of_int k)))
-  in
+  let req = In.read init_fs () in
 
   In.(match req with
   | { Fuse.pkt=Init pkt } ->
@@ -168,14 +165,15 @@ let mount argv mnt st =
       (Fuse.ProtocolError
          (init_fs, Printf.sprintf
             "Incompatible FUSE protocol minor version %d < 8" minor));
-    let minor = min minor 8 in
+    let minor = min minor 8 in (* TODO: track kernel minor *)
     let max_readahead = getf pkt Init.max_readahead in
     let max_readahead = max max_readahead 65536 in (* TODO: ? *)
     let flags = getf pkt Init.flags in (* TODO: ? *)
     let pkt = Out.Init.create ~major ~minor ~max_readahead
       ~flags:(UInt32.of_int 0) ~max_write in
     let fs = Fuse.({
-      mnt; fd; version = (major, minor); max_readahead; max_write; flags = 0l;
+      mnt; fd; unique=init_fs.unique; version = (major, minor);
+      max_readahead; max_write; flags = 0l;
     }) in
     Out.write_reply req pkt;
     req, st
@@ -221,7 +219,7 @@ module Server : SERVER = functor (Fs : RW_FULL) -> struct
         (getf i Init.major) (getf i Init.minor)
         (getf i Init.max_readahead)
         (Unsigned.UInt32.to_int32 (getf i Init.flags))
-      | Getattr | Readlink -> ""
+      | Getattr | Readlink | Destroy -> ""
       | Symlink (name,target) -> name ^ " -> " ^ target
       | Forget f -> string_of_int (getf f Forget.nlookup)
       | Lookup name -> name
@@ -273,20 +271,23 @@ module Server : SERVER = functor (Fs : RW_FULL) -> struct
     | In.Setlkw lk -> Fs.setlkw lk req t
     | In.Interrupt i -> Fs.interrupt i req t
     | In.Bmap b -> Fs.bmap b req t
-    | In.Destroy -> Fs.destroy req t
+    | In.Destroy -> Fs.destroy req t; raise (Fuse.Destroy 0)
     | In.Setattr s -> Fs.setattr s req t
-    | In.Other _ -> Out.write_error req Unix.ENOSYS; t
+    | In.Other _ | In.Unknown _ -> Out.write_error req Unix.ENOSYS; t
     ) with Unix.Unix_error(e,_,_) -> Out.write_error req e; t
 
-  let serve chan t =
-    let req = In.read chan () in
-    dispatch req t
+  let serve chan =
+    let read = In.read chan in
+    fun t -> dispatch (read ()) t
 
-  let trace tag chan t =
-    let req = In.read chan () in
-    Printf.eprintf "    %s %s\n%!" tag (string_of_request req t);
-    let t = dispatch req t in
-    Printf.eprintf "    returning from %Ld\n%!"
-      (Unsigned.UInt64.to_int64 (Ctypes.getf req.Fuse.hdr In.Hdr.unique));
-    t
+  let trace chan =
+    let read = In.read chan in
+    fun tag t ->
+      let req = read () in
+      (* can raise Opcode.Unknown?? *)
+      Printf.eprintf "    %s %s\n%!" tag (string_of_request req t);
+      let t = dispatch req t in
+      Printf.eprintf "    returning from %Ld\n%!"
+        (Unsigned.UInt64.to_int64 (Ctypes.getf req.Fuse.hdr In.Hdr.unique));
+      t
 end

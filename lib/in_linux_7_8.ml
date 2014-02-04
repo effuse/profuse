@@ -144,94 +144,77 @@ type t =
 | Bmap of Bmap.t structure
 | Destroy
 | Other of Opcode.t
+| Unknown of int
 
-let parse chan hdr len buf =
-  let opcode = Hdr.(getf hdr opcode) in
-  Fuse.({chan; hdr; pkt=Opcode.(match opcode with
-  | FUSE_INIT        -> Init       (!@ (from_voidp Init.t buf))
-  | FUSE_GETATTR     -> Getattr
-  | FUSE_LOOKUP      -> Lookup     (coerce (ptr void) string buf)
-  | FUSE_OPENDIR     -> Opendir    (!@ (from_voidp Open.t buf))
-  | FUSE_READDIR     -> Readdir    (!@ (from_voidp Read.t buf))
-  | FUSE_RELEASEDIR  -> Releasedir (!@ (from_voidp Release.t buf))
-  | FUSE_FSYNCDIR    -> Fsyncdir   (!@ (from_voidp Fsync.t buf))
-  | FUSE_RMDIR       -> Rmdir      (coerce (ptr void) string buf)
-  | FUSE_MKDIR       ->
-    let s = !@ (from_voidp Mkdir.t buf) in
-    let name = coerce (ptr char) string (CArray.start (getf s Mkdir.name)) in
-    Mkdir (s, name)
-  | FUSE_GETXATTR    -> Getxattr   (!@ (from_voidp Getxattr.t buf))
-  | FUSE_SETXATTR    -> Setxattr   (!@ (from_voidp Setxattr.t buf))
-  | FUSE_LISTXATTR   -> Listxattr  (!@ (from_voidp Getxattr.t buf))
-  | FUSE_REMOVEXATTR -> Removexattr (coerce (ptr void) string buf)
-  | FUSE_ACCESS      -> Access     (!@ (from_voidp Access.t buf))
-  | FUSE_FORGET      -> Forget     (!@ (from_voidp Forget.t buf))
-  | FUSE_READLINK    -> Readlink
-  | FUSE_OPEN        -> Open       (!@ (from_voidp Open.t buf))
-  | FUSE_READ        -> Read       (!@ (from_voidp Read.t buf))
-  | FUSE_WRITE       -> Write      (!@ (from_voidp Write.t buf))
-  | FUSE_STATFS      -> Statfs
-  | FUSE_FLUSH       -> Flush      (!@ (from_voidp Flush.t buf))
-  | FUSE_RELEASE     -> Release    (!@ (from_voidp Release.t buf))
-  | FUSE_FSYNC       -> Fsync      (!@ (from_voidp Fsync.t buf))
-  | FUSE_UNLINK      -> Unlink     (coerce (ptr void) string buf)
-  | FUSE_CREATE      ->
-    let s = !@ (from_voidp Create.t buf) in
-    let name = coerce (ptr char) string (CArray.start (getf s Create.name)) in
-    Create (s, name)
-  | FUSE_MKNOD       ->
-    let s = !@ (from_voidp Mknod.t buf) in
-    let name = coerce (ptr char) string (CArray.start (getf s Mknod.name)) in
-    Mknod (s, name)
-  | FUSE_SETATTR     -> Setattr    (!@ (from_voidp Setattr.t buf))
-  | FUSE_LINK        ->
-    let s = !@ (from_voidp Link.t buf) in
-    let name = coerce (ptr char) string (CArray.start (getf s Link.name)) in
-    Link (s, name)
-  | FUSE_SYMLINK     ->
-    let name = coerce (ptr void) string buf in
-    let buf = to_voidp ((from_voidp char buf) +@ (String.length name + 1)) in
-    let target = coerce (ptr void) string buf in
-    Symlink (name,target)
-  | FUSE_RENAME      ->
-    let s = !@ (from_voidp Rename.t buf) in
-    let buf = CArray.start (getf s Rename.oldnew) in
-    let src = coerce (ptr char) string buf in
-    let buf = buf +@ (String.length src + 1) in
-    let dest= coerce (ptr char) string buf in
-    Rename (s,src,dest)
-  | FUSE_GETLK       -> Getlk      (!@ (from_voidp Lk.t buf))
-  | FUSE_SETLK       -> Setlk      (!@ (from_voidp Lk.t buf))
-  | FUSE_SETLKW      -> Setlkw     (!@ (from_voidp Lk.t buf))
-  | FUSE_INTERRUPT   -> Interrupt  (!@ (from_voidp Interrupt.t buf))
-  | FUSE_BMAP        -> Bmap       (!@ (from_voidp Bmap.t buf))
-  | FUSE_DESTROY     -> Destroy
-  | FUSE_IOCTL
-  | FUSE_POLL
-  | FUSE_NOTIFY_REPLY
-  | FUSE_BATCH_FORGET
-  | FUSE_FALLOCATE
-  | FUSE_SETVOLNAME
-  | FUSE_GETXTIMES
-  | FUSE_EXCHANGE    -> Other opcode
-  )})
-
-(** Can raise Opcode.Unknown *)
-let read chan =
-  let count = chan.Fuse.max_write + Unix_unistd.Sysconf.(pagesize ~host) in
-  let hdr_sz = sizeof Hdr.t in
-  fun () ->
-    let buf = allocate_n uint8_t ~count in (* TODO: pool? *)
-    let len = try Unix_unistd.read chan.Fuse.fd (to_voidp buf) count
-      with Unix.Unix_error (err,_,_) ->
-        raise (Fuse.ProtocolError (chan, "Read error: "^(Unix.error_message err)))
-    in
-    let hdr_ptr = coerce (ptr uint8_t) (ptr Hdr.t) buf in
-    let hdr = !@ hdr_ptr in (* TODO: catch Opcode.Unknown? *)
-    let sz = getf hdr Hdr.size in
-    if len <> sz then raise
-      (Fuse.ProtocolError
-         (chan,
-          (Printf.sprintf "Packet has %d bytes but only read %d" sz len)));
-
-    parse chan hdr (sz - hdr_sz) (to_voidp (buf +@ hdr_sz))
+let parse chan hdr len buf = (* TODO: test Opcode.Unknown *)
+  try
+    let opcode = Hdr.(getf hdr opcode) in
+    Fuse.({chan; hdr; pkt=Opcode.(match opcode with
+    | FUSE_INIT        -> Init       (!@ (from_voidp Init.t buf))
+    | FUSE_GETATTR     -> Getattr
+    | FUSE_LOOKUP      -> Lookup     (coerce (ptr void) string buf)
+    | FUSE_OPENDIR     -> Opendir    (!@ (from_voidp Open.t buf))
+    | FUSE_READDIR     -> Readdir    (!@ (from_voidp Read.t buf))
+    | FUSE_RELEASEDIR  -> Releasedir (!@ (from_voidp Release.t buf))
+    | FUSE_FSYNCDIR    -> Fsyncdir   (!@ (from_voidp Fsync.t buf))
+    | FUSE_RMDIR       -> Rmdir      (coerce (ptr void) string buf)
+    | FUSE_MKDIR       ->
+      let s = !@ (from_voidp Mkdir.t buf) in
+      let name = coerce (ptr char) string (CArray.start (getf s Mkdir.name)) in
+      Mkdir (s, name)
+    | FUSE_GETXATTR    -> Getxattr   (!@ (from_voidp Getxattr.t buf))
+    | FUSE_SETXATTR    -> Setxattr   (!@ (from_voidp Setxattr.t buf))
+    | FUSE_LISTXATTR   -> Listxattr  (!@ (from_voidp Getxattr.t buf))
+    | FUSE_REMOVEXATTR -> Removexattr (coerce (ptr void) string buf)
+    | FUSE_ACCESS      -> Access     (!@ (from_voidp Access.t buf))
+    | FUSE_FORGET      -> Forget     (!@ (from_voidp Forget.t buf))
+    | FUSE_READLINK    -> Readlink
+    | FUSE_OPEN        -> Open       (!@ (from_voidp Open.t buf))
+    | FUSE_READ        -> Read       (!@ (from_voidp Read.t buf))
+    | FUSE_WRITE       -> Write      (!@ (from_voidp Write.t buf))
+    | FUSE_STATFS      -> Statfs
+    | FUSE_FLUSH       -> Flush      (!@ (from_voidp Flush.t buf))
+    | FUSE_RELEASE     -> Release    (!@ (from_voidp Release.t buf))
+    | FUSE_FSYNC       -> Fsync      (!@ (from_voidp Fsync.t buf))
+    | FUSE_UNLINK      -> Unlink     (coerce (ptr void) string buf)
+    | FUSE_CREATE      ->
+      let s = !@ (from_voidp Create.t buf) in
+      let name = coerce (ptr char) string (CArray.start (getf s Create.name)) in
+      Create (s, name)
+    | FUSE_MKNOD       ->
+      let s = !@ (from_voidp Mknod.t buf) in
+      let name = coerce (ptr char) string (CArray.start (getf s Mknod.name)) in
+      Mknod (s, name)
+    | FUSE_SETATTR     -> Setattr    (!@ (from_voidp Setattr.t buf))
+    | FUSE_LINK        ->
+      let s = !@ (from_voidp Link.t buf) in
+      let name = coerce (ptr char) string (CArray.start (getf s Link.name)) in
+      Link (s, name)
+    | FUSE_SYMLINK     ->
+      let name = coerce (ptr void) string buf in
+      let buf = to_voidp ((from_voidp char buf) +@ (String.length name + 1)) in
+      let target = coerce (ptr void) string buf in
+      Symlink (name,target)
+    | FUSE_RENAME      ->
+      let s = !@ (from_voidp Rename.t buf) in
+      let buf = CArray.start (getf s Rename.oldnew) in
+      let src = coerce (ptr char) string buf in
+      let buf = buf +@ (String.length src + 1) in
+      let dest= coerce (ptr char) string buf in
+      Rename (s,src,dest)
+    | FUSE_GETLK       -> Getlk      (!@ (from_voidp Lk.t buf))
+    | FUSE_SETLK       -> Setlk      (!@ (from_voidp Lk.t buf))
+    | FUSE_SETLKW      -> Setlkw     (!@ (from_voidp Lk.t buf))
+    | FUSE_INTERRUPT   -> Interrupt  (!@ (from_voidp Interrupt.t buf))
+    | FUSE_BMAP        -> Bmap       (!@ (from_voidp Bmap.t buf))
+    | FUSE_DESTROY     -> Destroy
+    | FUSE_IOCTL
+    | FUSE_POLL
+    | FUSE_NOTIFY_REPLY
+    | FUSE_BATCH_FORGET
+    | FUSE_FALLOCATE
+    | FUSE_SETVOLNAME
+    | FUSE_GETXTIMES
+    | FUSE_EXCHANGE    -> Other opcode
+    )})
+  with Opcode.Unknown opcode -> Fuse.({chan; hdr; pkt=(Unknown opcode)})

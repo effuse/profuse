@@ -74,7 +74,7 @@ type t =
 | FUSE_BMAP
 
 (* ro *)
-| FUSE_DESTROY (* = 38 *) (* 0 reply? *)
+| FUSE_DESTROY (* = 38 *) (* 0 reply *)
 (* end ro *)
 
 (* > 7.8 *)

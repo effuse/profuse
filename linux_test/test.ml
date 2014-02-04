@@ -43,7 +43,7 @@ let fuse_conn = ref None
 let fs_state = ref state
 let serve_one tag state = match !fuse_conn with
   | None -> return state
-  | Some chan -> Lwt_th.detach (Server.trace tag chan) state
+  | Some chan -> Lwt_th.detach (Server.trace chan tag) state
 
 let rec serve_until_block tag th =
   catch (fun () ->

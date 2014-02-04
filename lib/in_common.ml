@@ -40,6 +40,7 @@ module Hdr = struct
   let gid_    = gid
   let pid_    = pid
 
+  (* Create a headed packet with count buffer sequentially after header *)
   let packet ~opcode ~unique ~nodeid ~uid ~gid ~pid ~count =
     let hdrsz = sizeof t in
     let bodysz = count in
@@ -55,6 +56,7 @@ module Hdr = struct
     setf hdr pid_    pid;
     CArray.from_ptr (pkt +@ hdrsz) bodysz
 
+  (* Create a headed packet with st struct sequentially after header *)
   let make ~opcode ~unique ~nodeid ~uid ~gid ~pid st =
     let count = sizeof st in
     let pkt = packet ~opcode ~unique ~nodeid ~uid ~gid ~pid ~count in
