@@ -16,35 +16,36 @@
  *)
 
 open Ctypes
+open Unsigned
 open View
 
 module Attr = struct
   type t
   let t : t structure typ = structure "Attr"
   let ( -:* ) s x = field t s x
-  let ino       = "ino"       -:* int64_of_64
-  let size      = "size"      -:* int64_of_64
-  let blocks    = "blocks"    -:* int64_of_64
-  let atime     = "atime"     -:* int64_of_64
-  let mtime     = "mtime"     -:* int64_of_64
-  let ctime     = "ctime"     -:* int64_of_64
+  let ino       = "ino"       -:* uint64_t
+  let size      = "size"      -:* uint64_t
+  let blocks    = "blocks"    -:* uint64_t
+  let atime     = "atime"     -:* uint64_t
+  let mtime     = "mtime"     -:* uint64_t
+  let ctime     = "ctime"     -:* uint64_t
 
-  let crtime    = "crtime"    -:* int64_of_64
+  let crtime    = "crtime"    -:* uint64_t
 
-  let atimensec = "atimensec" -:* int32_of_32
-  let mtimensec = "mtimensec" -:* int32_of_32
-  let ctimensec = "ctimensec" -:* int32_of_32
+  let atimensec = "atimensec" -:* uint32_t
+  let mtimensec = "mtimensec" -:* uint32_t
+  let ctimensec = "ctimensec" -:* uint32_t
 
-  let crtimensec= "crtimensec"-:* int32_of_32
+  let crtimensec= "crtimensec"-:* uint32_t
 
   (* TODO: check order *)
-  let mode      = "mode"      -:* int32_of_32
-  let nlink     = "nlink"     -:* int32_of_32
-  let uid       = "uid"       -:* int32_of_32
-  let gid       = "gid"       -:* int32_of_32
-  let rdev      = "rdev"      -:* int32_of_32
+  let mode      = "mode"      -:* uint32_t
+  let nlink     = "nlink"     -:* uint32_t
+  let uid       = "uid"       -:* uint32_t
+  let gid       = "gid"       -:* uint32_t
+  let rdev      = "rdev"      -:* uint32_t
 
-  let flags     = "flags"     -:* int32_of_32
+  let flags     = "flags"     -:* uint32_t
 
   let () = seal t
 
@@ -72,9 +73,9 @@ module Attr = struct
   let flags_     = flags
 
   let store ~ino ~size ~blocks
-      ~atime ~mtime ~ctime ?(crtime=0L)
-      ~atimensec ~mtimensec ~ctimensec ?(crtimensec=0l)
-      ~mode ~nlink ~uid ~gid ~rdev ?(flags=0l) mem =
+      ~atime ~mtime ~ctime ?(crtime=UInt64.zero)
+      ~atimensec ~mtimensec ~ctimensec ?(crtimensec=UInt32.zero)
+      ~mode ~nlink ~uid ~gid ~rdev ?(flags=UInt32.zero) mem =
     setf mem ino_        ino;
     setf mem size_       size;
     setf mem blocks_     blocks;
@@ -95,9 +96,9 @@ module Attr = struct
     ()
 
   let create ~ino ~size ~blocks
-      ~atime ~mtime ~ctime ?(crtime=0L)
-      ~atimensec ~mtimensec ~ctimensec ?(crtimensec=0l)
-      ~mode ~nlink ~uid ~gid ~rdev ?(flags=0l) () =
+      ~atime ~mtime ~ctime ?(crtime=UInt64.zero)
+      ~atimensec ~mtimensec ~ctimensec ?(crtimensec=UInt32.zero)
+      ~mode ~nlink ~uid ~gid ~rdev ?(flags=UInt32.zero) () =
     let attr = make t in
     store ~ino ~size ~blocks
       ~atime ~mtime ~ctime ~crtime

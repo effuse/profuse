@@ -22,21 +22,21 @@ module Attr = struct
   type t
   let t : t structure typ = structure "Attr"
   let ( -:* ) s x = field t s x
-  let ino       = "ino"       -:* int64_of_64
-  let size      = "size"      -:* int64_of_64
-  let blocks    = "blocks"    -:* int64_of_64
-  let atime     = "atime"     -:* int64_of_64
-  let mtime     = "mtime"     -:* int64_of_64
-  let ctime     = "ctime"     -:* int64_of_64
-  let atimensec = "atimensec" -:* int32_of_32
-  let mtimensec = "mtimensec" -:* int32_of_32
-  let ctimensec = "ctimensec" -:* int32_of_32
+  let ino       = "ino"       -:* uint64_t
+  let size      = "size"      -:* uint64_t
+  let blocks    = "blocks"    -:* uint64_t
+  let atime     = "atime"     -:* uint64_t
+  let mtime     = "mtime"     -:* uint64_t
+  let ctime     = "ctime"     -:* uint64_t
+  let atimensec = "atimensec" -:* uint32_t
+  let mtimensec = "mtimensec" -:* uint32_t
+  let ctimensec = "ctimensec" -:* uint32_t
   (* TODO: check order *)
-  let mode      = "mode"      -:* int32_of_32
-  let nlink     = "nlink"     -:* int32_of_32
-  let uid       = "uid"       -:* int32_of_32
-  let gid       = "gid"       -:* int32_of_32
-  let rdev      = "rdev"      -:* int32_of_32
+  let mode      = "mode"      -:* uint32_t
+  let nlink     = "nlink"     -:* uint32_t
+  let uid       = "uid"       -:* uint32_t
+  let gid       = "gid"       -:* uint32_t
+  let rdev      = "rdev"      -:* uint32_t
   let () = seal t
 
   let ino_       = ino

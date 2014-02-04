@@ -15,18 +15,18 @@
  *
  *)
 
-module Stat = Unix_sys_stat.File_kind
+module Stat = Unix_sys_stat
 module In = In.Linux_7_8
 module Out = Out.Linux_7_8
 
 let to_mode_t = PosixTypes.(Ctypes.(Unsigned.(coerce uint32_t mode_t)))
 let to_dev_t  = PosixTypes.(Ctypes.(Unsigned.(coerce uint64_t dev_t)))
 
-let file_kind_to_code k = match Stat.(to_code ~host k) with
+let file_kind_to_code k = match Stat.File_kind.(to_code ~host k) with
   | Some x -> Int32.of_int x
   | None ->
     raise (Failure ("This host doesn't know about sys/stat.h:"
-                    ^(Stat.to_string k)))
+                    ^(Stat.File_kind.to_string k)))
 
 type state = { root : string }
 
@@ -132,31 +132,34 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
     Hashtbl.remove node_table node.id;
     node_free := (Int64.add node.gen 1L, node.id)::!node_free
 
-  let store_attr_of_stats s = Unix.LargeFile.(Int64.(
-    let size = s.st_size in
+  let uint64_of_int64 = Unsigned.UInt64.of_int64
+  let uint32_of_uint64 x = Unsigned.(UInt32.of_int (UInt64.to_int x))
+
+  let store_attr_of_path path = Stat.(Stat.(
+    let s = lstat path in
     Struct_linux_7_8.Attr.store
-      ~ino:(of_int s.st_ino)
-      ~size
-      ~blocks:Int64.(add 1L (shift_right_logical size 9)) (* TODO: ? *)
-      ~atime:(of_float s.st_atime) ~atimensec:0l
-      ~mtime:(of_float s.st_mtime) ~mtimensec:0l
-      ~ctime:(of_float s.st_ctime) ~ctimensec:0l
-      ~mode:Int32.(logor
-                     (file_kind_to_code s.st_kind)
-                     (of_int s.st_perm))
-      ~nlink:Int32.(of_int s.st_nlink)
-      ~uid:Int32.(of_int s.st_uid)
-      ~gid:Int32.(of_int s.st_gid)
-      ~rdev:Int32.(of_int s.st_rdev) (* TODO: dev? *)
+      ~ino:(ino_int s)
+      ~size:(uint64_of_int64 (size_int s))
+      ~blocks:(uint64_of_int64 (blocks_int s))
+      ~atime:(uint64_of_int64 (atime_int s))
+      ~atimensec:(atimensec_int s)
+      ~mtime:(uint64_of_int64 (mtime_int s))
+      ~mtimensec:(mtimensec_int s)
+      ~ctime:(uint64_of_int64 (ctime_int s))
+      ~ctimensec:(ctimensec_int s)
+      ~mode:(mode_int s)
+      ~nlink:(uint32_of_uint64 (nlink_int s))
+      ~uid:(uid_int s)
+      ~gid:(gid_int s)
+      ~rdev:(uint32_of_uint64 (rdev_int s))
   ))
 
   let getattr req st = Out.(
     try
       let { path } = get_node st (nodeid req) in
-      let stats = Unix.LargeFile.lstat path in
       write_reply req
         (Attr.create ~attr_valid:0L ~attr_valid_nsec:0l
-           ~store_attr:(store_attr_of_stats stats));
+           ~store_attr:(store_attr_of_path path));
       st
     with Not_found ->
       (* TODO: log? *)
@@ -198,22 +201,20 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
   let store_entry node = Out.(
     let nodeid = node.id in
     let generation = node.gen in
-    let stats = Unix.LargeFile.lstat node.path in
     Entry.store ~nodeid ~generation
       ~entry_valid:0L ~entry_valid_nsec:0l
       ~attr_valid:0L ~attr_valid_nsec:0l
-      ~store_attr:(store_attr_of_stats stats)
+      ~store_attr:(store_attr_of_path node.path)
   )
 
   let respond_with_entry node req = Out.(
     let nodeid = node.id in
     let generation = node.gen in
-    let stats = Unix.LargeFile.lstat node.path in
     write_reply req
       (Entry.create ~nodeid ~generation
          ~entry_valid:0L ~entry_valid_nsec:0l
          ~attr_valid:0L ~attr_valid_nsec:0l
-         ~store_attr:(store_attr_of_stats stats))
+         ~store_attr:(store_attr_of_path node.path))
   )
 
   let lookup name req st =
