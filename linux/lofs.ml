@@ -22,12 +22,6 @@ module Out = Out.Linux_7_8
 let to_mode_t = PosixTypes.(Ctypes.(Unsigned.(coerce uint32_t mode_t)))
 let to_dev_t  = PosixTypes.(Ctypes.(Unsigned.(coerce uint64_t dev_t)))
 
-let file_kind_to_code k = match Stat.File_kind.(to_code ~host k) with
-  | Some x -> Int32.of_int x
-  | None ->
-    raise (Failure ("This host doesn't know about sys/stat.h:"
-                    ^(Stat.File_kind.to_string k)))
-
 type state = { root : string }
 
 module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
@@ -35,7 +29,7 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
 
   type fh =
   | Dir of string * Unix.dir_handle * int
-  | File of string * Unix.file_descr
+  | File of string * Unix.file_descr * Stat.File_kind.t Lazy.t
 
   let fh_table = Hashtbl.create 256
   let fh_free = ref []
@@ -47,7 +41,7 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
   let free_fh fh =
     begin match Hashtbl.find fh_table fh with
     | Dir (_,dir,_) -> Unix.closedir dir
-    | File (_,fd) -> Unix.close fd
+    | File (_,fd,_) -> Unix.close fd
     end;
     Hashtbl.remove fh_table fh;
     fh_free := fh::!fh_free
@@ -58,9 +52,9 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
 
   let get_dir_fd fh f = match get_fd fh with
     | Dir (path, dir, off) -> f path dir off
-    | File (_,_) -> raise Unix.(Unix_error (ENOTDIR,"",""))
+    | File (_,_,_) -> raise Unix.(Unix_error (ENOTDIR,"",""))
   let get_file_fd fh f = match get_fd fh with
-    | File (path, fd) -> f path fd
+    | File (path, fd, kind) -> f path fd kind
     | Dir (_,_,_) -> raise Unix.(Unix_error (EISDIR,"",""))
 
   type nodeid = int64
@@ -272,8 +266,11 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
       let flags = Unix_fcntl.Oflags.(
         List.rev_map to_open_flag_exn (of_code ~host flags)
       ) in
+      Printf.eprintf "before lofs open %s\n%!" path;
       let file = Unix.openfile path flags (Int32.to_int mode) in
-      Hashtbl.replace fh_table fh (File (path, file));
+      Printf.eprintf "after lofs open\n%!";
+      let kind () = let { Unix.st_kind } = Unix.fstat file in st_kind in
+      Hashtbl.replace fh_table fh (File (path, file, Lazy.from_fun kind));
       Out.(write_reply req (Open.create ~fh ~open_flags:0l)); (* TODO: flags *)
       st
     with Not_found ->
@@ -289,7 +286,7 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
     let fh = Ctypes.getf r In.Read.fh in
     let offset = Ctypes.getf r In.Read.offset in
     let size = Ctypes.getf r In.Read.size in
-    get_file_fd fh (fun path fd -> Out.(
+    get_file_fd fh (fun path fd _zk -> Out.(
       write_reply req
         (Read.create ~size ~data_fn:(fun buf ->
           let ptr = Ctypes.(to_voidp (bigarray_start array1 buf)) in
@@ -373,7 +370,7 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
     let fh = Ctypes.getf w In.Write.fh in
     let offset = Ctypes.getf w In.Write.offset in
     let size = Ctypes.getf w In.Write.size in
-    get_file_fd fh (fun path fd -> Out.(
+    get_file_fd fh (fun path fd _zk -> Out.(
       let data = Ctypes.(to_voidp (CArray.start (getf w In.Write.data))) in
       (* errors caught by our caller *)
       let off = Unix.LargeFile.lseek fd offset Unix.SEEK_SET in
@@ -430,7 +427,8 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
       let file = Unix.(
         openfile path (O_WRONLY::O_CREAT::O_TRUNC::flags) (Int32.to_int mode)
       ) in
-      Hashtbl.replace fh_table fh (File (path, file));
+      let kind () = let { Unix.st_kind } = Unix.fstat file in st_kind in
+      Hashtbl.replace fh_table fh (File (path, file, Lazy.from_fun kind));
       write_reply req
         (Create.create
            ~store_entry:(store_entry (lookup_node pnode name))
@@ -506,9 +504,14 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
     let valid = Ctypes.getf s valid in
     begin
       if Valid.(is_set valid handle)
-      then get_file_fd (Ctypes.getf s fh) (fun _path fd ->
-        (if Valid.(is_set valid mode) (* TODO: do *)
-         then Printf.eprintf "setting mode of %lX\n%!" (Ctypes.getf s mode));
+      then get_file_fd (Ctypes.getf s fh) (fun _path fd zk ->
+        (if Valid.(is_set valid mode)
+         then let mode = Ctypes.getf s mode in
+              let (kind,perm) = Stat.Mode.(
+                of_code_exn ~host (Int32.to_int mode)
+              ) in
+              assert (kind = Lazy.force zk); (* TODO: ???!!! *)
+              Unix.fchmod fd perm);
         (let set_uid = Valid.(is_set valid uid) in
          let set_gid = Valid.(is_set valid gid) in
          if set_uid || set_gid
@@ -525,8 +528,14 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
       )
       else
         let { path } = get_node st (nodeid req) in
-        (if Valid.(is_set valid mode) (* TODO: do *)
-         then Printf.eprintf "setting mode of %lX\n%!" (Ctypes.getf s mode));
+        (if Valid.(is_set valid mode)
+         then let mode = Ctypes.getf s mode in
+              let (kind,perm) = Stat.Mode.(
+                of_code_exn ~host (Int32.to_int mode)
+              ) in
+              let { Unix.st_kind } = Unix.stat path in
+              assert (kind = st_kind); (* TODO: ???!!! *)
+              Unix.chmod path perm);
         (let set_uid = Valid.(is_set valid uid) in
          let set_gid = Valid.(is_set valid gid) in
          if set_uid || set_gid

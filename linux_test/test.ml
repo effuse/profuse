@@ -63,11 +63,13 @@ let lower_priv =
   let uid = int_of_string (Unix.readlink "run_as") in
   Printf.eprintf "using: uid=%d euid=%d duid=%d\n%!"
     (Unix.getuid ()) (Unix.geteuid ()) uid;
-  fun () -> Unix_unistd.seteuid uid
+  fun () ->
+    Printf.eprintf "now running as euid %d\n%!" uid;
+    Unix_unistd.seteuid uid
 
 let as_root fn k =
   Unix_unistd.seteuid 0;
-  Printf.eprintf "now running as uid %d\n%!" (Unix.geteuid ());
+  Printf.eprintf "now running as euid %d\n%!" (Unix.geteuid ());
   let v = fn k in
   lower_priv ();
   v
@@ -133,25 +135,53 @@ let test_ops =
     Unix.unlink path
   in
 
-  let nod_file = "nod" in
+  let nod_file  = "nod" in
+  let nod_perms = 0o777 in
+  let to_mode_t i = PosixTypes.(Ctypes.(Unsigned.(
+    coerce uint32_t mode_t (UInt32.of_int i)
+  ))) in
   let mknod () =
-    let to_mode_t = PosixTypes.(Ctypes.(Unsigned.(coerce uint32_t mode_t))) in
     let to_dev_t  = PosixTypes.(Ctypes.(Unsigned.(coerce uint64_t dev_t))) in
     let file = nod_file in
     let path = srcpath file in
+    ignore (Unix.umask 0o000);
     Unix.(assert_raises (Unix_error (ENOENT, "access", path))
             (fun () -> access path [F_OK]));
     run_fuse "mknod" (fun () ->
       let path = mntpath file in
-      Unix_sys_stat.mknod path
-        (to_mode_t (Unsigned.UInt32.of_int 0o777))
+      Unix_sys_stat.mknod path (to_mode_t nod_perms)
         (to_dev_t  (Unsigned.UInt64.of_int 0));
       Unix_unistd.(access path [Unix.F_OK])
     );
     Unix.(access path [F_OK])
   in
 
-  let chmod () = () in
+  let chmod () =
+    let file = nod_file in
+    let path = mntpath file in
+    run_fuse "chmod" Unix.(LargeFile.(fun () ->
+      let perms = Unix_sys_stat.(Stat.to_unix (stat path)).st_perm in
+      let msg = Printf.sprintf "%s perms.0 0o%03o <> 0o%03o"
+        file perms nod_perms in
+      assert_equal ~msg nod_perms perms;
+      let new_perms = 0o644 in
+      Unix_sys_stat.chmod path (to_mode_t new_perms);
+      let perms = Unix_sys_stat.(Stat.to_unix (stat path)).st_perm in
+      let msg = Printf.sprintf "%s perms.1 0o%03o <> 0o%03o"
+        file perms new_perms in
+      assert_equal ~msg new_perms perms;
+      let new_perms = 0o666 in
+      let fd = openfile path [] 0o000 in
+      (try
+         Unix_sys_stat.fchmod fd (to_mode_t new_perms);
+         let perms = Unix_sys_stat.(Stat.to_unix (stat path)).st_perm in
+         let msg = Printf.sprintf "%s perms.2 0o%03o <> 0o%03o"
+           file perms new_perms in
+         assert_equal ~msg new_perms perms
+       with exn -> Unix_unistd.close fd; raise exn);
+      Unix_unistd.close fd
+    ))
+  in
 
   let chown () =
     let file = nod_file in
@@ -293,6 +323,7 @@ let test_ops =
     "read",     `Quick,read;
     "readlink", `Quick,readlink;
     "mknod",    `Quick,mknod;
+    "chmod",    `Quick,chmod;
     "chown",    `Quick,chown;
     "symlink",  `Quick,symlink;
     "write",    `Quick,write;
