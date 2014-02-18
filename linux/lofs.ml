@@ -24,6 +24,8 @@ let to_dev_t  = PosixTypes.(Ctypes.(Unsigned.(coerce uint64_t dev_t)))
 
 type state = { root : string }
 
+(* TODO: set umask *)
+
 module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
   type t = state
 
@@ -38,12 +40,15 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
     match !fh_free with
     | h::r -> fh_free := r; h
     | [] -> let fh = !fh_max in fh_max := Int64.add fh 1L; fh
+  let set_fh = Hashtbl.replace fh_table
   let free_fh fh =
-    begin match Hashtbl.find fh_table fh with
-    | Dir (_,dir,_) -> Unix.closedir dir
-    | File (_,fd,_) -> Unix.close fd
-    end;
-    Hashtbl.remove fh_table fh;
+    (try
+       begin match Hashtbl.find fh_table fh with
+       | Dir (_,dir,_) -> Unix.closedir dir
+       | File (_,fd,_) -> Unix.close fd
+       end;
+       Hashtbl.remove fh_table fh
+     with Not_found -> ()); (* alloc'd but not set *)
     fh_free := fh::!fh_free
 
   let get_fd fh =
@@ -166,7 +171,7 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
     try
       let { path } = get_node st (nodeid req) in
       let dir = Unix.opendir path in
-      Hashtbl.replace fh_table fh (Dir (path, dir, 0));
+      set_fh fh (Dir (path, dir, 0));
       write_reply req (Open.create ~fh ~open_flags:0l); (* TODO: open_flags?? *)
       st
     with Not_found ->
@@ -240,7 +245,7 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
             let name = Unix.readdir dir in
             let stats = Unix.LargeFile.lstat (Filename.concat path name) in
             let off = off + 1 in
-            Hashtbl.replace fh_table fh (Dir (path, dir, off));
+            set_fh fh (Dir (path, dir, off));
             Unix.LargeFile.([off, Int64.of_int stats.st_ino, name,
                              Unix_dirent.File_kind.of_file_kind stats.st_kind])
           with End_of_file -> []
@@ -266,11 +271,9 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
       let flags = Unix_fcntl.Oflags.(
         List.rev_map to_open_flag_exn (of_code ~host flags)
       ) in
-      Printf.eprintf "before lofs open %s\n%!" path;
       let file = Unix.openfile path flags (Int32.to_int mode) in
-      Printf.eprintf "after lofs open\n%!";
       let kind () = let { Unix.st_kind } = Unix.fstat file in st_kind in
-      Hashtbl.replace fh_table fh (File (path, file, Lazy.from_fun kind));
+      set_fh fh (File (path, file, Lazy.from_fun kind));
       Out.(write_reply req (Open.create ~fh ~open_flags:0l)); (* TODO: flags *)
       st
     with Not_found ->
@@ -428,7 +431,7 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
         openfile path (O_WRONLY::O_CREAT::O_TRUNC::flags) (Int32.to_int mode)
       ) in
       let kind () = let { Unix.st_kind } = Unix.fstat file in st_kind in
-      Hashtbl.replace fh_table fh (File (path, file, Lazy.from_fun kind));
+      set_fh fh (File (path, file, Lazy.from_fun kind));
       write_reply req
         (Create.create
            ~store_entry:(store_entry (lookup_node pnode name))
@@ -451,6 +454,8 @@ module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
     try
       (* TODO: translate mode and dev from client host rep to local host rep *)
       (* TODO: dev_t is usually 64-bit but rdev is 32-bit. translate how? *)
+      (* TODO: regular -> open with O_CREAT | O_EXCL | O_WRONLY for compat? *)
+      (* TODO: fifo -> mkfifo for compat? *)
       Unix_sys_stat.mknod path
         (to_mode_t mode)
         (to_dev_t (Unsigned.UInt64.of_int64

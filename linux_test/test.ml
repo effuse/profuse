@@ -38,27 +38,6 @@ let limit k msg lwt =
   | exn -> fail exn
   )
 
-let state = Lofs.({ root = srcdir })
-let fuse_conn = ref None
-let fs_state = ref state
-let serve_one tag state = match !fuse_conn with
-  | None -> return state
-  | Some chan -> Lwt_th.detach (Server.trace chan tag) state
-
-let rec serve_until_block tag th =
-  catch (fun () ->
-    (th >>= fun st ->
-     fs_state := st; return (Some st)
-    ) <?> (Lwt_unix.timeout max_wait_s)
-  ) (function
-  | Lwt_unix.Timeout -> return None
-  | exn -> fail exn
-  ) >>= function
-  | Some st -> serve_until_block tag (serve_one tag st)
-  | None ->
-    Printf.eprintf "stopping serve_until_block(%s)\n%!" tag;
-    return ()
-
 let lower_priv =
   let uid = int_of_string (Unix.readlink "run_as") in
   Printf.eprintf "using: uid=%d euid=%d duid=%d\n%!"
@@ -73,6 +52,34 @@ let as_root fn k =
   let v = fn k in
   lower_priv ();
   v
+
+let state = Lofs.({ root = srcdir })
+let fuse_conn = ref None
+let fs_state = ref state
+let serve_one tag state = match !fuse_conn with
+  | None -> return state
+  | Some chan -> Lwt_th.detach (fun () ->
+    try Server.trace chan tag state
+    with exn ->
+      Printf.eprintf "Fatal error: exception %s\n" (Printexc.to_string exn);
+      Printexc.print_backtrace stderr;
+      as_root Profuse.unmount chan;
+      state
+  ) ()
+
+let rec serve_until_block tag th =
+  catch (fun () ->
+    (th >>= fun st ->
+     fs_state := st; return (Some st)
+    ) <?> (Lwt_unix.timeout max_wait_s)
+  ) (function
+  | Lwt_unix.Timeout -> return None
+  | exn -> fail exn
+  ) >>= function
+  | Some st -> serve_until_block tag (serve_one tag st)
+  | None ->
+    Printf.eprintf "stopping serve_until_block(%s)\n%!" tag;
+    return ()
 
 let run_fuse tag fn = Lwt_main.run begin
   (serve_until_block tag (return !fs_state)) <&> (Lwt_th.detach fn ())

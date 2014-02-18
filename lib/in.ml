@@ -94,7 +94,9 @@ let read ~destroy ~parse chan =
             (Printf.sprintf "Packet has %d bytes but only read %d" sz len)));
 
       parse chan hdr (sz - hdr_sz) (to_voidp (buf +@ hdr_sz))
-    with Unix_error ((EINTR (* SIGINT *) | ENODEV (* umount *)),"read",_) ->
+    with Unix_error ((
+      EINTR (* SIGINT *) | ENODEV (* umount *) | EBADF (* internal unmount *)
+    ),"read",_) ->
       let nodeid = UInt64.zero in
       let uid = UInt32.zero in
       let gid = UInt32.zero in

@@ -275,6 +275,7 @@ module Server : SERVER = functor (Fs : RW_FULL) -> struct
     | In.Setattr s -> Fs.setattr s req t
     | In.Other _ | In.Unknown _ -> Out.write_error req Unix.ENOSYS; t
     ) with Unix.Unix_error(e,_,_) -> Out.write_error req e; t
+    | exn -> Out.write_error req Unix.EIO; raise exn
 
   let serve chan =
     let read = In.read chan in
