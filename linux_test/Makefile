@@ -15,6 +15,7 @@ FLAGS=-package oUnit \
 
 all: run_test run_as
 # strace -f -e trace=file,desc
+	mkdir -p _tests
 	sudo ./run_test || true
 	$(MAKE) clean
 
