@@ -73,7 +73,7 @@ type node = {
 
 let node_table = Hashtbl.create 256
 let node_free = ref []
-let node_max = ref 0L
+let node_max = ref 2L (* 0 is the FS, 1 is the root *)
 
 let get_node st nodeid =
   let id = Unsigned.UInt64.to_int64 nodeid in
