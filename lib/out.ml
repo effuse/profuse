@@ -301,15 +301,15 @@ module Linux_7_8 : LINUX_7_8 = struct
   let deserialize req = deserialize ~parse req
 
   let describe_reply ({pkt}) = match pkt with
-    | Init i -> "INIT FIXME" (* TODO: more *)
+    | Init i -> Init.describe i
     | Getattr a -> "GETATTR FIXME" (* TODO: more *)
-    | Lookup e -> "LOOKUP FIXME" (* TODO: more *)
+    | Lookup e -> Entry.describe e
     | Opendir o -> "OPENDIR FIXME" (* TODO: more *)
     | Readdir r -> "READDIR FIXME" (* TODO: more *)
     | Releasedir -> "RELEASEDIR"
     | Fsyncdir -> "FSYNCDIR"
     | Rmdir -> "RMDIR"
-    | Mkdir e -> "MKDIR FIXME" (* TODO: more *)
+    | Mkdir e -> Entry.describe e
     | Getxattr -> "GETXATTR"
     | Setxattr -> "SETXATTR"
     | Listxattr -> "LISTXATTR"
@@ -326,11 +326,11 @@ module Linux_7_8 : LINUX_7_8 = struct
     | Fsync -> "FSYNC"
     | Unlink -> "UNLINK"
     | Create c -> "CREATE FIXME" (* TODO: more *)
-    | Mknod e -> "MKNOD FIXME" (* TODO: more *)
+    | Mknod e -> Entry.describe e
     | Setattr a -> "SETATTR FIXME" (* TODO: more *)
-    | Link e -> "LINK FIXME" (* TODO: more *)
-    | Symlink e -> "SYMLINK FIXME" (* TODO: more *)
-    | Rename e -> "RENAME FIXME" (* TODO: more *)
+    | Link e -> Entry.describe e
+    | Symlink e -> Entry.describe e
+    | Rename e -> Entry.describe e
     | Getlk -> "GETLK"
     | Setlk -> "SETLK"
     | Setlkw -> "SETLKW"
@@ -404,15 +404,15 @@ module Osx_7_8 : OSX_7_8 = struct
   let deserialize req = deserialize ~parse req
 
   let describe_reply ({pkt}) = match pkt with
-    | Init i -> "INIT FIXME" (* TODO: more *)
+    | Init i -> Init.describe i
     | Getattr a -> "GETATTR FIXME" (* TODO: more *)
-    | Lookup e -> "LOOKUP FIXME" (* TODO: more *)
+    | Lookup e -> Entry.describe e
     | Opendir o -> "OPENDIR FIXME" (* TODO: more *)
     | Readdir r -> "READDIR FIXME" (* TODO: more *)
     | Releasedir -> "RELEASEDIR"
     | Fsyncdir -> "FSYNCDIR"
     | Rmdir -> "RMDIR"
-    | Mkdir e -> "MKDIR FIXME" (* TODO: more *)
+    | Mkdir e -> Entry.describe e
     | Getxattr -> "GETXATTR"
     | Setxattr -> "SETXATTR"
     | Listxattr -> "LISTXATTR"
@@ -429,11 +429,11 @@ module Osx_7_8 : OSX_7_8 = struct
     | Fsync -> "FSYNC"
     | Unlink -> "UNLINK"
     | Create c -> "CREATE FIXME" (* TODO: more *)
-    | Mknod e -> "MKNOD FIXME" (* TODO: more *)
+    | Mknod e -> Entry.describe e
     | Setattr a -> "SETATTR FIXME" (* TODO: more *)
-    | Link e -> "LINK FIXME" (* TODO: more *)
-    | Symlink e -> "SYMLINK FIXME" (* TODO: more *)
-    | Rename e -> "RENAME FIXME" (* TODO: more *)
+    | Link e -> Entry.describe e
+    | Symlink e -> Entry.describe e
+    | Rename e -> Entry.describe e
     | Getlk -> "GETLK"
     | Setlk -> "SETLK"
     | Setlkw -> "SETLKW"

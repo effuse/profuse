@@ -288,7 +288,7 @@ module Server : SERVER = functor (Fs : FS) -> struct
       (Fs.string_of_nodeid (getf req.Fuse.hdr Hdr.nodeid) t)
       (match req.Fuse.pkt with
       | Init i ->
-        Printf.sprintf "major=%d minor=%d max_readahead=%d flags=0x%lX"
+        Printf.sprintf "version=%d.%d max_readahead=%d flags=0x%lX"
           (getf i Init.major) (getf i Init.minor)
           (getf i Init.max_readahead)
           (Unsigned.UInt32.to_int32 (getf i Init.flags))

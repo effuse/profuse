@@ -64,6 +64,14 @@ module Entry = struct
     store ~nodeid ~generation ~entry_valid ~attr_valid
       ~entry_valid_nsec ~attr_valid_nsec ~store_attr pkt req;
     CArray.from_ptr (coerce (ptr t) (ptr char) (addr pkt)) (sizeof t)
+
+  let describe pkt =
+    (* TODO: times? *)
+    Printf.sprintf
+      "nodeid=%Ld.%Ld attr={%s}"
+      (getf pkt generation) (getf pkt nodeid)
+      (Struct.Attr.describe (getf pkt attr))
+
 end
 
 module Attr = struct

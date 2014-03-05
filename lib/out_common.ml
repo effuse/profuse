@@ -204,4 +204,13 @@ module Init = struct
     setf pkt unused_        (UInt32.of_int 0); (* TODO: necessary? *)
     setf pkt max_write_     max_write;
     CArray.from_ptr (coerce (ptr t) (ptr char) (addr pkt)) (sizeof t)
+
+  let describe pkt =
+    Printf.sprintf
+      "version=%d.%d max_readahead=%d flags=0x%lX max_write=%d"
+      (getf pkt major) (getf pkt minor)
+      (getf pkt max_readahead)
+      (Unsigned.UInt32.to_int32 (getf pkt flags))
+      (getf pkt max_write)
+
 end

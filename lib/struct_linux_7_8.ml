@@ -79,4 +79,22 @@ module Attr = struct
     store ~ino ~size ~blocks ~atime ~mtime ~ctime
       ~atimensec ~mtimensec ~ctimensec ~mode ~nlink ~uid ~gid ~rdev attr;
     attr
+
+  let describe pkt =
+    let i64 = Unsigned.UInt64.to_int64 in
+    let i32 = Unsigned.UInt32.to_int32 in
+    (* TODO: nsec times? *)
+    Printf.sprintf
+      "ino=%Ld size=%Ld blocks=%Ld atime=%Ld mtime=%Ld ctime=%Ld mode=%ld nlink=%ld uid=%ld gid=%ld rdev=%ld"
+      (i64 (getf pkt ino))
+      (i64 (getf pkt size))
+      (i64 (getf pkt blocks))
+      (i64 (getf pkt atime))
+      (i64 (getf pkt mtime))
+      (i64 (getf pkt ctime))
+      (i32 (getf pkt mode))
+      (i32 (getf pkt nlink))
+      (i32 (getf pkt uid))
+      (i32 (getf pkt gid))
+      (i32 (getf pkt rdev))
 end
