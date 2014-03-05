@@ -34,6 +34,7 @@ module type READ = sig
   type t
 
   val deserialize : 'a request -> char carray -> t reply
+  val describe_reply : t reply -> string
 end
 
 module type WRITE = sig
@@ -60,6 +61,7 @@ end
   and  module Open = Out_common.Open
 
 module Linux_7_8_wire = struct
+  (* TODO: include optional raw bufs for non-conforming replies *)
   type t =
   | Init    of Out_common.Init.t     structure
   | Getattr of Out_linux_7_8.Attr.t  structure
@@ -122,6 +124,7 @@ end
   and  module Open = Out_common.Open
 
 module Osx_7_8_wire = struct
+  (* TODO: include optional raw bufs for non-conforming replies *)
   type t =
   | Init    of Out_common.Init.t   structure
   | Getattr of Out_osx_7_8.Attr.t  structure
@@ -225,8 +228,8 @@ module Io : GEN_IO = struct
   let deserialize ~parse req =
     let hdr_sz = sizeof Hdr.t in
     fun arr ->
-      let buf = CArray.start arr in
-      let len = CArray.length arr in
+      let buf = CArray.start arr -@ hdr_sz in
+      let len = hdr_sz + CArray.length arr in
       let hdr_ptr = coerce (ptr char) (ptr Hdr.t) buf in
       let hdr = !@ hdr_ptr in
       let sz = getf hdr Hdr.size in
@@ -297,6 +300,47 @@ module Linux_7_8 : LINUX_7_8 = struct
       Fuse.({chan; hdr; pkt=(Unknown (opcode, len, buf))})
 
   let deserialize req = deserialize ~parse req
+
+  let describe_reply ({pkt}) = match pkt with
+    | Init i -> "INIT FIXME" (* TODO: more *)
+    | Getattr a -> "GETATTR FIXME" (* TODO: more *)
+    | Lookup e -> "LOOKUP FIXME" (* TODO: more *)
+    | Opendir o -> "OPENDIR FIXME" (* TODO: more *)
+    | Readdir r -> "READDIR FIXME" (* TODO: more *)
+    | Releasedir -> "RELEASEDIR"
+    | Fsyncdir -> "FSYNCDIR"
+    | Rmdir -> "RMDIR"
+    | Mkdir e -> "MKDIR FIXME" (* TODO: more *)
+    | Getxattr -> "GETXATTR"
+    | Setxattr -> "SETXATTR"
+    | Listxattr -> "LISTXATTR"
+    | Removexattr -> "REMOVEXATTR"
+    | Access -> "ACCESS"
+    | Forget -> "FORGET"
+    | Readlink r -> "READLINK FIXME" (* TODO: more *)
+    | Open o -> "OPEN FIXME" (* TODO: more *)
+    | Read r -> "READ FIXME" (* TODO: more *)
+    | Write w -> "WRITE FIXME" (* TODO: more *)
+    | Statfs -> "STATFS"
+    | Flush -> "FLUSH"
+    | Release -> "RELEASE"
+    | Fsync -> "FSYNC"
+    | Unlink -> "UNLINK"
+    | Create c -> "CREATE FIXME" (* TODO: more *)
+    | Mknod e -> "MKNOD FIXME" (* TODO: more *)
+    | Setattr a -> "SETATTR FIXME" (* TODO: more *)
+    | Link e -> "LINK FIXME" (* TODO: more *)
+    | Symlink e -> "SYMLINK FIXME" (* TODO: more *)
+    | Rename e -> "RENAME FIXME" (* TODO: more *)
+    | Getlk -> "GETLK"
+    | Setlk -> "SETLK"
+    | Setlkw -> "SETLKW"
+    | Interrupt -> "INTERRUPT"
+    | Bmap -> "BMAP"
+    | Destroy -> "DESTROY"
+    | Other opcode -> "OTHER ("^(Opcode.to_string opcode)^")"
+    | Unknown (o,l,b) -> "UNKNOWN FIXME" (* TODO: more *)
+
 end
 
 module Osx_7_8 : OSX_7_8 = struct
@@ -359,6 +403,47 @@ module Osx_7_8 : OSX_7_8 = struct
       Fuse.({chan; hdr; pkt=(Unknown (opcode, len, buf))})
 
   let deserialize req = deserialize ~parse req
+
+  let describe_reply ({pkt}) = match pkt with
+    | Init i -> "INIT FIXME" (* TODO: more *)
+    | Getattr a -> "GETATTR FIXME" (* TODO: more *)
+    | Lookup e -> "LOOKUP FIXME" (* TODO: more *)
+    | Opendir o -> "OPENDIR FIXME" (* TODO: more *)
+    | Readdir r -> "READDIR FIXME" (* TODO: more *)
+    | Releasedir -> "RELEASEDIR"
+    | Fsyncdir -> "FSYNCDIR"
+    | Rmdir -> "RMDIR"
+    | Mkdir e -> "MKDIR FIXME" (* TODO: more *)
+    | Getxattr -> "GETXATTR"
+    | Setxattr -> "SETXATTR"
+    | Listxattr -> "LISTXATTR"
+    | Removexattr -> "REMOVEXATTR"
+    | Access -> "ACCESS"
+    | Forget -> "FORGET"
+    | Readlink r -> "READLINK FIXME" (* TODO: more *)
+    | Open o -> "OPEN FIXME" (* TODO: more *)
+    | Read r -> "READ FIXME" (* TODO: more *)
+    | Write w -> "WRITE FIXME" (* TODO: more *)
+    | Statfs -> "STATFS"
+    | Flush -> "FLUSH"
+    | Release -> "RELEASE"
+    | Fsync -> "FSYNC"
+    | Unlink -> "UNLINK"
+    | Create c -> "CREATE FIXME" (* TODO: more *)
+    | Mknod e -> "MKNOD FIXME" (* TODO: more *)
+    | Setattr a -> "SETATTR FIXME" (* TODO: more *)
+    | Link e -> "LINK FIXME" (* TODO: more *)
+    | Symlink e -> "SYMLINK FIXME" (* TODO: more *)
+    | Rename e -> "RENAME FIXME" (* TODO: more *)
+    | Getlk -> "GETLK"
+    | Setlk -> "SETLK"
+    | Setlkw -> "SETLKW"
+    | Interrupt -> "INTERRUPT"
+    | Bmap -> "BMAP"
+    | Destroy -> "DESTROY"
+    | Other opcode -> "OTHER ("^(Opcode.to_string opcode)^")"
+    | Unknown (o,l,b) -> "UNKNOWN FIXME" (* TODO: more *)
+
 end
 
 module Linux_7_8_of_osx_7_8 : LINUX_7_8_OVER_OSX_7_8  = struct
@@ -369,6 +454,7 @@ module Linux_7_8_of_osx_7_8 : LINUX_7_8_OVER_OSX_7_8  = struct
 
   let parse = Osx_7_8.parse
   let deserialize req = deserialize ~parse req
+  let describe_reply = Osx_7_8.describe_reply
 
   module Struct = Struct.Linux_7_8
 
@@ -440,6 +526,7 @@ module Osx_7_8_of_linux_7_8 : OSX_7_8_OVER_LINUX_7_8 = struct
 
   let parse = Linux_7_8.parse
   let deserialize req = deserialize ~parse req
+  let describe_reply = Linux_7_8.describe_reply
 
   module Struct = Struct.Osx_7_8
 

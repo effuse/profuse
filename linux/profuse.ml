@@ -102,7 +102,6 @@ module type SERVER = functor (Fs : FS) -> sig
   module Trace_out : Out.LINUX_7_8
 
   val string_of_request : req -> Fs.t -> string
-  val string_of_reply   : req -> char carray -> string
 
   val serve : Fuse.chan -> Fs.t -> Fs.t
   val trace : Fuse.chan -> string -> Fs.t -> Fs.t
@@ -309,16 +308,13 @@ module Server : SERVER = functor (Fs : FS) -> struct
       | _ -> "FIX ME"
       )
 
-  let string_of_reply req arr =
-    "FIXME"
-
   module Trace_out = struct
     include Out.Linux_7_8
 
     let write_reply req arrfn =
       let arr = arrfn req in
       Printf.eprintf "    returning %s from %Ld\n%!"
-        (string_of_reply req arr)
+        (describe_reply (deserialize req arr))
         (Unsigned.UInt64.to_int64 (Ctypes.getf req.Fuse.hdr In.Hdr.unique));
       write_reply_raw req arr
 

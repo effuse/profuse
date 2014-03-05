@@ -21,7 +21,8 @@ open OUnit
 open Lwt
 
 module Lwt_th = Lwt_preemptive
-module Server = Profuse.Server(Lofs.Linux_7_8)
+module Server = Profuse.Server(Lofs)
+module Linux_fs = Lofs.Linux_7_8(Server.Trace_out)
 
 let mntdir = "mnt"
 let mntpath = Filename.concat mntdir
@@ -86,17 +87,15 @@ let run_fuse tag fn = Lwt_main.run begin
 end
 
 let test_mount =
-  let init_req = ref None in
   let mount () =
     lower_priv ();
     Unix.(try access srcdir [F_OK] with Unix_error _ -> mkdir srcdir 0o700);
     Unix.(try access mntdir [F_OK] with Unix_error _ -> mkdir mntdir 0o700);
     let req, st = as_root
-      (Profuse.mount [|"test";"-o";"allow_other"|] mntdir) state in
+      (Linux_fs.mount ~argv:[|"test";"-o";"allow_other"|] ~mnt:mntdir) state in
     fuse_conn := Some req.Fuse.chan;
-    fs_state := st;
-    init_req  := Some req;
-    Printf.eprintf "%s\n%!" (Server.string_of_request req st)
+    Printf.eprintf "%s\n%!" (Server.string_of_request req st);
+    fs_state := st
   in
   "mount", [
     "mount",`Quick,mount;
