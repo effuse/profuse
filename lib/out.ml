@@ -18,31 +18,357 @@
 open Ctypes
 open Unsigned
 open View
+open Fuse
 
-module type LINUX_7_8 = sig
+type 'a request = 'a In_common.request
+type 'a reply = 'a Out_common.reply
+type hdr = Out_common.Hdr.t
+
+module type GEN_READ = sig
+  val deserialize :
+    parse:('a request -> hdr structure -> int -> unit ptr -> 'b reply) ->
+    'a request -> char carray -> 'b reply
+end
+
+module type READ = sig
+  type t
+
+  val deserialize : 'a request -> char carray -> t reply
+end
+
+module type WRITE = sig
+  val write_reply_raw : _ request -> char carray -> unit
+  val write_reply : 'b request -> ('b request -> char carray) -> unit
+  val write_error : _ request -> Unix.error -> unit
+end
+
+module type GEN_IO = sig
+  include GEN_READ
+  include WRITE
+end
+
+module type IO = sig
+  include READ
+  include WRITE
+end
+
+module type LINUX_7_8_PROTO = sig
   include module type of Out_common
   include module type of Out_linux_7_8
 end
-  with module Open = Out_common.Open
+  with module Hdr  = Out_common.Hdr
+  and  module Open = Out_common.Open
 
-module type OSX_7_8 = sig
+module Linux_7_8_wire = struct
+  type t =
+  | Init    of Out_common.Init.t     structure
+  | Getattr of Out_linux_7_8.Attr.t  structure
+  | Lookup  of Out_linux_7_8.Entry.t structure
+  | Opendir of Out_common.Open.t     structure
+  | Readdir of Out_common.Read.t     structure
+  | Releasedir
+  | Fsyncdir (* TODO: do *)
+  | Rmdir
+  | Mkdir   of Out_linux_7_8.Entry.t structure
+  | Getxattr (* TODO: do *)
+  | Setxattr (* TODO: do *)
+  | Listxattr (* TODO: do *)
+  | Removexattr (* TODO: do *)
+  | Access
+  | Forget (* TODO: should never happen? *)
+  | Readlink of Out_common.Readlink.t structure
+  | Open     of Out_common.Open.t     structure
+  | Read     of Out_common.Read.t     structure
+  | Write    of Out_common.Write.t    structure
+  | Statfs (* TODO: do *)
+  | Flush
+  | Release
+  | Fsync
+  | Unlink
+  | Create   of Out_linux_7_8.Create.t structure
+  | Mknod    of Out_linux_7_8.Entry.t  structure
+  | Setattr  of Out_linux_7_8.Attr.t   structure
+  | Link     of Out_linux_7_8.Entry.t  structure
+  | Symlink  of Out_linux_7_8.Entry.t  structure
+  | Rename   of Out_linux_7_8.Entry.t  structure
+  | Getlk (* TODO: do *)
+  | Setlk (* TODO: do *)
+  | Setlkw (* TODO: do *)
+  | Interrupt (* TODO: do *)
+  | Bmap (* TODO: do *)
+  | Destroy
+  | Other    of Opcode.t
+  | Unknown  of int * int * unit ptr
+end
+
+module type LINUX_7_8_WIRE = sig
+  type t = Linux_7_8_wire.t
+
+  val parse : 'a request -> hdr structure -> int -> unit ptr -> t reply
+end
+
+module type LINUX_7_8 = sig
+  include LINUX_7_8_PROTO
+  include LINUX_7_8_WIRE
+
+  include IO with type t := t
+end
+
+module type OSX_7_8_PROTO = sig
   include module type of Out_common
   include module type of Out_osx_7_8
 end
-  with module Open = Out_common.Open
+  with module Hdr  = Out_common.Hdr
+  and  module Open = Out_common.Open
+
+module Osx_7_8_wire = struct
+  type t =
+  | Init    of Out_common.Init.t   structure
+  | Getattr of Out_osx_7_8.Attr.t  structure
+  | Lookup  of Out_osx_7_8.Entry.t structure
+  | Opendir of Out_common.Open.t   structure
+  | Readdir of Out_common.Read.t   structure
+  | Releasedir
+  | Fsyncdir (* TODO: do *)
+  | Rmdir
+  | Mkdir   of Out_osx_7_8.Entry.t structure
+  | Getxattr (* TODO: do *)
+  | Setxattr (* TODO: do *)
+  | Listxattr (* TODO: do *)
+  | Removexattr (* TODO: do *)
+  | Access
+  | Forget (* TODO: should never happen? *)
+  | Readlink of Out_common.Readlink.t structure
+  | Open     of Out_common.Open.t     structure
+  | Read     of Out_common.Read.t     structure
+  | Write    of Out_common.Write.t    structure
+  | Statfs (* TODO: do *)
+  | Flush
+  | Release
+  | Fsync
+  | Unlink
+  | Create   of Out_osx_7_8.Create.t structure
+  | Mknod    of Out_osx_7_8.Entry.t  structure
+  | Setattr  of Out_osx_7_8.Attr.t   structure
+  | Link     of Out_osx_7_8.Entry.t  structure
+  | Symlink  of Out_osx_7_8.Entry.t  structure
+  | Rename   of Out_osx_7_8.Entry.t  structure
+  | Getlk (* TODO: do *)
+  | Setlk (* TODO: do *)
+  | Setlkw (* TODO: do *)
+  | Interrupt (* TODO: do *)
+  | Bmap (* TODO: do *)
+  | Destroy
+  | Other    of Opcode.t
+  | Unknown  of int * int * unit ptr
+end
+
+module type OSX_7_8_WIRE = sig
+  type t = Osx_7_8_wire.t
+
+  val parse : 'a request -> hdr structure -> int -> unit ptr -> t reply
+end
+
+module type OSX_7_8 = sig
+  include OSX_7_8_PROTO
+  include OSX_7_8_WIRE
+
+  include IO with type t := t
+end
+
+module type LINUX_7_8_OVER_OSX_7_8 = sig
+  include LINUX_7_8_PROTO
+  include OSX_7_8_WIRE
+
+  include IO with type t := t
+end
+
+module type OSX_7_8_OVER_LINUX_7_8 = sig
+  include OSX_7_8_PROTO
+  include LINUX_7_8_WIRE
+
+  include IO with type t := t
+end
+
+module Io : GEN_IO = struct
+  module Hdr = Out_common.Hdr
+
+  let write_reply_raw req arr =
+    let ptr = CArray.start arr -@ sizeof Hdr.t in
+    let sz = CArray.length arr + sizeof Hdr.t in
+    let len = Fuse.(
+      try
+        Unix_unistd.write req.chan.fd (to_voidp ptr) sz
+      with Unix.Unix_error(err,fn,param) ->
+        raise (ProtocolError
+                 (req.chan,
+                  (Printf.sprintf "Unix Error on %s(%S): %s" fn param
+                     (Unix.error_message err))))
+    )
+    in
+    if sz <> len
+    then raise Fuse.(
+      ProtocolError
+        (req.chan,
+         (Printf.sprintf "Tried to write %d but only wrote %d" sz len)))
+
+  let write_reply req arrfn = write_reply_raw req (arrfn req)
+
+  (** Can raise Fs.UnknownErrno (TODO: ?) *)
+  let write_error req err =
+    let nerrno = match Unix_errno.(to_code ~host err) with
+      | Some errno -> Int32.of_int (-errno)
+      | None -> raise (Fuse.UnknownErrno err)
+    in
+    write_reply req (Hdr.packet ~nerrno ~count:0)
+
+  let deserialize ~parse req =
+    let hdr_sz = sizeof Hdr.t in
+    fun arr ->
+      let buf = CArray.start arr in
+      let len = CArray.length arr in
+      let hdr_ptr = coerce (ptr char) (ptr Hdr.t) buf in
+      let hdr = !@ hdr_ptr in
+      let sz = getf hdr Hdr.size in
+      if len <> sz then raise
+        (ProtocolError
+           (req.chan,
+            (Printf.sprintf "Packet has %d bytes but only read %d" sz len)));
+      parse req hdr (sz - hdr_sz) (to_voidp (buf +@ hdr_sz))
+end
 
 module Linux_7_8 : LINUX_7_8 = struct
   include Out_common
   include Out_linux_7_8
+  include Io
+
+  include Linux_7_8_wire
+
+  let parse ({Fuse.chan} as req) hdr len buf = (* TODO: test Opcode.Unknown *)
+    try
+      let opcode = In_common.Hdr.(getf req.hdr opcode) in
+      Fuse.({chan; hdr; pkt=Opcode.(match opcode with
+      | FUSE_INIT        -> Init       (!@ (from_voidp Init.t buf))
+      | FUSE_GETATTR     -> Getattr    (!@ (from_voidp Attr.t buf))
+      | FUSE_LOOKUP      -> Lookup     (!@ (from_voidp Entry.t buf))
+      | FUSE_OPENDIR     -> Opendir    (!@ (from_voidp Open.t buf))
+      | FUSE_READDIR     -> Readdir    (!@ (from_voidp Read.t buf))
+      | FUSE_RELEASEDIR  -> Releasedir
+      | FUSE_FSYNCDIR    -> Fsyncdir
+      | FUSE_RMDIR       -> Rmdir
+      | FUSE_MKDIR       -> Mkdir      (!@ (from_voidp Entry.t buf))
+      | FUSE_GETXATTR    -> Getxattr
+      | FUSE_SETXATTR    -> Setxattr
+      | FUSE_LISTXATTR   -> Listxattr
+      | FUSE_REMOVEXATTR -> Removexattr
+      | FUSE_ACCESS      -> Access
+      | FUSE_FORGET      -> Forget
+      | FUSE_READLINK    -> Readlink   (!@ (from_voidp Readlink.t buf))
+      | FUSE_OPEN        -> Open       (!@ (from_voidp Open.t buf))
+      | FUSE_READ        -> Read       (!@ (from_voidp Read.t buf))
+      | FUSE_WRITE       -> Write      (!@ (from_voidp Write.t buf))
+      | FUSE_STATFS      -> Statfs
+      | FUSE_FLUSH       -> Flush
+      | FUSE_RELEASE     -> Release
+      | FUSE_FSYNC       -> Fsync
+      | FUSE_UNLINK      -> Unlink
+      | FUSE_CREATE      -> Create     (!@ (from_voidp Create.t buf))
+      | FUSE_MKNOD       -> Mknod      (!@ (from_voidp Entry.t buf))
+      | FUSE_SETATTR     -> Setattr    (!@ (from_voidp Attr.t buf))
+      | FUSE_LINK        -> Link       (!@ (from_voidp Entry.t buf))
+      | FUSE_SYMLINK     -> Symlink    (!@ (from_voidp Entry.t buf))
+      | FUSE_RENAME      -> Rename     (!@ (from_voidp Entry.t buf))
+      | FUSE_GETLK       -> Getlk
+      | FUSE_SETLK       -> Setlk
+      | FUSE_SETLKW      -> Setlkw
+      | FUSE_INTERRUPT   -> Interrupt
+      | FUSE_BMAP        -> Bmap
+      | FUSE_DESTROY     -> Destroy
+      | FUSE_IOCTL
+      | FUSE_POLL
+      | FUSE_NOTIFY_REPLY
+      | FUSE_BATCH_FORGET
+      | FUSE_FALLOCATE
+      | FUSE_SETVOLNAME
+      | FUSE_GETXTIMES
+      | FUSE_EXCHANGE    -> Other opcode
+      )})
+    with Opcode.Unknown opcode ->
+      Fuse.({chan; hdr; pkt=(Unknown (opcode, len, buf))})
+
+  let deserialize req = deserialize ~parse req
 end
 
 module Osx_7_8 : OSX_7_8 = struct
   include Out_common
   include Out_osx_7_8
+  include Io
+
+  include Osx_7_8_wire
+
+  let parse ({Fuse.chan} as req) hdr len buf = (* TODO: test Opcode.Unknown *)
+    try
+      let opcode = In_common.Hdr.(getf req.hdr opcode) in
+      Fuse.({chan; hdr; pkt=Opcode.(match opcode with
+      | FUSE_INIT        -> Init       (!@ (from_voidp Init.t buf))
+      | FUSE_GETATTR     -> Getattr    (!@ (from_voidp Attr.t buf))
+      | FUSE_LOOKUP      -> Lookup     (!@ (from_voidp Entry.t buf))
+      | FUSE_OPENDIR     -> Opendir    (!@ (from_voidp Open.t buf))
+      | FUSE_READDIR     -> Readdir    (!@ (from_voidp Read.t buf))
+      | FUSE_RELEASEDIR  -> Releasedir
+      | FUSE_FSYNCDIR    -> Fsyncdir
+      | FUSE_RMDIR       -> Rmdir
+      | FUSE_MKDIR       -> Mkdir      (!@ (from_voidp Entry.t buf))
+      | FUSE_GETXATTR    -> Getxattr
+      | FUSE_SETXATTR    -> Setxattr
+      | FUSE_LISTXATTR   -> Listxattr
+      | FUSE_REMOVEXATTR -> Removexattr
+      | FUSE_ACCESS      -> Access
+      | FUSE_FORGET      -> Forget
+      | FUSE_READLINK    -> Readlink   (!@ (from_voidp Readlink.t buf))
+      | FUSE_OPEN        -> Open       (!@ (from_voidp Open.t buf))
+      | FUSE_READ        -> Read       (!@ (from_voidp Read.t buf))
+      | FUSE_WRITE       -> Write      (!@ (from_voidp Write.t buf))
+      | FUSE_STATFS      -> Statfs
+      | FUSE_FLUSH       -> Flush
+      | FUSE_RELEASE     -> Release
+      | FUSE_FSYNC       -> Fsync
+      | FUSE_UNLINK      -> Unlink
+      | FUSE_CREATE      -> Create     (!@ (from_voidp Create.t buf))
+      | FUSE_MKNOD       -> Mknod      (!@ (from_voidp Entry.t buf))
+      | FUSE_SETATTR     -> Setattr    (!@ (from_voidp Attr.t buf))
+      | FUSE_LINK        -> Link       (!@ (from_voidp Entry.t buf))
+      | FUSE_SYMLINK     -> Symlink    (!@ (from_voidp Entry.t buf))
+      | FUSE_RENAME      -> Rename     (!@ (from_voidp Entry.t buf))
+      | FUSE_GETLK       -> Getlk
+      | FUSE_SETLK       -> Setlk
+      | FUSE_SETLKW      -> Setlkw
+      | FUSE_INTERRUPT   -> Interrupt
+      | FUSE_BMAP        -> Bmap
+      | FUSE_DESTROY     -> Destroy
+      | FUSE_IOCTL
+      | FUSE_POLL
+      | FUSE_NOTIFY_REPLY
+      | FUSE_BATCH_FORGET
+      | FUSE_FALLOCATE
+      | FUSE_SETVOLNAME
+      | FUSE_GETXTIMES
+      | FUSE_EXCHANGE    -> Other opcode
+      )})
+    with Opcode.Unknown opcode ->
+      Fuse.({chan; hdr; pkt=(Unknown (opcode, len, buf))})
+
+  let deserialize req = deserialize ~parse req
 end
 
-module Linux_7_8_of_osx_7_8 : LINUX_7_8 = struct
+module Linux_7_8_of_osx_7_8 : LINUX_7_8_OVER_OSX_7_8  = struct
   include Out_common
+  include Io
+
+  type t = Osx_7_8.t
+
+  let parse = Osx_7_8.parse
+  let deserialize req = deserialize ~parse req
 
   module Struct = Struct.Linux_7_8
 
@@ -106,8 +432,14 @@ module Linux_7_8_of_osx_7_8 : LINUX_7_8 = struct
   end
 end
 
-module Osx_7_8_of_linux_7_8 : OSX_7_8 = struct
+module Osx_7_8_of_linux_7_8 : OSX_7_8_OVER_LINUX_7_8 = struct
   include Out_common
+  include Io
+
+  type t = Linux_7_8.t
+
+  let parse = Linux_7_8.parse
+  let deserialize req = deserialize ~parse req
 
   module Struct = Struct.Osx_7_8
 

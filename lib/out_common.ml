@@ -52,6 +52,8 @@ module Hdr = struct
     CArray.from_ptr (CArray.start pkt) sz
 end
 
+type 'b reply = (Hdr.t,'b) Fuse.packet
+
 (* TODO: t doesn't define a struct with a packet header but rather
    a list element *)
 module Dirent = struct
@@ -203,31 +205,3 @@ module Init = struct
     setf pkt max_write_     max_write;
     CArray.from_ptr (coerce (ptr t) (ptr char) (addr pkt)) (sizeof t)
 end
-
-let write_reply req arrfn =
-  let arr = arrfn req in
-  let ptr = CArray.start arr -@ sizeof Hdr.t in
-  let sz = CArray.length arr + sizeof Hdr.t in
-  let len = Fuse.(
-    try
-      Unix_unistd.write req.chan.fd (to_voidp ptr) sz
-    with Unix.Unix_error(err,fn,param) ->
-      raise (ProtocolError
-               (req.chan,
-                (Printf.sprintf "Unix Error on %s(%S): %s" fn param
-                   (Unix.error_message err))))
-  )
-  in
-  if sz <> len
-  then raise Fuse.(
-    ProtocolError
-      (req.chan,
-       (Printf.sprintf "Tried to write %d but only wrote %d" sz len)))
-
-(** Can raise Fs.UnknownErrno (TODO: ?) *)
-let write_error req err =
-  let nerrno = match Unix_errno.(to_code ~host err) with
-    | Some errno -> Int32.of_int (-errno)
-    | None -> raise (Fuse.UnknownErrno err)
-  in
-  write_reply req (Hdr.packet ~nerrno ~count:0)

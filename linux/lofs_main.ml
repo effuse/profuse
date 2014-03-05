@@ -21,13 +21,14 @@ let mnt =
   else (Printf.eprintf "%s: missing mountpoint argument\n%!" Sys.argv.(0);
         exit 1)
 
-module Server = Profuse.Server(Lofs.Linux_7_8)
+module Server = Profuse.Server(Lofs)
+module Linux_fs = Lofs.Linux_7_8(Server.Trace_out)
 
 ;;
 
 try
   let state = Lofs.({ root = Unix.getcwd () }) in
-  let {Fuse.chan}, state = Profuse.mount
+  let {Fuse.chan}, state = Linux_fs.mount
     (Array.sub Sys.argv 0 (Array.length Sys.argv - 1)) mnt state in
   Sys.(set_signal sigint (Signal_handle (fun _ -> Profuse.unmount chan)));
   let serve = Server.trace chan in

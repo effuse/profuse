@@ -27,10 +27,10 @@ type chan = {
   flags : flags;
 }
 
-type 'a request = {
+type ('hdr, 'body) packet = {
   chan : chan;
-  hdr  : In_common.Hdr.t Ctypes.structure;
-  pkt  : 'a;
+  hdr  : 'hdr Ctypes.structure;
+  pkt  : 'body;
 }
 
 exception UnknownErrno of Unix.error
@@ -46,5 +46,8 @@ module type HOST = sig
   val host : host
   module In : sig
       
+  end
+  module Out : sig
+
   end
 end

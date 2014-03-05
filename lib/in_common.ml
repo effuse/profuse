@@ -82,6 +82,8 @@ module Hdr = struct
     !@ (coerce (ptr char) (ptr st) (CArray.start pkt))
 end
 
+type 'a request = (Hdr.t,'a) Fuse.packet
+
 module Init = struct
   type t
   let t : t structure typ = structure "In_Init"

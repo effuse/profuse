@@ -24,14 +24,11 @@ open Unsigned
 open View
 
 module In   = In.Linux_7_8
-module Out  = Out.Linux_7_8
-type req = In.t Fuse.request
+type req = In.t In_common.request
 type 'a fs_fn = req -> 'a -> 'a
 
 module type RO_SIMPLE = sig
   type t
-
-  val string_of_nodeid : uint64 -> t -> string
 
   val getattr    : t fs_fn
   val opendir    : In.Open.t structure -> t fs_fn
@@ -86,8 +83,27 @@ module type RW_FULL = sig
   val setlkw      : In.Lk.t structure -> t fs_fn (* TODO: RO? *)
 end
 
-module type SERVER = functor (Fs : RW_FULL) -> sig
-  val string_of_request : In.t Fuse.request -> Fs.t -> string
+module type FULL = sig
+  include RW_FULL
+  val mount : argv:string array -> mnt:string -> t -> req * t
+end
+
+module type FS = sig
+  type t
+
+  val string_of_nodeid : uint64 -> t -> string
+  val string_of_state  : req -> t -> string
+
+  module Linux_7_8 : functor (Out : Out.LINUX_7_8) -> FULL with type t = t
+end
+
+module type SERVER = functor (Fs : FS) -> sig
+  module Serve_out : Out.LINUX_7_8
+  module Trace_out : Out.LINUX_7_8
+
+  val string_of_request : req -> Fs.t -> string
+  val string_of_reply   : req -> char carray -> string
+
   val serve : Fuse.chan -> Fs.t -> Fs.t
   val trace : Fuse.chan -> string -> Fs.t -> Fs.t
 end
@@ -127,61 +143,63 @@ let check_status cmd = function
    Can raise Fuse.ExecError, Fuse.ProtocolError
    If this fails, you should be sure to unmount the mountpoint.
 *)
-let mount argv mnt st =
-  let max_write = 1 lsl 16 in
+module Linux_7_8(Out : Out.LINUX_7_8) = struct
+  let mount ~argv ~mnt st =
+    let max_write = 1 lsl 16 in
 
-  let argv = Caml.Array.append argv [|mnt|] in
+    let argv = Caml.Array.append argv [|mnt|] in
 
-  let wsock, rsock = Unix.(socketpair PF_UNIX SOCK_STREAM 0) in
-  let wfd = Fd_send_recv.int_of_fd wsock in
-  let pid = Unix.(create_process_env fusermount argv
-                    [|"_FUSE_COMMFD="^(string_of_int wfd)|]
-                    stdin stdout stderr) in
+    let wsock, rsock = Unix.(socketpair PF_UNIX SOCK_STREAM 0) in
+    let wfd = Fd_send_recv.int_of_fd wsock in
+    let pid = Unix.(create_process_env fusermount argv
+                      [|"_FUSE_COMMFD="^(string_of_int wfd)|]
+                      stdin stdout stderr) in
 
-  let _, status = Unix.waitpid [] pid in
-  let () = Unix.(shutdown wsock SHUTDOWN_ALL) in
-  check_status fusermount status;
+    let _, status = Unix.waitpid [] pid in
+    let () = Unix.(shutdown wsock SHUTDOWN_ALL) in
+    check_status fusermount status;
 
-  (* We must read at least 1 byte, by POSIX! *)
-  let _, _, fd = Fd_send_recv.recv_fd rsock "\000" 0 1 [] in
+    (* We must read at least 1 byte, by POSIX! *)
+    let _, _, fd = Fd_send_recv.recv_fd rsock "\000" 0 1 [] in
 
-  let () = Unix.(shutdown rsock SHUTDOWN_ALL) in
+    let () = Unix.(shutdown rsock SHUTDOWN_ALL) in
 
-  let init_fs = Fuse.({
-    mnt; fd; unique=UInt64.zero; version=(0,0);
-    max_readahead=0; max_write; flags=no_flags;
-  }) in
-  let req = In.read init_fs () in
-
-  In.(match req with
-  | { Fuse.pkt=Init pkt } ->
-    let major = getf pkt Init.major in
-    if major <> 7 then raise
-      (Fuse.ProtocolError
-         (init_fs, Printf.sprintf
-            "Incompatible FUSE protocol major version %d <> 7" major));
-    let minor = getf pkt Init.minor in
-    if minor < 8 then raise
-      (Fuse.ProtocolError
-         (init_fs, Printf.sprintf
-            "Incompatible FUSE protocol minor version %d < 8" minor));
-    let minor = min minor 8 in (* TODO: track kernel minor *)
-    let max_readahead = getf pkt Init.max_readahead in
-    let max_readahead = max max_readahead 65536 in (* TODO: ? *)
-    let flags = getf pkt Init.flags in (* TODO: ? *)
-    let pkt = Out.Init.create ~major ~minor ~max_readahead
-      ~flags:(UInt32.of_int 0) ~max_write in
-    let fs = Fuse.({
-      mnt; fd; unique=init_fs.unique; version = (major, minor);
-      max_readahead; max_write; flags = 0l;
+    let init_fs = Fuse.({
+      mnt; fd; unique=UInt64.zero; version=(0,0);
+      max_readahead=0; max_write; flags=no_flags;
     }) in
-    Out.write_reply req pkt;
-    req, st
-  | { Fuse.hdr } -> raise
-    (Fuse.ProtocolError
-       (init_fs, Printf.sprintf "Unexpected opcode %s <> FUSE_INIT"
-          (Opcode.to_string (getf hdr Hdr.opcode))))
-  )
+    let req = In.read init_fs () in
+
+    In.(match req with
+    | { Fuse.pkt=Init pkt } ->
+      let major = getf pkt Init.major in
+      if major <> 7 then raise
+        (Fuse.ProtocolError
+           (init_fs, Printf.sprintf
+             "Incompatible FUSE protocol major version %d <> 7" major));
+      let minor = getf pkt Init.minor in
+      if minor < 8 then raise
+        (Fuse.ProtocolError
+           (init_fs, Printf.sprintf
+             "Incompatible FUSE protocol minor version %d < 8" minor));
+      let minor = min minor 8 in (* TODO: track kernel minor *)
+      let max_readahead = getf pkt Init.max_readahead in
+      let max_readahead = max max_readahead 65536 in (* TODO: ? *)
+      let flags = getf pkt Init.flags in (* TODO: ? *)
+      let pkt = Out.Init.create ~major ~minor ~max_readahead
+        ~flags:(UInt32.of_int 0) ~max_write in
+      let fs = Fuse.({
+        mnt; fd; unique=init_fs.unique; version = (major, minor);
+        max_readahead; max_write; flags = 0l;
+      }) in
+      Out.write_reply req pkt;
+      req, st
+    | { Fuse.hdr } -> raise
+      (Fuse.ProtocolError
+         (init_fs, Printf.sprintf "Unexpected opcode %s <> FUSE_INIT"
+           (Opcode.to_string (getf hdr Hdr.opcode))))
+    )
+end
 
 let exec_unmount_path args mnt =
   let cmd = Printf.sprintf "%s %s %s" fusermount args mnt in
@@ -205,7 +223,62 @@ let detach fs = Fuse.(
   detach_path fs.mnt
 )
 
-module Server : SERVER = functor (Fs : RW_FULL) -> struct
+module Server : SERVER = functor (Fs : FS) -> struct
+
+  module Handler(Out : Out.LINUX_7_8) = struct
+    module Fs = Fs.Linux_7_8(Out)
+
+    let dispatch req t =
+      try (match req.Fuse.pkt with
+      | In.Init _ -> raise (Fuse.ProtocolError (req.Fuse.chan,"INIT after mount"))
+      | In.Getattr -> Fs.getattr req t
+      | In.Opendir op -> Fs.opendir op req t
+      | In.Forget f -> Fs.forget In.(Ctypes.getf f Forget.nlookup) req t
+      | In.Lookup name -> Fs.lookup name req t
+      | In.Readdir r -> Fs.readdir r req t
+      | In.Readlink -> Fs.readlink req t
+      | In.Releasedir r -> Fs.releasedir r req t
+      | In.Open op -> Fs.open_ op req t
+      | In.Read r -> Fs.read r req t
+      | In.Flush f -> Fs.flush f req t
+      | In.Release r -> Fs.release r req t
+      | In.Symlink (name,target) -> Fs.symlink name target req t
+      | In.Rename (r,src,dest) -> Fs.rename r src dest req t
+      | In.Unlink name -> Fs.unlink name req t
+      | In.Rmdir name -> Fs.rmdir name req t
+      | In.Statfs -> Fs.statfs req t
+      | In.Fsync f -> Fs.fsync f req t
+      | In.Write w -> Fs.write w req t
+      | In.Link (l,name) -> Fs.link l name req t
+      | In.Getxattr g -> Fs.getxattr g req t
+      | In.Setxattr s -> Fs.setxattr s req t
+      | In.Listxattr g -> Fs.listxattr g req t
+      | In.Removexattr name -> Fs.removexattr name req t
+      | In.Access a -> Fs.access a req t
+      | In.Create (c,name) -> Fs.create c name req t
+      | In.Mknod (m,name) -> Fs.mknod m name req t
+      | In.Mkdir (m,name) -> Fs.mkdir m name req t
+      | In.Fsyncdir f -> Fs.fsyncdir f req t
+      | In.Getlk lk  -> Fs.getlk  lk req t
+      | In.Setlk lk  -> Fs.setlk  lk req t
+      | In.Setlkw lk -> Fs.setlkw lk req t
+      | In.Interrupt i -> Fs.interrupt i req t
+      | In.Bmap b -> Fs.bmap b req t
+      | In.Destroy -> Fs.destroy req t; raise (Fuse.Destroy 0)
+      | In.Setattr s -> Fs.setattr s req t
+      | In.Other _ | In.Unknown _ -> Out.write_error req Unix.ENOSYS; t
+      ) with
+      | Unix.Unix_error(e,_,_) -> Out.write_error req e; t
+      | exn -> Out.write_error req Unix.EIO; raise exn
+  end
+
+  module Serve_out = Out.Linux_7_8
+
+  let serve chan =
+    let read = In.read chan in
+    let module H = Handler(Serve_out) in
+    fun t -> H.dispatch (read ()) t
+
   let string_of_request req t =
     let open Ctypes in
     let open In in
@@ -215,10 +288,11 @@ module Server : SERVER = functor (Fs : RW_FULL) -> struct
       (Unsigned.UInt64.to_int64 (getf req.Fuse.hdr Hdr.unique))
       (Fs.string_of_nodeid (getf req.Fuse.hdr Hdr.nodeid) t)
       (match req.Fuse.pkt with
-      | Init i -> Printf.sprintf "major=%d minor=%d max_readahead=%d flags=0x%lX"
-        (getf i Init.major) (getf i Init.minor)
-        (getf i Init.max_readahead)
-        (Unsigned.UInt32.to_int32 (getf i Init.flags))
+      | Init i ->
+        Printf.sprintf "major=%d minor=%d max_readahead=%d flags=0x%lX"
+          (getf i Init.major) (getf i Init.minor)
+          (getf i Init.max_readahead)
+          (Unsigned.UInt32.to_int32 (getf i Init.flags))
       | Getattr | Readlink | Destroy -> ""
       | Symlink (name,target) -> name ^ " -> " ^ target
       | Forget f -> string_of_int (getf f Forget.nlookup)
@@ -235,60 +309,35 @@ module Server : SERVER = functor (Fs : RW_FULL) -> struct
       | _ -> "FIX ME"
       )
 
-  let dispatch req t =
-    try (match req.Fuse.pkt with
-    | In.Init _ -> raise (Fuse.ProtocolError (req.Fuse.chan,"INIT after mount"))
-    | In.Getattr -> Fs.getattr req t
-    | In.Opendir op -> Fs.opendir op req t
-    | In.Forget f -> Fs.forget In.(Ctypes.getf f Forget.nlookup) req t
-    | In.Lookup name -> Fs.lookup name req t
-    | In.Readdir r -> Fs.readdir r req t
-    | In.Readlink -> Fs.readlink req t
-    | In.Releasedir r -> Fs.releasedir r req t
-    | In.Open op -> Fs.open_ op req t
-    | In.Read r -> Fs.read r req t
-    | In.Flush f -> Fs.flush f req t
-    | In.Release r -> Fs.release r req t
-    | In.Symlink (name,target) -> Fs.symlink name target req t
-    | In.Rename (r,src,dest) -> Fs.rename r src dest req t
-    | In.Unlink name -> Fs.unlink name req t
-    | In.Rmdir name -> Fs.rmdir name req t
-    | In.Statfs -> Fs.statfs req t
-    | In.Fsync f -> Fs.fsync f req t
-    | In.Write w -> Fs.write w req t
-    | In.Link (l,name) -> Fs.link l name req t
-    | In.Getxattr g -> Fs.getxattr g req t
-    | In.Setxattr s -> Fs.setxattr s req t
-    | In.Listxattr g -> Fs.listxattr g req t
-    | In.Removexattr name -> Fs.removexattr name req t
-    | In.Access a -> Fs.access a req t
-    | In.Create (c,name) -> Fs.create c name req t
-    | In.Mknod (m,name) -> Fs.mknod m name req t
-    | In.Mkdir (m,name) -> Fs.mkdir m name req t
-    | In.Fsyncdir f -> Fs.fsyncdir f req t
-    | In.Getlk lk  -> Fs.getlk  lk req t
-    | In.Setlk lk  -> Fs.setlk  lk req t
-    | In.Setlkw lk -> Fs.setlkw lk req t
-    | In.Interrupt i -> Fs.interrupt i req t
-    | In.Bmap b -> Fs.bmap b req t
-    | In.Destroy -> Fs.destroy req t; raise (Fuse.Destroy 0)
-    | In.Setattr s -> Fs.setattr s req t
-    | In.Other _ | In.Unknown _ -> Out.write_error req Unix.ENOSYS; t
-    ) with Unix.Unix_error(e,_,_) -> Out.write_error req e; t
-    | exn -> Out.write_error req Unix.EIO; raise exn
+  let string_of_reply req arr =
+    "FIXME"
 
-  let serve chan =
-    let read = In.read chan in
-    fun t -> dispatch (read ()) t
+  module Trace_out = struct
+    include Out.Linux_7_8
+
+    let write_reply req arrfn =
+      let arr = arrfn req in
+      Printf.eprintf "    returning %s from %Ld\n%!"
+        (string_of_reply req arr)
+        (Unsigned.UInt64.to_int64 (Ctypes.getf req.Fuse.hdr In.Hdr.unique));
+      write_reply_raw req arr
+
+    let write_error req err =
+      Printf.eprintf "    returning err %s from %Ld\n%!"
+        (Unix_errno.to_string err)
+        (Unsigned.UInt64.to_int64 (Ctypes.getf req.Fuse.hdr In.Hdr.unique));
+      write_error req err
+
+  end
 
   let trace chan =
     let read = In.read chan in
+    let module H = Handler(Trace_out) in
     fun tag t ->
       let req = read () in
       (* can raise Opcode.Unknown?? *)
       Printf.eprintf "    %s %s\n%!" tag (string_of_request req t);
-      let t = dispatch req t in
-      Printf.eprintf "    returning from %Ld\n%!"
-        (Unsigned.UInt64.to_int64 (Ctypes.getf req.Fuse.hdr In.Hdr.unique));
+      let t = H.dispatch req t in
+      Printf.eprintf "    %s\n%!" (Fs.string_of_state req t);
       t
 end

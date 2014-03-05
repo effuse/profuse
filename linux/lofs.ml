@@ -16,123 +16,131 @@
  *)
 
 module Stat = Unix_sys_stat
+
 module In = In.Linux_7_8
-module Out = Out.Linux_7_8
 
 let to_mode_t = PosixTypes.(Ctypes.(Unsigned.(coerce uint32_t mode_t)))
 let to_dev_t  = PosixTypes.(Ctypes.(Unsigned.(coerce uint64_t dev_t)))
 
 type state = { root : string }
+type t = state
 
 (* TODO: set umask *)
 
-module Linux_7_8 : Profuse.RW_FULL with type t = state = struct
+type fh =
+| Dir of string * Unix.dir_handle * int
+| File of string * Unix.file_descr * Stat.File_kind.t Lazy.t
+
+let fh_table = Hashtbl.create 256
+let fh_free = ref []
+let fh_max = ref 0L
+let alloc_fh () =
+  match !fh_free with
+  | h::r -> fh_free := r; h
+  | [] -> let fh = !fh_max in fh_max := Int64.add fh 1L; fh
+let set_fh = Hashtbl.replace fh_table
+let free_fh fh =
+  (try
+     begin match Hashtbl.find fh_table fh with
+     | Dir (_,dir,_) -> Unix.closedir dir
+     | File (_,fd,_) -> Unix.close fd
+     end;
+     Hashtbl.remove fh_table fh
+   with Not_found -> ()); (* alloc'd but not set *)
+  fh_free := fh::!fh_free
+
+let get_fd fh =
+  try Hashtbl.find fh_table fh
+  with Not_found -> raise Unix.(Unix_error (EBADF,"",""))
+
+let get_dir_fd fh f = match get_fd fh with
+  | Dir (path, dir, off) -> f path dir off
+  | File (_,_,_) -> raise Unix.(Unix_error (ENOTDIR,"",""))
+let get_file_fd fh f = match get_fd fh with
+  | File (path, fd, kind) -> f path fd kind
+  | Dir (_,_,_) -> raise Unix.(Unix_error (EISDIR,"",""))
+
+type nodeid = int64
+type node = {
+  parent   : nodeid;
+  gen      : int64;
+  id       : nodeid;
+  name     : string;
+  path     : string;
+  children : (string,nodeid) Hashtbl.t;
+  lookups  : int;
+}
+
+let node_table = Hashtbl.create 256
+let node_free = ref []
+let node_max = ref 0L
+
+let get_node st nodeid =
+  let id = Unsigned.UInt64.to_int64 nodeid in
+  if id=1L then {
+    parent = 1L;
+    gen = 0L;
+    id = 1L;
+    name = "";
+    path = st.root;
+    children = Hashtbl.create 32;
+    lookups = 0;
+  } else Hashtbl.find node_table id
+
+let string_of_nodeid nodeid st =
+  let id = Unsigned.UInt64.to_int64 nodeid in
+  if id = Int64.zero (* TODO: should be in get_node for FUSE_INIT? *)
+  then "id=0"
+  else (get_node st nodeid).path
+
+let string_of_state req st =
+  Printf.sprintf "Hashtbl.length node_table = %d" (Hashtbl.length node_table)
+
+let alloc_nodeid () =
+  match !node_free with
+  | genid::r -> node_free := r; genid
+  | [] -> let nodeid = !node_max in
+          node_max := Int64.add nodeid 1L;
+          (0L, nodeid)
+
+let lookup_node parent name =
+  try
+    let nodeid = Hashtbl.find parent.children name in
+    try
+      let node = Hashtbl.find node_table nodeid in
+      Hashtbl.replace node_table nodeid { node with lookups = node.lookups + 1 };
+      node
+    with Not_found -> (* TODO: log consistency error *) raise Not_found
+  with Not_found ->
+    let path = Filename.concat parent.path name in
+    let (gen,id) = alloc_nodeid () in
+    let node = {
+      parent=parent.id;
+      gen; id; name; path;
+      children=Hashtbl.create 8;
+      lookups=1;
+    } in
+    Hashtbl.replace parent.children name id;
+    Hashtbl.replace node_table id node;
+    node
+
+let forget_node node =
+  let parent = Hashtbl.find node_table node.parent in
+  Hashtbl.remove parent.children node.name;
+  Hashtbl.remove node_table node.id;
+  node_free := (Int64.add node.gen 1L, node.id)::!node_free
+
+let uint64_of_int64 = Unsigned.UInt64.of_int64
+let uint32_of_uint64 x = Unsigned.(UInt32.of_int (UInt64.to_int x))
+
+module Linux_7_8(Out : Out.LINUX_7_8) : Profuse.FULL with type t = state =
+struct
   type t = state
 
-  type fh =
-  | Dir of string * Unix.dir_handle * int
-  | File of string * Unix.file_descr * Stat.File_kind.t Lazy.t
-
-  let fh_table = Hashtbl.create 256
-  let fh_free = ref []
-  let fh_max = ref 0L
-  let alloc_fh () =
-    match !fh_free with
-    | h::r -> fh_free := r; h
-    | [] -> let fh = !fh_max in fh_max := Int64.add fh 1L; fh
-  let set_fh = Hashtbl.replace fh_table
-  let free_fh fh =
-    (try
-       begin match Hashtbl.find fh_table fh with
-       | Dir (_,dir,_) -> Unix.closedir dir
-       | File (_,fd,_) -> Unix.close fd
-       end;
-       Hashtbl.remove fh_table fh
-     with Not_found -> ()); (* alloc'd but not set *)
-    fh_free := fh::!fh_free
-
-  let get_fd fh =
-    try Hashtbl.find fh_table fh
-    with Not_found -> raise Unix.(Unix_error (EBADF,"",""))
-
-  let get_dir_fd fh f = match get_fd fh with
-    | Dir (path, dir, off) -> f path dir off
-    | File (_,_,_) -> raise Unix.(Unix_error (ENOTDIR,"",""))
-  let get_file_fd fh f = match get_fd fh with
-    | File (path, fd, kind) -> f path fd kind
-    | Dir (_,_,_) -> raise Unix.(Unix_error (EISDIR,"",""))
-
-  type nodeid = int64
-  type node = {
-    parent   : nodeid;
-    gen      : int64;
-    id       : nodeid;
-    name     : string;
-    path     : string;
-    children : (string,nodeid) Hashtbl.t;
-    lookups  : int;
-  }
-
-  let node_table = Hashtbl.create 256
-  let node_free = ref []
-  let node_max = ref 0L
+  module Support = Profuse.Linux_7_8(Out)
+  include Support (* mount *)
 
   let nodeid req = In.(Ctypes.getf req.Fuse.hdr Hdr.nodeid)
-
-  let get_node st nodeid =
-    let id = Unsigned.UInt64.to_int64 nodeid in
-    if id=1L then {
-      parent = 1L;
-      gen = 0L;
-      id = 1L;
-      name = "";
-      path = st.root;
-      children = Hashtbl.create 32;
-      lookups = 0;
-    } else Hashtbl.find node_table id
-
-  let string_of_nodeid nodeid st =
-    let id = Unsigned.UInt64.to_int64 nodeid in
-    if id = Int64.zero (* TODO: should be in get_node for FUSE_INIT? *)
-    then "id=0"
-    else (get_node st nodeid).path
-
-  let alloc_nodeid () =
-    match !node_free with
-    | genid::r -> node_free := r; genid
-    | [] -> let nodeid = !node_max in
-            node_max := Int64.add nodeid 1L;
-            (0L, nodeid)
-
-  let lookup_node parent name =
-    try
-      let nodeid = Hashtbl.find parent.children name in
-      try
-        let node = Hashtbl.find node_table nodeid in
-      Hashtbl.replace node_table nodeid { node with lookups = node.lookups + 1 };
-        node
-      with Not_found -> (* TODO: log consistency error *) raise Not_found
-    with Not_found ->
-      let path = Filename.concat parent.path name in
-      let (gen,id) = alloc_nodeid () in
-      let node = {
-        parent=parent.id;
-        gen; id; name; path;
-        children=Hashtbl.create 8;
-        lookups=1;
-      } in
-      Hashtbl.replace parent.children name id;
-      Hashtbl.replace node_table id node;
-      node
-
-  let forget_node node =
-    let parent = Hashtbl.find node_table node.parent in
-    Hashtbl.remove parent.children node.name;
-    Hashtbl.remove node_table node.id;
-    node_free := (Int64.add node.gen 1L, node.id)::!node_free
-
-  let uint64_of_int64 = Unsigned.UInt64.of_int64
-  let uint32_of_uint64 x = Unsigned.(UInt32.of_int (UInt64.to_int x))
 
   let store_attr_of_path path = Stat.(Stat.(
     let s = lstat path in
