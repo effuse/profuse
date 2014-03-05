@@ -77,15 +77,21 @@ let node_max = ref 2L (* 0 is the FS, 1 is the root *)
 
 let get_node st nodeid =
   let id = Unsigned.UInt64.to_int64 nodeid in
-  if id=1L then {
-    parent = 1L;
-    gen = 0L;
-    id = 1L;
-    name = "";
-    path = st.root;
-    children = Hashtbl.create 32;
-    lookups = 0;
-  } else Hashtbl.find node_table id
+  try Hashtbl.find node_table id
+  with Not_found ->
+    if id=1L then
+      let node = {
+        parent = 1L;
+        gen = 0L;
+        id = 1L;
+        name = "";
+        path = st.root;
+        children = Hashtbl.create 32;
+        lookups = 0;
+      } in
+      Hashtbl.replace node_table id node;
+      node
+    else raise Not_found
 
 let string_of_nodeid nodeid st =
   let id = Unsigned.UInt64.to_int64 nodeid in
