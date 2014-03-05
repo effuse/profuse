@@ -91,7 +91,8 @@ let string_of_nodeid nodeid st =
   let id = Unsigned.UInt64.to_int64 nodeid in
   if id = Int64.zero (* TODO: should be in get_node for FUSE_INIT? *)
   then "id=0"
-  else (get_node st nodeid).path
+  else let {gen; id; path} = get_node st nodeid in
+       Printf.sprintf "%Ld.%Ld.%s" gen id path
 
 let string_of_state req st =
   Printf.sprintf "Hashtbl.length node_table = %d" (Hashtbl.length node_table)
@@ -103,14 +104,19 @@ let alloc_nodeid () =
           node_max := Int64.add nodeid 1L;
           (0L, nodeid)
 
-let lookup_node parent name =
+let lookup_node parent name st =
   try
     let nodeid = Hashtbl.find parent.children name in
     try
       let node = Hashtbl.find node_table nodeid in
       Hashtbl.replace node_table nodeid { node with lookups = node.lookups + 1 };
       node
-    with Not_found -> (* TODO: log consistency error *) raise Not_found
+    with Not_found ->
+      raise (Failure
+               (Printf.sprintf "parent %s has %s but node_table does not"
+                  (string_of_nodeid (Unsigned.UInt64.of_int64 parent.id) st)
+                  name
+               ))
   with Not_found ->
     let path = Filename.concat parent.path name in
     let (gen,id) = alloc_nodeid () in
@@ -227,7 +233,7 @@ struct
   let lookup name req st =
     let pnode = get_node st (nodeid req) in
     try
-      let node = lookup_node pnode name in
+      let node = lookup_node pnode name st in
       respond_with_entry node req;
       st
     with Not_found ->
@@ -339,7 +345,8 @@ struct
     (* errors caught by our caller *)
     Unix.rename (Filename.concat path src) (Filename.concat newdir.path dest);
     try
-      let node = lookup_node newdir dest in (* TODO: still increment lookups? *)
+      (* TODO: still increment lookups? *)
+      let node = lookup_node newdir dest st in
       respond_with_entry node req;
       st
     with Not_found ->
@@ -442,7 +449,7 @@ struct
       set_fh fh (File (path, file, Lazy.from_fun kind));
       write_reply req
         (Create.create
-           ~store_entry:(store_entry (lookup_node pnode name))
+           ~store_entry:(store_entry (lookup_node pnode name st))
            ~store_open:(Open.store ~fh ~open_flags:0l));(* TODO: flags *)
       st
     with Not_found ->
@@ -469,7 +476,7 @@ struct
         (to_dev_t (Unsigned.UInt64.of_int64
                      (Int64.of_int32
                         (Unsigned.UInt32.to_int32 rdev))));
-      let node = lookup_node pnode name in
+      let node = lookup_node pnode name st in
       respond_with_entry node req;
       st
     with Not_found ->
@@ -484,7 +491,7 @@ struct
     let path = Filename.concat path name in
     try
       Unix.mkdir path (Unsigned.UInt32.to_int mode);
-      let node = lookup_node pnode name in
+      let node = lookup_node pnode name st in
       respond_with_entry node req;
       st
     with Not_found ->
