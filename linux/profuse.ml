@@ -313,10 +313,12 @@ module Server : SERVER = functor (Fs : FS) -> struct
 
     let write_reply req arrfn =
       let arr = arrfn req in
+      let sz  = CArray.length arr + Hdr.hdrsz in
+      let ptr = CArray.start arr -@ Hdr.hdrsz in
       Printf.eprintf "    returning %s from %Ld\n%!"
-        (describe_reply (deserialize req arr))
+        (describe_reply (deserialize req sz ptr))
         (Unsigned.UInt64.to_int64 (Ctypes.getf req.Fuse.hdr In.Hdr.unique));
-      write_reply_raw req arr
+      write_reply_raw req sz ptr
 
     let write_error req err =
       Printf.eprintf "    returning err %s from %Ld\n%!"

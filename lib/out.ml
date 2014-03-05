@@ -27,18 +27,18 @@ type hdr = Out_common.Hdr.t
 module type GEN_READ = sig
   val deserialize :
     parse:('a request -> hdr structure -> int -> unit ptr -> 'b reply) ->
-    'a request -> char carray -> 'b reply
+    'a request -> int -> char ptr -> 'b reply
 end
 
 module type READ = sig
   type t
 
-  val deserialize : 'a request -> char carray -> t reply
+  val deserialize : 'a request -> int -> char ptr -> t reply
   val describe_reply : t reply -> string
 end
 
 module type WRITE = sig
-  val write_reply_raw : _ request -> char carray -> unit
+  val write_reply_raw : _ request -> int -> char ptr -> unit
   val write_reply : 'b request -> ('b request -> char carray) -> unit
   val write_error : _ request -> Unix.error -> unit
 end
@@ -196,9 +196,7 @@ end
 module Io : GEN_IO = struct
   module Hdr = Out_common.Hdr
 
-  let write_reply_raw req arr =
-    let ptr = CArray.start arr -@ sizeof Hdr.t in
-    let sz = CArray.length arr + sizeof Hdr.t in
+  let write_reply_raw req sz ptr =
     let len = Fuse.(
       try
         Unix_unistd.write req.chan.fd (to_voidp ptr) sz
@@ -215,7 +213,11 @@ module Io : GEN_IO = struct
         (req.chan,
          (Printf.sprintf "Tried to write %d but only wrote %d" sz len)))
 
-  let write_reply req arrfn = write_reply_raw req (arrfn req)
+  let write_reply req arrfn =
+    let arr = arrfn req in
+    let sz  = CArray.length arr + Hdr.hdrsz in
+    let ptr = CArray.start arr -@ Hdr.hdrsz in
+    write_reply_raw req sz ptr
 
   (** Can raise Fs.UnknownErrno (TODO: ?) *)
   let write_error req err =
@@ -226,10 +228,7 @@ module Io : GEN_IO = struct
     write_reply req (Hdr.packet ~nerrno ~count:0)
 
   let deserialize ~parse req =
-    let hdr_sz = sizeof Hdr.t in
-    fun arr ->
-      let buf = CArray.start arr -@ hdr_sz in
-      let len = hdr_sz + CArray.length arr in
+    fun len buf ->
       let hdr_ptr = coerce (ptr char) (ptr Hdr.t) buf in
       let hdr = !@ hdr_ptr in
       let sz = getf hdr Hdr.size in
@@ -237,7 +236,7 @@ module Io : GEN_IO = struct
         (ProtocolError
            (req.chan,
             (Printf.sprintf "Packet has %d bytes but only read %d" sz len)));
-      parse req hdr (sz - hdr_sz) (to_voidp (buf +@ hdr_sz))
+      parse req hdr (sz - Hdr.hdrsz) (to_voidp (buf +@ Hdr.hdrsz))
 end
 
 module Linux_7_8 : LINUX_7_8 = struct

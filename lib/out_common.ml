@@ -28,8 +28,9 @@ module Hdr = struct
   let unique = "unique" -:* uint64_t
   let () = seal t
 
+  let hdrsz = sizeof t
+
   let packet ?(nerrno=0l) ~count req =
-    let hdrsz = sizeof t in
     let bodysz = count in
     let count = hdrsz + bodysz in
     let pkt = allocate_n char ~count in
@@ -45,7 +46,6 @@ module Hdr = struct
     !@ (coerce (ptr char) (ptr st) (CArray.start pkt))
 
   let set_size pkt sz =
-    let hdrsz = sizeof t in
     let pktsz = hdrsz + sz in
     let hdr = !@ (coerce (ptr char) (ptr t) ((CArray.start pkt) -@ hdrsz)) in
     setf hdr size pktsz;
