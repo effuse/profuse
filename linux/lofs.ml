@@ -211,36 +211,34 @@ struct
       write_error req Unix.ENOENT; st
   )
 
-  let store_entry node = Out.(
+  let store_entry parent name st = Out.(
+    let path = Filename.concat parent.path name in
+    let store_attr = store_attr_of_path path in (* can raise ENOENT *)
+    let node = lookup_node parent name st in
     let nodeid = node.id in
     let generation = node.gen in
     Entry.store ~nodeid ~generation
       ~entry_valid:0L ~entry_valid_nsec:0l
       ~attr_valid:0L ~attr_valid_nsec:0l
-      ~store_attr:(store_attr_of_path node.path)
+      ~store_attr
   )
 
-  let respond_with_entry node req = Out.(
+  let respond_with_entry parent name req st = Out.(
+    let path = Filename.concat parent.path name in
+    let store_attr = store_attr_of_path path in (* can raise ENOENT *)
+    let node = lookup_node parent name st in
     let nodeid = node.id in
     let generation = node.gen in
     write_reply req
       (Entry.create ~nodeid ~generation
          ~entry_valid:0L ~entry_valid_nsec:0l
          ~attr_valid:0L ~attr_valid_nsec:0l
-         ~store_attr:(store_attr_of_path node.path))
+         ~store_attr);
+    st
   )
 
   let lookup name req st =
-    let pnode = get_node st (nodeid req) in
-    try
-      let node = lookup_node pnode name st in
-      respond_with_entry node req;
-      st
-    with Not_found ->
-      (* TODO: log? *)
-      Printf.eprintf "lookup not found\n%!";
-      Out.write_error req Unix.ENOENT;
-      st
+    respond_with_entry (get_node st (nodeid req)) name req st
 
   let readdir r req st = Out.(
     let req_off = Int64.to_int (Ctypes.getf r In.Read.offset) in
@@ -344,16 +342,8 @@ struct
     let newdir = get_node st (Ctypes.getf r In.Rename.newdir) in
     (* errors caught by our caller *)
     Unix.rename (Filename.concat path src) (Filename.concat newdir.path dest);
-    try
-      (* TODO: still increment lookups? *)
-      let node = lookup_node newdir dest st in
-      respond_with_entry node req;
-      st
-    with Not_found ->
-      (* TODO: log? *)
-      Printf.eprintf "lookup(rename) not found\n%!";
-      write_error req Unix.ENOENT;
-      st
+    (* TODO: still increment lookups? *)
+    respond_with_entry newdir dest req st
   )
 
   (* Can raise Unix.Unix_error *)
@@ -449,7 +439,7 @@ struct
       set_fh fh (File (path, file, Lazy.from_fun kind));
       write_reply req
         (Create.create
-           ~store_entry:(store_entry (lookup_node pnode name st))
+           ~store_entry:(store_entry pnode name st)
            ~store_open:(Open.store ~fh ~open_flags:0l));(* TODO: flags *)
       st
     with Not_found ->
@@ -466,39 +456,23 @@ struct
     let mode = Ctypes.getf m In.Mknod.mode in
     let rdev = Ctypes.getf m In.Mknod.rdev in (* TODO: use this? *)
     let path = Filename.concat path name in
-    try
-      (* TODO: translate mode and dev from client host rep to local host rep *)
-      (* TODO: dev_t is usually 64-bit but rdev is 32-bit. translate how? *)
-      (* TODO: regular -> open with O_CREAT | O_EXCL | O_WRONLY for compat? *)
-      (* TODO: fifo -> mkfifo for compat? *)
-      Unix_sys_stat.mknod path
-        (to_mode_t mode)
-        (to_dev_t (Unsigned.UInt64.of_int64
-                     (Int64.of_int32
-                        (Unsigned.UInt32.to_int32 rdev))));
-      let node = lookup_node pnode name st in
-      respond_with_entry node req;
-      st
-    with Not_found ->
-      (* TODO: log? *)
-      Printf.eprintf "lookup(mknod) not found\n%!";
-      Out.write_error req Unix.ENOENT;
-      st
+    (* TODO: translate mode and dev from client host rep to local host rep *)
+    (* TODO: dev_t is usually 64-bit but rdev is 32-bit. translate how? *)
+    (* TODO: regular -> open with O_CREAT | O_EXCL | O_WRONLY for compat? *)
+    (* TODO: fifo -> mkfifo for compat? *)
+    Unix_sys_stat.mknod path
+      (to_mode_t mode)
+      (to_dev_t (Unsigned.UInt64.of_int64
+                   (Int64.of_int32
+                      (Unsigned.UInt32.to_int32 rdev))));
+    respond_with_entry pnode name req st
 
   let mkdir m name req st =
     let ({ path } as pnode) = get_node st (nodeid req) in
     let mode = Ctypes.getf m In.Mkdir.mode in
     let path = Filename.concat path name in
-    try
-      Unix.mkdir path (Unsigned.UInt32.to_int mode);
-      let node = lookup_node pnode name st in
-      respond_with_entry node req;
-      st
-    with Not_found ->
-      (* TODO: log? *)
-      Printf.eprintf "lookup(mkdir) not found\n%!";
-      Out.write_error req Unix.ENOENT;
-      st
+    Unix.mkdir path (Unsigned.UInt32.to_int mode);
+    respond_with_entry pnode name req st
 
   (* TODO: do *)
   let fsyncdir f req st = Out.write_error req Unix.ENOSYS; st
