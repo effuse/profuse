@@ -78,7 +78,7 @@ module Linux_7_8_wire = struct
   | Removexattr (* TODO: do *)
   | Access
   | Forget (* TODO: should never happen? *)
-  | Readlink of Out_common.Readlink.t structure
+  | Readlink of string
   | Open     of Out_common.Open.t     structure
   | Read     of Out_common.Read.t     structure
   | Write    of Out_common.Write.t    structure
@@ -141,7 +141,7 @@ module Osx_7_8_wire = struct
   | Removexattr (* TODO: do *)
   | Access
   | Forget (* TODO: should never happen? *)
-  | Readlink of Out_common.Readlink.t structure
+  | Readlink of string
   | Open     of Out_common.Open.t     structure
   | Read     of Out_common.Read.t     structure
   | Write    of Out_common.Write.t    structure
@@ -265,7 +265,7 @@ module Linux_7_8 : LINUX_7_8 = struct
       | FUSE_REMOVEXATTR -> Removexattr
       | FUSE_ACCESS      -> Access
       | FUSE_FORGET      -> Forget
-      | FUSE_READLINK    -> Readlink   (!@ (from_voidp Readlink.t buf))
+      | FUSE_READLINK    -> Readlink   (coerce (ptr void) string buf)(*TODO:0?*)
       | FUSE_OPEN        -> Open       (!@ (from_voidp Open.t buf))
       | FUSE_READ        -> Read       (!@ (from_voidp Read.t buf))
       | FUSE_WRITE       -> Write      (!@ (from_voidp Write.t buf))
@@ -316,7 +316,7 @@ module Linux_7_8 : LINUX_7_8 = struct
     | Removexattr -> "REMOVEXATTR"
     | Access -> "ACCESS"
     | Forget -> "FORGET"
-    | Readlink r -> "READLINK FIXME" (* TODO: more *)
+    | Readlink r -> r
     | Open o -> "OPEN FIXME" (* TODO: more *)
     | Read r -> "READ FIXME" (* TODO: more *)
     | Write w -> "WRITE FIXME" (* TODO: more *)
@@ -368,7 +368,7 @@ module Osx_7_8 : OSX_7_8 = struct
       | FUSE_REMOVEXATTR -> Removexattr
       | FUSE_ACCESS      -> Access
       | FUSE_FORGET      -> Forget
-      | FUSE_READLINK    -> Readlink   (!@ (from_voidp Readlink.t buf))
+      | FUSE_READLINK    -> Readlink   (coerce (ptr void) string buf)(*TODO:0?*)
       | FUSE_OPEN        -> Open       (!@ (from_voidp Open.t buf))
       | FUSE_READ        -> Read       (!@ (from_voidp Read.t buf))
       | FUSE_WRITE       -> Write      (!@ (from_voidp Write.t buf))
@@ -419,7 +419,7 @@ module Osx_7_8 : OSX_7_8 = struct
     | Removexattr -> "REMOVEXATTR"
     | Access -> "ACCESS"
     | Forget -> "FORGET"
-    | Readlink r -> "READLINK FIXME" (* TODO: more *)
+    | Readlink r -> r
     | Open o -> "OPEN FIXME" (* TODO: more *)
     | Read r -> "READ FIXME" (* TODO: more *)
     | Write w -> "WRITE FIXME" (* TODO: more *)
