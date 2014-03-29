@@ -1,6 +1,9 @@
 .PHONY: all clean
 
-FLAGS=-package oUnit \
+# We ensure with this ccopt that the linkage to libffi is taken seriously by
+# homebrew/OS X/clang systems. We really want to use a modern libffi.
+FLAGS=-ccopt "`pkg-config --libs libffi`" \
+      -package oUnit \
       -package alcotest \
       -package ctypes \
       -package fd-send-recv \
