@@ -1,8 +1,7 @@
 .PHONY: all clean
 
-# We ensure with this ccopt that the linkage to libffi is taken seriously by
-# homebrew/OS X/clang systems. We really want to use a modern libffi.
-FLAGS=-ccopt "`pkg-config --libs libffi`" \
+FLAGS=-package lwt.unix \
+      -package lwt.preemptive \
       -package oUnit \
       -package alcotest \
       -package ctypes \
@@ -12,8 +11,6 @@ FLAGS=-ccopt "`pkg-config --libs libffi`" \
       -package unix-dirent \
       -package unix-sys-stat \
       -package unix-fcntl \
-      -package lwt.unix \
-      -package lwt.preemptive \
       -g -thread
 
 all: run_test run_as
