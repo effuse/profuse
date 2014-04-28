@@ -213,8 +213,9 @@ struct
        then forget_node node
        else Hashtbl.replace node_table node.id { node with lookups });
       st
-    with Not_found -> (* TODO: log? *)
-      write_error req Unix.ENOENT; st
+    with Not_found ->
+      (* TODO: FORGET is a non-returning command. log? *)
+      st
   )
 
   let store_entry parent name st = Out.(
