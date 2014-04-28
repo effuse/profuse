@@ -44,10 +44,15 @@ module type RO_SIMPLE = sig
   val destroy    : req -> t -> unit
 end
 
-module type RO_FULL = sig
+module type RO_MID = sig
   include RO_SIMPLE
 
-  val statfs    : t fs_fn
+  val statfs : t fs_fn
+end
+
+module type RO_FULL = sig
+  include RO_MID
+
   val getxattr  : In.Getxattr.t structure -> t fs_fn
   val listxattr : In.Getxattr.t structure -> t fs_fn
   val interrupt : In.Interrupt.t structure -> t fs_fn
@@ -69,18 +74,121 @@ module type RW_SIMPLE = sig
   val setattr : In.Setattr.t structure -> t fs_fn
 end
 
-module type RW_FULL = sig
-  include RO_FULL
+module type RW_MID = sig
+  include RO_MID
   include RW_SIMPLE with type t := t
 
-  val create      : In.Create.t structure -> string -> t fs_fn (* SHOULD *)
+  val create      : In.Create.t structure -> string -> t fs_fn
   val fsync       : In.Fsync.t structure -> t fs_fn
+end
+
+module type RW_FULL = sig
+  include RO_FULL
+  include RW_MID with type t := t
+
   val fsyncdir    : In.Fsync.t structure -> t fs_fn
   val setxattr    : In.Setxattr.t structure -> t fs_fn
   val removexattr : string -> t fs_fn
   val getlk       : In.Lk.t structure -> t fs_fn (* TODO: RO? *)
   val setlk       : In.Lk.t structure -> t fs_fn (* TODO: RO? *)
   val setlkw      : In.Lk.t structure -> t fs_fn (* TODO: RO? *)
+end
+
+module Zero :
+  functor (X : sig type t end) -> functor (Out : Out.WRITE) ->
+    RW_FULL with type t := X.t =
+  functor (X : sig type t end) -> functor (Out : Out.WRITE) ->
+struct
+  let enosys req st = Out.write_error req Unix.ENOSYS; st
+
+  let getattr      = enosys
+  let opendir _    = enosys
+  let forget _     = enosys
+  let lookup _     = enosys
+  let readdir _    = enosys
+  let readlink     = enosys
+  let release _    = enosys
+  let releasedir _ = enosys
+  let open_ _      = enosys
+  let read _       = enosys
+  let access _     = enosys
+  let destroy req st = ignore (enosys req st)
+
+  let statfs       = enosys
+  let getxattr _   = enosys
+  let listxattr _  = enosys
+  let interrupt _  = enosys
+  let bmap _       = enosys
+
+  let flush _      = enosys
+  let link _ _     = enosys
+  let symlink _ _  = enosys
+  let rename _ _ _ = enosys
+  let unlink _     = enosys
+  let rmdir _      = enosys
+  let mknod _ _    = enosys
+  let write _      = enosys
+  let mkdir _ _    = enosys
+  let setattr _    = enosys
+
+  let create _ _   = enosys
+  let fsync _      = enosys
+  let fsyncdir _   = enosys
+  let setxattr _   = enosys
+  let removexattr _= enosys
+  let getlk _      = enosys
+  let setlk _      = enosys
+  let setlkw _     = enosys
+end
+
+module Ro_simple :
+  functor (X : RO_SIMPLE) -> functor (Out : Out.WRITE) ->
+    RW_FULL with type t = X.t =
+  functor (X : RO_SIMPLE) -> functor (Out : Out.WRITE) ->
+struct
+  module Z = Zero(X)(Out)
+  include Z
+  include X
+end
+
+module Ro_mid :
+  functor (X : RO_MID) -> functor (Out : Out.WRITE) ->
+    RW_FULL with type t = X.t =
+  functor (X : RO_MID) -> functor (Out : Out.WRITE) ->
+struct
+  module Z = Zero(X)(Out)
+  include Z
+  include X
+end
+
+module Ro_full :
+  functor (X : RO_FULL) -> functor (Out : Out.WRITE) ->
+    RW_FULL with type t = X.t =
+  functor (X : RO_FULL) -> functor (Out : Out.WRITE) ->
+struct
+  module Z = Zero(X)(Out)
+  include Z
+  include X
+end
+
+module Rw_simple :
+  functor (X : RW_SIMPLE) -> functor (Out : Out.WRITE) ->
+    RW_FULL with type t = X.t =
+  functor (X : RW_SIMPLE) -> functor (Out : Out.WRITE) ->
+struct
+  module Z = Zero(X)(Out)
+  include Z
+  include X
+end
+
+module Rw_mid :
+  functor (X : RW_MID) -> functor (Out : Out.WRITE) ->
+    RW_FULL with type t = X.t =
+  functor (X : RW_MID) -> functor (Out : Out.WRITE) ->
+struct
+  module Z = Zero(X)(Out)
+  include Z
+  include X
 end
 
 module type FULL = sig
@@ -90,6 +198,8 @@ end
 
 module type FS = sig
   type t
+
+  val trace_channel : out_channel
 
   val string_of_nodeid : uint64 -> t -> string
   val string_of_state  : req -> t -> string
@@ -316,13 +426,13 @@ module Server : SERVER = functor (Fs : FS) -> struct
       let arr = arrfn req in
       let sz  = CArray.length arr + Hdr.hdrsz in
       let ptr = CArray.start arr -@ Hdr.hdrsz in
-      Printf.eprintf "    returning %s from %Ld\n%!"
+      Printf.fprintf Fs.trace_channel "    returning %s from %Ld\n%!"
         (describe_reply (deserialize req sz ptr))
         (Unsigned.UInt64.to_int64 (Ctypes.getf req.Fuse.hdr In.Hdr.unique));
       write_reply_raw req sz ptr
 
     let write_error req err =
-      Printf.eprintf "    returning err %s from %Ld\n%!"
+      Printf.fprintf Fs.trace_channel "    returning err %s from %Ld\n%!"
         (Unix_errno.to_string err)
         (Unsigned.UInt64.to_int64 (Ctypes.getf req.Fuse.hdr In.Hdr.unique));
       write_error req err
@@ -335,8 +445,9 @@ module Server : SERVER = functor (Fs : FS) -> struct
     fun tag t ->
       let req = read () in
       (* can raise Opcode.Unknown?? *)
-      Printf.eprintf "    %s %s\n%!" tag (string_of_request req t);
+      Printf.fprintf Fs.trace_channel "    %s %s\n%!"
+        tag (string_of_request req t);
       let t = H.dispatch req t in
-      Printf.eprintf "    %s\n%!" (Fs.string_of_state req t);
+      Printf.fprintf Fs.trace_channel "    %s\n%!" (Fs.string_of_state req t);
       t
 end
