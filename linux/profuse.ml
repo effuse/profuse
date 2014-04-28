@@ -268,6 +268,7 @@ module Server : SERVER = functor (Fs : FS) -> struct
       | In.Other _ | In.Unknown _ -> Out.write_error req Unix.ENOSYS; t
       ) with
       | Unix.Unix_error(e,_,_) -> Out.write_error req e; t
+      | (Fuse.Destroy k) as exn -> raise exn
       | exn -> Out.write_error req Unix.EIO; raise exn
   end
 
