@@ -22,14 +22,18 @@ module In = In.Linux_7_8
 let to_mode_t = PosixTypes.(Ctypes.(Unsigned.(coerce uint32_t mode_t)))
 let to_dev_t  = PosixTypes.(Ctypes.(Unsigned.(coerce uint64_t dev_t)))
 
-type state = { root : string }
+type state = { nodes : Nodes.t }
 type t = state
 
 (* TODO: set umask *)
+(* TODO: check Nodes.get raising Not_found *)
 
 type fh =
 | Dir of string * Unix.dir_handle * int
 | File of string * Unix.file_descr * Stat.File_kind.t Lazy.t
+
+(* can be overridden with include *)
+let trace_channel = stderr
 
 let fh_table = Hashtbl.create 256
 let fh_free = ref []
@@ -60,87 +64,10 @@ let get_file_fd fh f = match get_fd fh with
   | File (path, fd, kind) -> f path fd kind
   | Dir (_,_,_) -> raise Unix.(Unix_error (EISDIR,"",""))
 
-type nodeid = int64
-type node = {
-  parent   : nodeid;
-  gen      : int64;
-  id       : nodeid;
-  name     : string;
-  path     : string;
-  children : (string,nodeid) Hashtbl.t;
-  lookups  : int;
-}
-
-let node_table = Hashtbl.create 256
-let node_free = ref []
-let node_max = ref 2L (* 0 is the FS, 1 is the root *)
-
-let get_node st nodeid =
-  let id = Unsigned.UInt64.to_int64 nodeid in
-  try Hashtbl.find node_table id
-  with Not_found ->
-    if id=1L then
-      let node = {
-        parent = 1L;
-        gen = 0L;
-        id = 1L;
-        name = "";
-        path = st.root;
-        children = Hashtbl.create 32;
-        lookups = 0;
-      } in
-      Hashtbl.replace node_table id node;
-      node
-    else raise Not_found
-
-let string_of_nodeid nodeid st =
-  let id = Unsigned.UInt64.to_int64 nodeid in
-  if id = Int64.zero (* TODO: should be in get_node for FUSE_INIT? *)
-  then "id=0"
-  else let {gen; id; path} = get_node st nodeid in
-       Printf.sprintf "%Ld.%Ld.%s" gen id path
+let string_of_nodeid nodeid st = Nodes.string_of_id st.nodes nodeid
 
 let string_of_state req st =
-  Printf.sprintf "Hashtbl.length node_table = %d" (Hashtbl.length node_table)
-
-let alloc_nodeid () =
-  match !node_free with
-  | genid::r -> node_free := r; genid
-  | [] -> let nodeid = !node_max in
-          node_max := Int64.add nodeid 1L;
-          (0L, nodeid)
-
-let lookup_node parent name st =
-  try
-    let nodeid = Hashtbl.find parent.children name in
-    try
-      let node = Hashtbl.find node_table nodeid in
-      Hashtbl.replace node_table nodeid { node with lookups = node.lookups + 1 };
-      node
-    with Not_found ->
-      raise (Failure
-               (Printf.sprintf "parent %s has %s but node_table does not"
-                  (string_of_nodeid (Unsigned.UInt64.of_int64 parent.id) st)
-                  name
-               ))
-  with Not_found ->
-    let path = Filename.concat parent.path name in
-    let (gen,id) = alloc_nodeid () in
-    let node = {
-      parent=parent.id;
-      gen; id; name; path;
-      children=Hashtbl.create 8;
-      lookups=1;
-    } in
-    Hashtbl.replace parent.children name id;
-    Hashtbl.replace node_table id node;
-    node
-
-let forget_node node =
-  let parent = Hashtbl.find node_table node.parent in
-  Hashtbl.remove parent.children node.name;
-  Hashtbl.remove node_table node.id;
-  node_free := (Int64.add node.gen 1L, node.id)::!node_free
+  Printf.sprintf "Nodes: %s" (Nodes.to_string st.nodes)
 
 let uint64_of_int64 = Unsigned.UInt64.of_int64
 let uint32_of_uint64 x = Unsigned.(UInt32.of_int (UInt64.to_int x))
@@ -175,7 +102,7 @@ struct
 
   let getattr req st = Out.(
     try
-      let { path } = get_node st (nodeid req) in
+      let { Nodes.path } = Nodes.get st.nodes (nodeid req) in
       write_reply req
         (Attr.create ~attr_valid:0L ~attr_valid_nsec:0l
            ~store_attr:(store_attr_of_path path));
@@ -189,7 +116,7 @@ struct
   let opendir op req st = Out.(
     let fh = alloc_fh () in
     try
-      let { path } = get_node st (nodeid req) in
+      let { Nodes.path } = Nodes.get st.nodes (nodeid req) in
       let dir = Unix.opendir path in
       set_fh fh (Dir (path, dir, 0));
       write_reply req (Open.create ~fh ~open_flags:0l); (* TODO: open_flags?? *)
@@ -207,45 +134,45 @@ struct
 
   let forget n req st = Out.(
     try
-      let node = get_node st (nodeid req) in
-      let lookups = node.lookups - n in
+      let node = Nodes.get st.nodes (nodeid req) in
+      let lookups = node.Nodes.lookups - n in
       (if lookups <= 0
-       then forget_node node
-       else Hashtbl.replace node_table node.id { node with lookups });
+       then Nodes.forget node
+       else Nodes.update { node with Nodes.lookups });
       st
     with Not_found ->
       (* TODO: FORGET is a non-returning command. log? *)
       st
   )
 
-  let store_entry parent name st = Out.(
-    let path = Filename.concat parent.path name in
+  let store_entry parent name = Out.(
+    let path = Filename.concat parent.Nodes.path name in
     let store_attr = store_attr_of_path path in (* can raise ENOENT *)
-    let node = lookup_node parent name st in
-    let nodeid = node.id in
-    let generation = node.gen in
+    let node = Nodes.lookup parent name in
+    let nodeid = node.Nodes.id in
+    let generation = node.Nodes.gen in
     Entry.store ~nodeid ~generation
       ~entry_valid:0L ~entry_valid_nsec:0l
       ~attr_valid:0L ~attr_valid_nsec:0l
       ~store_attr
   )
 
-  let respond_with_entry parent name req st = Out.(
-    let path = Filename.concat parent.path name in
+  let respond_with_entry parent name req = Out.(
+    let path = Filename.concat parent.Nodes.path name in
     let store_attr = store_attr_of_path path in (* can raise ENOENT *)
-    let node = lookup_node parent name st in
-    let nodeid = node.id in
-    let generation = node.gen in
+    let node = Nodes.lookup parent name in
+    let nodeid = node.Nodes.id in
+    let generation = node.Nodes.gen in
     write_reply req
       (Entry.create ~nodeid ~generation
          ~entry_valid:0L ~entry_valid_nsec:0l
          ~attr_valid:0L ~attr_valid_nsec:0l
-         ~store_attr);
-    st
+         ~store_attr)
   )
 
   let lookup name req st =
-    respond_with_entry (get_node st (nodeid req)) name req st
+    respond_with_entry (Nodes.get st.nodes (nodeid req)) name req;
+    st
 
   let readdir r req st = Out.(
     let req_off = Int64.to_int (Ctypes.getf r In.Read.offset) in
@@ -275,16 +202,16 @@ struct
 
   (* Can raise Unix.Unix_error *)
   let readlink req st =
-    let node = get_node st (nodeid req) in
+    let node = Nodes.get st.nodes (nodeid req) in
     (* errors caught by our caller *)
-    let target = Unix.readlink node.path in
+    let target = Unix.readlink node.Nodes.path in
     Out.(write_reply req (Readlink.create ~target));
     st
 
   let open_ op req st = Out.(
     let fh = alloc_fh () in
     try
-      let { path } = get_node st (nodeid req) in
+      let { Nodes.path } = Nodes.get st.nodes (nodeid req) in
       let mode = Ctypes.getf op In.Open.mode in (* TODO: is only file_perm? *)
       let flags = Ctypes.getf op In.Open.flags in
       let flags = Unix_fcntl.Oflags.(
@@ -336,7 +263,7 @@ struct
 
   (* Can raise Unix.Unix_error *)
   let symlink name target req st = Out.(
-    let ({ path } as pnode) = get_node st (nodeid req) in
+    let ({ Nodes.path } as pnode) = Nodes.get st.nodes (nodeid req) in
     let path = Filename.concat path name in
     (* errors caught by our caller *)
     Unix.symlink target path;
@@ -345,17 +272,19 @@ struct
 
   (* Can raise Unix.Unix_error *)
   let rename r src dest req st = Out.(
-    let { path } = get_node st (nodeid req) in
-    let newdir = get_node st (Ctypes.getf r In.Rename.newdir) in
+    let { Nodes.path } = Nodes.get st.nodes (nodeid req) in
+    let newdir = Nodes.get st.nodes (Ctypes.getf r In.Rename.newdir) in
     (* errors caught by our caller *)
-    Unix.rename (Filename.concat path src) (Filename.concat newdir.path dest);
+    Unix.rename (Filename.concat path src)
+      (Filename.concat newdir.Nodes.path dest);
     (* TODO: still increment lookups? *)
-    respond_with_entry newdir dest req st
+    respond_with_entry newdir dest req;
+    st
   )
 
   (* Can raise Unix.Unix_error *)
   let unlink name req st = Out.(
-    let { path } = get_node st (nodeid req) in
+    let { Nodes.path } = Nodes.get st.nodes (nodeid req) in
     let path = Filename.concat path name in
     (* errors caught by our caller *)
     Unix.unlink path;
@@ -365,7 +294,7 @@ struct
 
   (* Can raise Unix.Unix_error *)
   let rmdir name req st = Out.(
-    let { path } = get_node st (nodeid req) in
+    let { Nodes.path } = Nodes.get st.nodes (nodeid req) in
     let path = Filename.concat path name in
     (* errors caught by our caller *)
     Unix.rmdir path;
@@ -397,11 +326,11 @@ struct
 
   (* Can raise Unix.Unix_error *)
   let link l name req st =
-    let { path } = get_node st (nodeid req) in
-    let oldnode = get_node st (Ctypes.getf l In.Link.oldnodeid) in
+    let { Nodes.path } = Nodes.get st.nodes (nodeid req) in
+    let oldnode = Nodes.get st.nodes (Ctypes.getf l In.Link.oldnodeid) in
     let path = Filename.concat path name in
     (* errors caught by our caller *)
-    Unix.link oldnode.path path;
+    Unix.link oldnode.Nodes.path path;
     lookup name req st (* TODO: still increment lookups? *)
 
   (* TODO: do *)
@@ -418,7 +347,7 @@ struct
 
   (* TODO: forward pid; fuse server != requestor *)
   let access a req st =
-    let { path } = get_node st (nodeid req) in
+    let { Nodes.path } = Nodes.get st.nodes (nodeid req) in
     let code = Ctypes.getf a In.Access.mask in
     let perms = Unix_unistd.Access.(of_code ~host code) in
     try
@@ -432,7 +361,7 @@ struct
   let create c name req st = Out.(
     let fh = alloc_fh () in
     try
-      let ({ path } as pnode) = get_node st (nodeid req) in
+      let ({ Nodes.path } as pnode) = Nodes.get st.nodes (nodeid req) in
       let mode = Ctypes.getf c In.Create.mode in (* TODO: is only file_perm? *)
       let flags = Ctypes.getf c In.Create.flags in
       let flags = Unix_fcntl.Oflags.(
@@ -446,7 +375,7 @@ struct
       set_fh fh (File (path, file, Lazy.from_fun kind));
       write_reply req
         (Create.create
-           ~store_entry:(store_entry pnode name st)
+           ~store_entry:(store_entry pnode name)
            ~store_open:(Open.store ~fh ~open_flags:0l));(* TODO: flags *)
       st
     with Not_found ->
@@ -459,7 +388,7 @@ struct
   )
 
   let mknod m name req st =
-    let ({ path } as pnode) = get_node st (nodeid req) in
+    let ({ Nodes.path } as pnode) = Nodes.get st.nodes (nodeid req) in
     let mode = Ctypes.getf m In.Mknod.mode in
     let rdev = Ctypes.getf m In.Mknod.rdev in (* TODO: use this? *)
     let path = Filename.concat path name in
@@ -472,14 +401,16 @@ struct
       (to_dev_t (Unsigned.UInt64.of_int64
                    (Int64.of_int32
                       (Unsigned.UInt32.to_int32 rdev))));
-    respond_with_entry pnode name req st
+    respond_with_entry pnode name req;
+    st
 
   let mkdir m name req st =
-    let ({ path } as pnode) = get_node st (nodeid req) in
+    let ({ Nodes.path } as pnode) = Nodes.get st.nodes (nodeid req) in
     let mode = Ctypes.getf m In.Mkdir.mode in
     let path = Filename.concat path name in
     Unix.mkdir path (Unsigned.UInt32.to_int mode);
-    respond_with_entry pnode name req st
+    respond_with_entry pnode name req;
+    st
 
   (* TODO: do *)
   let fsyncdir f req st = Out.write_error req Unix.ENOSYS; st
@@ -528,7 +459,7 @@ struct
          then prerr_endline "setting mtime");
       )
       else
-        let { path } = get_node st (nodeid req) in
+        let { Nodes.path } = Nodes.get st.nodes (nodeid req) in
         (if Valid.(is_set valid mode)
          then let mode = Ctypes.getf s mode in
               let (kind,perm) = Stat.Mode.(
