@@ -24,8 +24,15 @@ module Lwt_th = Lwt_preemptive
 module Server = Profuse.Server(Lofs)
 module Linux_fs = Lofs.Linux_7_8(Server.Trace_out)
 
+type fs = {
+  chan  : Fuse.chan;
+  state : Lofs.t;
+}
+
 let mntdir = "mnt"
 let mntpath = Filename.concat mntdir
+let multidir = "multi"
+let multipath = Filename.concat multidir
 let srcdir = "lofs"
 let srcpath = Filename.concat srcdir
 
@@ -55,50 +62,52 @@ let as_root fn k =
   v
 
 let state = Lofs.({ root = srcdir })
-let fuse_conn = ref None
-let fs_state = ref state
-let serve_one tag state = match !fuse_conn with
-  | None -> return state
-  | Some chan -> Lwt_th.detach (fun () ->
-    try Server.trace chan tag state
-    with exn ->
-      Printf.eprintf "Fatal error: exception %s\n" (Printexc.to_string exn);
+let mounts = Hashtbl.create 2
+
+let serve_one tag fs =
+  Lwt_th.detach (fun () ->
+    try { fs with state = Server.trace fs.chan tag fs.state }
+    with
+    | (Fuse.Destroy 0) as exn -> raise exn
+    | exn ->
+      Printf.eprintf "Fatal error: exception %s\n%!" (Printexc.to_string exn);
       Printexc.print_backtrace stderr;
-      as_root Profuse.unmount chan;
-      state
+      raise exn
   ) ()
 
 let rec serve_until_block tag th =
   catch (fun () ->
-    (th >>= fun st ->
-     fs_state := st; return (Some st)
+    (th >>= fun fs ->
+     Hashtbl.replace mounts fs.chan.Fuse.mnt fs;
+     return (Some fs)
     ) <?> (Lwt_unix.timeout max_wait_s)
   ) (function
   | Lwt_unix.Timeout -> return None
   | exn -> fail exn
   ) >>= function
-  | Some st -> serve_until_block tag (serve_one tag st)
+  | Some fs -> serve_until_block tag (serve_one tag fs)
   | None ->
     Printf.eprintf "stopping serve_until_block(%s)\n%!" tag;
     return ()
 
-let run_fuse tag fn = Lwt_main.run begin
-  (serve_until_block tag (return !fs_state)) <&> (Lwt_th.detach fn ())
+let run_fuse mnts tag fn = Lwt_main.run begin
+  List.fold_left (fun th mnt ->
+    (serve_until_block (mnt^"."^tag) (return (Hashtbl.find mounts mnt))) <&> th
+  ) (Lwt_th.detach fn ()) mnts
 end
 
+let mount mnt () =
+  lower_priv ();
+  Unix.(try access srcdir [F_OK] with Unix_error _ -> mkdir srcdir 0o700);
+  Unix.(try access mnt    [F_OK] with Unix_error _ -> mkdir mnt    0o700);
+  let req, state = as_root
+    (Linux_fs.mount ~argv:[|"test";"-o";"allow_other"|] ~mnt) state in
+  Hashtbl.replace mounts mnt { chan=req.Fuse.chan; state };
+  Printf.eprintf "%s\n%!" (Server.string_of_request req state)
+
 let test_mount =
-  let mount () =
-    lower_priv ();
-    Unix.(try access srcdir [F_OK] with Unix_error _ -> mkdir srcdir 0o700);
-    Unix.(try access mntdir [F_OK] with Unix_error _ -> mkdir mntdir 0o700);
-    let req, st = as_root
-      (Linux_fs.mount ~argv:[|"test";"-o";"allow_other"|] ~mnt:mntdir) state in
-    fuse_conn := Some req.Fuse.chan;
-    Printf.eprintf "%s\n%!" (Server.string_of_request req st);
-    fs_state := st
-  in
   "mount", [
-    "mount",`Quick,mount;
+    "mount",`Quick,mount mntdir;
   ]
 
 let test_ops =
@@ -113,7 +122,7 @@ let test_ops =
     assert_equal ~msg:"wrote expected number of bytes" bytes_written len;
     let () = Unix.close w in
     Printf.eprintf "after lofs write\n%!";
-    run_fuse "read" (fun () ->
+    run_fuse [mntdir] "read" (fun () ->
       let fd = Unix.(
         openfile (mntpath file) [] 0o000
       ) in
@@ -134,7 +143,7 @@ let test_ops =
     let path = srcpath file in
     let lnk = "unicorn" in
     Unix.symlink "unicorn" path;
-    run_fuse "readlink" (fun () ->
+    run_fuse [mntdir] "readlink" (fun () ->
       let lnk_v = Unix_unistd.readlink (mntpath file) in
       assert_equal ~msg:(lnk_v ^ " <> " ^ lnk) lnk_v lnk
     );
@@ -153,7 +162,7 @@ let test_ops =
     ignore (Unix.umask 0o000);
     Unix.(assert_raises (Unix_error (ENOENT, "access", path))
             (fun () -> access path [F_OK]));
-    run_fuse "mknod" (fun () ->
+    run_fuse [mntdir] "mknod" (fun () ->
       let path = mntpath file in
       Unix_sys_stat.mknod path (to_mode_t nod_perms)
         (to_dev_t  (Unsigned.UInt64.of_int 0));
@@ -165,7 +174,7 @@ let test_ops =
   let chmod () =
     let file = nod_file in
     let path = mntpath file in
-    run_fuse "chmod" Unix.(LargeFile.(fun () ->
+    run_fuse [mntdir] "chmod" Unix.(LargeFile.(fun () ->
       let perms = Unix_sys_stat.(Stat.to_unix (stat path)).st_perm in
       let msg = Printf.sprintf "%s perms.0 0o%03o <> 0o%03o"
         file perms nod_perms in
@@ -194,7 +203,7 @@ let test_ops =
     let path = mntpath file in
     let uid = Unix.geteuid () in
     let gid = Unix.getegid () in
-    run_fuse "chown" Unix.(LargeFile.(fun () ->
+    run_fuse [mntdir] "chown" Unix.(LargeFile.(fun () ->
       Unix_unistd.chown path (-1) (-1);
       let st = Unix_sys_stat.(Stat.to_unix (stat path)) in
       let msg = Printf.sprintf "chown noopuid (%d <> %d)" uid st.st_uid in
@@ -223,7 +232,7 @@ let test_ops =
   let symlink () =
     let file = "symlink" in
     let lnk = "unicorn" in
-    run_fuse "symlink" (fun () ->
+    run_fuse [mntdir] "symlink" (fun () ->
       let path = mntpath file in
       Unix_unistd.symlink lnk path
     );
@@ -237,7 +246,7 @@ let test_ops =
   let write () =
     let len = String.length write_string in
     let file = nod_file in
-    run_fuse "write" (fun () ->
+    run_fuse [mntdir] "write" (fun () ->
       let fd = Unix.(
         openfile (mntpath file) [O_WRONLY] 0o600
       ) in
@@ -261,7 +270,7 @@ let test_ops =
 
   let truncate () =
     let file = nod_file in
-    run_fuse "truncate" (fun () ->
+    run_fuse [mntdir] "truncate" (fun () ->
       let path = mntpath file in
       let wstr = String.copy write_string in
       let wlen = String.length wstr in
@@ -314,7 +323,7 @@ let test_ops =
     let string = "a short create test\n" in
     let len = String.length string in
     let file = "create" in
-    run_fuse "create" (fun () ->
+    run_fuse [mntdir] "create" (fun () ->
       let fd = Unix.(
         openfile (mntpath file) [O_CREAT; O_WRONLY; O_TRUNC] 0o600
       ) in
@@ -340,7 +349,7 @@ let test_ops =
 let test_errs =
   let enoent () =
     let file = "unicorn" in
-    run_fuse "enoent" (fun () ->
+    run_fuse [mntdir] "enoent" (fun () ->
       let path = mntpath file in
       Unix.(assert_raises (Unix_error (ENOENT, "open", path))
               (fun () -> openfile path [] 0o000))
@@ -351,7 +360,7 @@ let test_errs =
     let file = "symlink" in
     let path = srcpath file in
     ignore (Unix.system ("touch "^path));
-    run_fuse "symlink_eexist" (fun () ->
+    run_fuse [mntdir] "symlink_eexist" (fun () ->
       let path = mntpath file in
       Unix.(assert_raises (Unix_error (EEXIST, "symlink", path))
               (fun () -> Unix_unistd.symlink "unicorn" path))
@@ -363,7 +372,7 @@ let test_errs =
     let file = "symlink" in
     let path = srcpath file in
     Unix.symlink file path;
-    run_fuse "eloop" (fun () ->
+    run_fuse [mntdir] "eloop" (fun () ->
       let path = mntpath file in
       Unix.(assert_raises (Unix_error (ELOOP, "open", path))
               (fun () -> openfile path [] 0o000))
@@ -375,7 +384,7 @@ let test_errs =
     let dir = "bad_dir" in
     let path = srcpath dir in
     Unix.mkdir path 0o000;
-    run_fuse "readlink_eacces" (fun () ->
+    run_fuse [mntdir] "readlink_eacces" (fun () ->
       let path = Filename.concat (mntpath dir) "symlink" in
       Unix.(assert_raises (Unix_error (EACCES, "readlink", path))
               (fun () -> Unix_unistd.readlink path))
@@ -387,7 +396,7 @@ let test_errs =
     let file = "eperm" in
     let path = srcpath file in
     ignore (Unix.system ("touch "^path));
-    run_fuse "chown_eperm" (fun () ->
+    run_fuse [mntdir] "chown_eperm" (fun () ->
       let path = mntpath file in
       Unix.(assert_raises (Unix_error (EPERM, "chown", path))
               (fun () -> Unix_unistd.chown path 1 (-1)))
@@ -403,19 +412,44 @@ let test_errs =
     "chown_eperm",    `Quick,chown_eperm;
   ]
 
+let unmount mnt () =
+  let fs = Hashtbl.find mounts mnt in
+  Lwt_main.run (serve_until_block (mnt^".preunmount") (return fs));
+  as_root Profuse.unmount fs.chan;
+  assert_raises (Fuse.Destroy 0) (fun () -> Lwt_main.run (
+    serve_until_block (mnt^".postunmount") (return (Hashtbl.find mounts mnt))
+  ));
+  Hashtbl.remove mounts mnt
+
+let test_multi =
+  let dircheck () =
+    (*let file = "child" in*)
+    let dir = "conflict" in
+    let path = srcpath dir in
+    Unix.mkdir path 0o700;
+    (*ignore (Unix.system ("touch "^(Filename.concat path file)));*)
+    run_fuse [mntdir] "dircheck" (fun () ->
+      let mnt = mntpath dir in
+      let mntdh = Unix_dirent.opendir mnt in
+      Unix_dirent.closedir mntdh
+    );
+    Unix.rmdir path
+  in
+
+  "multi", [
+    "mount",`Quick,mount multidir;
+    "unmount",`Quick,unmount multidir;
+    "dircheck",`Quick,dircheck;
+  ]
 
 let test_unmount =
   let unmount () =
-    match !fuse_conn with
-    | None -> ()
-    | Some chan ->
       (*prerr_endline "before lsof";
-      let lsof_pid = Unix.(
+        let lsof_pid = Unix.(
         create_process "lsof" [|mntdir|] stdin stdout stderr
-      ) in
-      ignore (Unix.waitpid [] lsof_pid);*)
-      Lwt_main.run (serve_until_block "unmount" (return !fs_state));
-      as_root Profuse.unmount chan
+        ) in
+        ignore (Unix.waitpid [] lsof_pid);*)
+    Hashtbl.iter (fun mnt _ -> unmount mnt ()) mounts
   in
   "unmount", [
     "unmount",`Quick,unmount;
@@ -427,5 +461,6 @@ Alcotest.run "profuse_linux" [
   test_mount;
   test_ops;
   test_errs;
+  test_multi;
   test_unmount;
 ]

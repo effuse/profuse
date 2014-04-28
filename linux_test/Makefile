@@ -46,6 +46,7 @@ run_test: test.ml
 
 clean:
 	sudo fusermount -u mnt || true
+	sudo fusermount -u multi || true
 	rm -f test.cmi test.cmx test.o run_as
 	rm -f run_test
-	rm -rf lofs mnt
+	rm -rf lofs mnt multi
