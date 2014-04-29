@@ -99,7 +99,10 @@ let mount mnt () =
   lower_priv ();
   Unix.(try access srcdir [F_OK] with Unix_error _ -> mkdir srcdir 0o700);
   Unix.(try access mnt    [F_OK] with Unix_error _ -> mkdir mnt    0o700);
-  let state = Lofs.({ nodes = Nodes.create srcdir }) in
+  let state = Lofs.({
+    nodes   = Nodes.create srcdir;
+    handles = Handles.create ();
+  }) in
   let req, state = as_root
     (Linux_fs.mount ~argv:[|"test";"-o";"allow_other"|] ~mnt) state in
   Hashtbl.replace mounts mnt { chan=req.Fuse.chan; state };

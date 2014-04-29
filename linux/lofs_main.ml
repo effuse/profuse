@@ -24,10 +24,14 @@ let mnt =
 module Server = Profuse.Server(Lofs)
 module Linux_fs = Lofs.Linux_7_8(Server.Trace_out)
 
+let state = Lofs.({
+  nodes   = Nodes.create (Unix.getcwd ());
+  handles = Handles.create ();
+})
+
 ;;
 
 try
-  let state = Lofs.({ nodes = Nodes.create (Unix.getcwd ()) }) in
   let {Fuse.chan}, state = Linux_fs.mount
     (Array.sub Sys.argv 0 (Array.length Sys.argv - 1)) mnt state in
   Sys.(set_signal sigint (Signal_handle (fun _ -> Profuse.unmount chan)));

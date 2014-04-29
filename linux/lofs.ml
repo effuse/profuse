@@ -22,47 +22,14 @@ module In = In.Linux_7_8
 let to_mode_t = PosixTypes.(Ctypes.(Unsigned.(coerce uint32_t mode_t)))
 let to_dev_t  = PosixTypes.(Ctypes.(Unsigned.(coerce uint64_t dev_t)))
 
-type state = { nodes : Nodes.t }
+type state = { nodes : Nodes.t; handles : Handles.t }
 type t = state
 
 (* TODO: set umask *)
 (* TODO: check Nodes.get raising Not_found *)
 
-type fh =
-| Dir of string * Unix.dir_handle * int
-| File of string * Unix.file_descr * Stat.File_kind.t Lazy.t
-
 (* can be overridden with include *)
 let trace_channel = stderr
-
-let fh_table = Hashtbl.create 256
-let fh_free = ref []
-let fh_max = ref 0L
-let alloc_fh () =
-  match !fh_free with
-  | h::r -> fh_free := r; h
-  | [] -> let fh = !fh_max in fh_max := Int64.add fh 1L; fh
-let set_fh = Hashtbl.replace fh_table
-let free_fh fh =
-  (try
-     begin match Hashtbl.find fh_table fh with
-     | Dir (_,dir,_) -> Unix.closedir dir
-     | File (_,fd,_) -> Unix.close fd
-     end;
-     Hashtbl.remove fh_table fh
-   with Not_found -> ()); (* alloc'd but not set *)
-  fh_free := fh::!fh_free
-
-let get_fd fh =
-  try Hashtbl.find fh_table fh
-  with Not_found -> raise Unix.(Unix_error (EBADF,"",""))
-
-let get_dir_fd fh f = match get_fd fh with
-  | Dir (path, dir, off) -> f path dir off
-  | File (_,_,_) -> raise Unix.(Unix_error (ENOTDIR,"",""))
-let get_file_fd fh f = match get_fd fh with
-  | File (path, fd, kind) -> f path fd kind
-  | Dir (_,_,_) -> raise Unix.(Unix_error (EISDIR,"",""))
 
 let string_of_nodeid nodeid st = Nodes.string_of_id st.nodes nodeid
 
@@ -114,22 +81,18 @@ struct
   )
 
   let opendir op req st = Out.(
-    let fh = alloc_fh () in
     try
       let { Nodes.path } = Nodes.get st.nodes (nodeid req) in
       let dir = Unix.opendir path in
-      set_fh fh (Dir (path, dir, 0));
-      write_reply req (Open.create ~fh ~open_flags:0l); (* TODO: open_flags?? *)
+      let h = Handles.(alloc st.handles path (Dir (dir, 0))) in
+      write_reply req (Open.create ~fh:h.Handles.id ~open_flags:0l);
+      (* TODO: open_flags?? *)
       st
     with Not_found ->
-      free_fh fh;
       (* TODO: log? *)
       Printf.eprintf "opendir not found\n%!";
       write_error req Unix.ENOENT;
       st
-    | Unix.Unix_error (e,c,s) ->
-      free_fh fh;
-      raise (Unix.Unix_error (e,c,s))
   )
 
   let forget n req st = Out.(
@@ -182,16 +145,17 @@ struct
       else off
     in
     let fh = Ctypes.getf r In.Read.fh in
-    get_dir_fd fh (fun path dir off ->
+    Handles.with_dir_fd st.handles fh (fun h dir off ->
       let off = seek dir off in
       assert (off = req_off);
       write_reply req
         (Out.Dirent.of_list begin
           try
             let name = Unix.readdir dir in
-            let stats = Unix.LargeFile.lstat (Filename.concat path name) in
+            let path = Filename.concat h.Handles.path name in
+            let stats = Unix.LargeFile.lstat path in
             let off = off + 1 in
-            set_fh fh (Dir (path, dir, off));
+            Handles.set_dir_offset h off;
             Unix.LargeFile.([off, Int64.of_int stats.st_ino, name,
                              Unix_dirent.File_kind.of_file_kind stats.st_kind])
           with End_of_file -> []
@@ -209,7 +173,6 @@ struct
     st
 
   let open_ op req st = Out.(
-    let fh = alloc_fh () in
     try
       let { Nodes.path } = Nodes.get st.nodes (nodeid req) in
       let mode = Ctypes.getf op In.Open.mode in (* TODO: is only file_perm? *)
@@ -218,24 +181,21 @@ struct
         List.rev_map to_open_flag_exn (of_code ~host flags)
       ) in
       let file = Unix.openfile path flags (Int32.to_int mode) in
-      let kind () = let { Unix.st_kind } = Unix.fstat file in st_kind in
-      set_fh fh (File (path, file, Lazy.from_fun kind));
-      Out.(write_reply req (Open.create ~fh ~open_flags:0l)); (* TODO: flags *)
+      let kind = Unix.((fstat file).st_kind) in
+      let h = Handles.(alloc st.handles path (File (file, kind))) in
+      Out.(write_reply req (Open.create ~fh:h.Handles.id ~open_flags:0l));
+      (* TODO: flags *)
       st
     with Not_found ->
       (* TODO: log? *)
-      free_fh fh;
       write_error req Unix.ENOENT; st
-    | Unix.Unix_error (e,c,s) ->
-      free_fh fh;
-      raise (Unix.Unix_error (e,c,s))
   )
 
   let read r req st =
     let fh = Ctypes.getf r In.Read.fh in
     let offset = Ctypes.getf r In.Read.offset in
     let size = Ctypes.getf r In.Read.size in
-    get_file_fd fh (fun path fd _zk -> Out.(
+    Handles.with_file_fd st.handles fh (fun { Handles.path } fd _k -> Out.(
       write_reply req
         (Read.create ~size ~data_fn:(fun buf ->
           let ptr = Ctypes.(to_voidp (bigarray_start array1 buf)) in
@@ -247,13 +207,13 @@ struct
     st
 
   (* TODO: anything? *)
-  let flush f req st = Out.(write_reply req (Hdr.packet ~count:0)); st
+  let flush f req st = Out.write_ack req; st
 
   (* TODO: flags? *)
   let release r req st =
     try
-      free_fh (Ctypes.getf r In.Release.fh);
-      Out.(write_reply req (Hdr.packet ~count:0));
+      Handles.(free (get st.handles (Ctypes.getf r In.Release.fh)));
+      Out.write_ack req;
       st
     with Not_found ->
       Out.write_error req Unix.EBADF; st
@@ -288,7 +248,7 @@ struct
     let path = Filename.concat path name in
     (* errors caught by our caller *)
     Unix.unlink path;
-    write_reply req (Hdr.packet ~count:0);
+    write_ack req;
     st
   )
 
@@ -298,7 +258,7 @@ struct
     let path = Filename.concat path name in
     (* errors caught by our caller *)
     Unix.rmdir path;
-    write_reply req (Hdr.packet ~count:0);
+    write_ack req;
     st
   )
 
@@ -314,7 +274,7 @@ struct
     let fh = Ctypes.getf w In.Write.fh in
     let offset = Ctypes.getf w In.Write.offset in
     let size = Ctypes.getf w In.Write.size in
-    get_file_fd fh (fun path fd _zk -> Out.(
+    Handles.with_file_fd st.handles fh (fun { Handles.path } fd _k -> Out.(
       let data = Ctypes.(to_voidp (CArray.start (getf w In.Write.data))) in
       (* errors caught by our caller *)
       let off = Unix.LargeFile.lseek fd offset Unix.SEEK_SET in
@@ -352,14 +312,13 @@ struct
     let perms = Unix_unistd.Access.(of_code ~host code) in
     try
       Unix.access path perms;
-      Out.(write_reply req (Hdr.packet ~count:0));
+      Out.write_ack req;
       st
     with Unix.Unix_error(err,_,_) ->
       Out.write_error req err;
       st
 
   let create c name req st = Out.(
-    let fh = alloc_fh () in
     try
       let ({ Nodes.path } as pnode) = Nodes.get st.nodes (nodeid req) in
       let mode = Ctypes.getf c In.Create.mode in (* TODO: is only file_perm? *)
@@ -371,20 +330,17 @@ struct
       let file = Unix.(
         openfile path (O_WRONLY::O_CREAT::O_TRUNC::flags) (Int32.to_int mode)
       ) in
-      let kind () = let { Unix.st_kind } = Unix.fstat file in st_kind in
-      set_fh fh (File (path, file, Lazy.from_fun kind));
+      let kind = Unix.((Unix.fstat file).st_kind) in
+      let h = Handles.(alloc st.handles path (File (file, kind))) in
       write_reply req
         (Create.create
            ~store_entry:(store_entry pnode name)
-           ~store_open:(Open.store ~fh ~open_flags:0l));(* TODO: flags *)
+           ~store_open:(Open.store ~fh:h.Handles.id ~open_flags:0l));
+      (* TODO: flags *)
       st
     with Not_found ->
       (* TODO: log? *)
-      free_fh fh;
       write_error req Unix.ENOENT; st
-    | Unix.Unix_error (e,c,s) ->
-      free_fh fh;
-      raise (Unix.Unix_error (e,c,s))
   )
 
   let mknod m name req st =
@@ -436,13 +392,13 @@ struct
     let valid = Ctypes.getf s valid in
     begin
       if Valid.(is_set valid handle)
-      then get_file_fd (Ctypes.getf s fh) (fun _path fd zk ->
+      then Handles.with_file_fd st.handles (Ctypes.getf s fh) (fun _h fd k ->
         (if Valid.(is_set valid mode)
          then let mode = Ctypes.getf s mode in
               let (kind,perm) = Stat.Mode.(
                 of_code_exn ~host (Int32.to_int mode)
               ) in
-              assert (kind = Lazy.force zk); (* TODO: ???!!! *)
+              assert (kind = k); (* TODO: ???!!! *)
               Unix.fchmod fd perm);
         (let set_uid = Valid.(is_set valid uid) in
          let set_gid = Valid.(is_set valid gid) in
