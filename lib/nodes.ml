@@ -47,7 +47,6 @@ let create ?(label="nodes_"^(string_of_int !nodes_count)) root =
   }
 
 let get space id =
-  let id = Unsigned.UInt64.to_int64 id in
   let { table } = space in
   try Hashtbl.find table id
   with Not_found ->
@@ -67,8 +66,7 @@ let get space id =
     else raise Not_found
 
 let string_of_id s id =
-  let nodeid = Unsigned.UInt64.to_int64 id in
-  if nodeid = Int64.zero (* TODO: should be in get for FUSE_INIT? *)
+  if id = Int64.zero (* TODO: should be in get for FUSE_INIT? *)
   then "id=0"
   else let {gen; id; path} = get s id in
        Printf.sprintf "%Ld.%Ld.%s" gen id path
@@ -76,9 +74,7 @@ let string_of_id s id =
 let alloc_id s =
   match s.free with
   | genid::r -> s.free <- r; genid
-  | [] -> let id = s.max in
-          s.max <- Int64.add id 1L;
-          (0L, id)
+  | [] -> let id = s.max in s.max <- Int64.add id 1L; (0L, id)
 
 let to_string s =
   Printf.sprintf "%s table size: %d" s.label (Hashtbl.length s.table)
@@ -95,7 +91,7 @@ let lookup parent name =
     with Not_found ->
       raise (Failure
                (Printf.sprintf "parent %s has %s but %s does not"
-                  (string_of_id space (Unsigned.UInt64.of_int64 parent.id))
+                  (string_of_id space parent.id)
                   name space.label
                ))
   with Not_found ->

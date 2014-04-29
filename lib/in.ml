@@ -97,7 +97,7 @@ let read ~destroy ~parse chan =
     with Unix_error ((
       EINTR (* SIGINT *) | ENODEV (* umount *) | EBADF (* internal unmount *)
     ),"read",_) ->
-      let nodeid = UInt64.zero in
+      let nodeid = Int64.zero in
       let uid = UInt32.zero in
       let gid = UInt32.zero in
       let pid = UInt32.zero in

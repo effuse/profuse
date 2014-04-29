@@ -29,9 +29,8 @@ type node = {
 and t
 
 val create       : ?label:string -> string -> t
-val get          : t -> Unsigned.uint64 -> node
-val string_of_id : t -> Unsigned.uint64 -> string
-val alloc_id     : t -> int64 * id
+val get          : t -> int64 -> node
+val string_of_id : t -> int64 -> string
 val to_string    : t -> string
 
 val lookup : node -> string -> node

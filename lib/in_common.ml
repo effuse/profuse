@@ -26,7 +26,7 @@ module Hdr = struct
   let size    = "size"    -:* int_of_32
   let opcode  = "opcode"  -:* Opcode.view
   let unique  = "unique"  -:* uint64_t
-  let nodeid  = "nodeid"  -:* uint64_t
+  let nodeid  = "nodeid"  -:* int64_of_64
   let uid     = "uid"     -:* uint32_t
   let gid     = "gid"     -:* uint32_t
   let pid     = "pid"     -:* uint32_t
@@ -188,7 +188,7 @@ module Rename = struct
   type t
   let t : t structure typ = structure "In_Rename"
   let ( -:* ) s x = field t s x
-  let newdir = "newdir" -:* uint64_t
+  let newdir = "newdir" -:* int64_of_64
   let oldnew = "oldnew" -:* array 0 char
   let () = seal t
 end
@@ -197,7 +197,7 @@ module Link = struct
   type t
   let t : t structure typ = structure "In_Link"
   let ( -:* ) s x = field t s x
-  let oldnodeid = "oldnodeid" -:* uint64_t
+  let oldnodeid = "oldnodeid" -:* int64_of_64
   let name      = "name"      -:* array 0 char
   let () = seal t
 end

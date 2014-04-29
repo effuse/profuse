@@ -146,8 +146,7 @@ module Ro_simple :
     RW_FULL with type t = X.t =
   functor (X : RO_SIMPLE) -> functor (Out : Out.WRITE) ->
 struct
-  module Z = Zero(X)(Out)
-  include Z
+  include Zero(X)(Out)
   include X
 end
 
@@ -156,8 +155,7 @@ module Ro_mid :
     RW_FULL with type t = X.t =
   functor (X : RO_MID) -> functor (Out : Out.WRITE) ->
 struct
-  module Z = Zero(X)(Out)
-  include Z
+  include Zero(X)(Out)
   include X
 end
 
@@ -166,8 +164,7 @@ module Ro_full :
     RW_FULL with type t = X.t =
   functor (X : RO_FULL) -> functor (Out : Out.WRITE) ->
 struct
-  module Z = Zero(X)(Out)
-  include Z
+  include Zero(X)(Out)
   include X
 end
 
@@ -176,8 +173,7 @@ module Rw_simple :
     RW_FULL with type t = X.t =
   functor (X : RW_SIMPLE) -> functor (Out : Out.WRITE) ->
 struct
-  module Z = Zero(X)(Out)
-  include Z
+  include Zero(X)(Out)
   include X
 end
 
@@ -186,8 +182,7 @@ module Rw_mid :
     RW_FULL with type t = X.t =
   functor (X : RW_MID) -> functor (Out : Out.WRITE) ->
 struct
-  module Z = Zero(X)(Out)
-  include Z
+  include Zero(X)(Out)
   include X
 end
 
@@ -201,7 +196,7 @@ module type FS = sig
 
   val trace_channel : out_channel
 
-  val string_of_nodeid : uint64 -> t -> string
+  val string_of_nodeid : int64 -> t -> string
   val string_of_state  : req -> t -> string
 
   module Linux_7_8 : functor (Out : Out.LINUX_7_8) -> FULL with type t = t
