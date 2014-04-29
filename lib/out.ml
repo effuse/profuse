@@ -39,8 +39,9 @@ end
 
 module type WRITE = sig
   val write_reply_raw : _ request -> int -> char ptr -> unit
-  val write_reply : 'b request -> ('b request -> char carray) -> unit
-  val write_error : _ request -> Unix.error -> unit
+  val write_reply     : 'b request -> ('b request -> char carray) -> unit
+  val write_ack       : 'b request -> unit
+  val write_error     : _ request -> Unix.error -> unit
 end
 
 module type GEN_IO = sig
@@ -218,6 +219,8 @@ module Io : GEN_IO = struct
     let sz  = CArray.length arr + Hdr.hdrsz in
     let ptr = CArray.start arr -@ Hdr.hdrsz in
     write_reply_raw req sz ptr
+
+  let write_ack req = write_reply req (Hdr.packet ~count:0)
 
   (** Can raise Fs.UnknownErrno (TODO: ?) *)
   let write_error req err =
