@@ -389,7 +389,7 @@ module Server : SERVER = functor (Fs : FS) -> struct
     let open In in
     Printf.sprintf "%s.p%ld.%Ld (%s) %s"
       (Opcode.to_string (getf req.Fuse.hdr Hdr.opcode))
-      (Unsigned.UInt32.to_int32 (getf req.Fuse.hdr Hdr.pid))
+      (getf req.Fuse.hdr Hdr.pid)
       (Unsigned.UInt64.to_int64 (getf req.Fuse.hdr Hdr.unique))
       (Fs.string_of_nodeid (getf req.Fuse.hdr Hdr.nodeid) t)
       (match req.Fuse.pkt with

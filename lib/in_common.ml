@@ -27,9 +27,9 @@ module Hdr = struct
   let opcode  = "opcode"  -:* Opcode.view
   let unique  = "unique"  -:* uint64_t
   let nodeid  = "nodeid"  -:* int64_of_64
-  let uid     = "uid"     -:* uint32_t
-  let gid     = "gid"     -:* uint32_t
-  let pid     = "pid"     -:* uint32_t
+  let uid     = "uid"     -:* int32_of_32
+  let gid     = "gid"     -:* int32_of_32
+  let pid     = "pid"     -:* int32_of_32
   let padding = "padding" -:* uint32_t
   let () = seal t
 

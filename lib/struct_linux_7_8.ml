@@ -22,9 +22,9 @@ module Attr = struct
   type t
   let t : t structure typ = structure "Attr"
   let ( -:* ) s x = field t s x
-  let ino       = "ino"       -:* uint64_t
-  let size      = "size"      -:* uint64_t
-  let blocks    = "blocks"    -:* uint64_t
+  let ino       = "ino"       -:* int64_of_64
+  let size      = "size"      -:* int64_of_64 (* artificial 1EiB limit; wah. *)
+  let blocks    = "blocks"    -:* int64_of_64
   let atime     = "atime"     -:* uint64_t
   let mtime     = "mtime"     -:* uint64_t
   let ctime     = "ctime"     -:* uint64_t
@@ -86,9 +86,9 @@ module Attr = struct
     (* TODO: nsec times? *)
     Printf.sprintf
       "ino=%Ld size=%Ld blocks=%Ld atime=%Ld mtime=%Ld ctime=%Ld mode=%ld nlink=%ld uid=%ld gid=%ld rdev=%ld"
-      (i64 (getf pkt ino))
-      (i64 (getf pkt size))
-      (i64 (getf pkt blocks))
+      (getf pkt ino)
+      (getf pkt size)
+      (getf pkt blocks)
       (i64 (getf pkt atime))
       (i64 (getf pkt mtime))
       (i64 (getf pkt ctime))

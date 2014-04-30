@@ -97,10 +97,10 @@ let read ~destroy ~parse chan =
     with Unix_error ((
       EINTR (* SIGINT *) | ENODEV (* umount *) | EBADF (* internal unmount *)
     ),"read",_) ->
-      let nodeid = Int64.zero in
-      let uid = UInt32.zero in
-      let gid = UInt32.zero in
-      let pid = UInt32.zero in
+      let nodeid = 0L in
+      let uid = 0l in
+      let gid = 0l in
+      let pid = 0l in
       (* assumes sequentially increasing packet ids *)
       let unique = UInt64.succ chan.Fuse.unique in
       chan.Fuse.unique <- unique;

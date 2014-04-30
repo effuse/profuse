@@ -27,6 +27,7 @@ type t = state
 
 (* TODO: set umask *)
 (* TODO: check Nodes.get raising Not_found *)
+(* TODO: check uid/gid rights *)
 
 (* can be overridden with include *)
 let trace_channel = stderr
@@ -51,9 +52,9 @@ struct
   let store_attr_of_path path = Stat.(Stat.(
     let s = lstat path in
     Struct_linux_7_8.Attr.store
-      ~ino:(ino_int s)
-      ~size:(uint64_of_int64 (size_int s))
-      ~blocks:(uint64_of_int64 (blocks_int s))
+      ~ino:(Unsigned.UInt64.to_int64 (ino_int s))
+      ~size:(size_int s)
+      ~blocks:(blocks_int s)
       ~atime:(uint64_of_int64 (atime_int s))
       ~atimensec:(atimensec_int s)
       ~mtime:(uint64_of_int64 (mtime_int s))
@@ -345,9 +346,9 @@ struct
 
   let mknod m name req st =
     let ({ Nodes.path } as pnode) = Nodes.get st.nodes (nodeid req) in
+    let path = Filename.concat path name in
     let mode = Ctypes.getf m In.Mknod.mode in
     let rdev = Ctypes.getf m In.Mknod.rdev in (* TODO: use this? *)
-    let path = Filename.concat path name in
     (* TODO: translate mode and dev from client host rep to local host rep *)
     (* TODO: dev_t is usually 64-bit but rdev is 32-bit. translate how? *)
     (* TODO: regular -> open with O_CREAT | O_EXCL | O_WRONLY for compat? *)
@@ -362,8 +363,8 @@ struct
 
   let mkdir m name req st =
     let ({ Nodes.path } as pnode) = Nodes.get st.nodes (nodeid req) in
-    let mode = Ctypes.getf m In.Mkdir.mode in
     let path = Filename.concat path name in
+    let mode = Ctypes.getf m In.Mkdir.mode in
     Unix.mkdir path (Unsigned.UInt32.to_int mode);
     respond_with_entry pnode name req;
     st

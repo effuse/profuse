@@ -47,16 +47,20 @@ let limit k msg lwt =
   )
 
 let lower_priv =
-  let uid = int_of_string (Unix.readlink "run_as") in
-  Printf.eprintf "using: uid=%d euid=%d duid=%d\n%!"
-    (Unix.getuid ()) (Unix.geteuid ()) uid;
+  let uid = Int32.of_int (int_of_string (Unix.readlink "run_as")) in
+  Printf.eprintf "using: uid=%d euid=%d duid=%ld gid=%d egid=%d dgid=%ld\n%!"
+    (Unix.getuid ()) (Unix.geteuid ()) uid
+    (Unix.getgid ()) (Unix.getegid ()) uid;
   fun () ->
-    Printf.eprintf "now running as euid %d\n%!" uid;
+    Printf.eprintf "now running as euid %ld egid %ld\n%!" uid uid;
+    Unix_unistd.setegid uid;
     Unix_unistd.seteuid uid
 
 let as_root fn k =
-  Unix_unistd.seteuid 0;
-  Printf.eprintf "now running as euid %d\n%!" (Unix.geteuid ());
+  Unix_unistd.setegid 0l;
+  Unix_unistd.seteuid 0l;
+  Printf.eprintf "now running as euid %d egid %d\n%!"
+    (Unix.geteuid ()) (Unix.getegid ());
   let v = fn k in
   lower_priv ();
   v
@@ -188,7 +192,7 @@ let test_ops =
       let msg = Printf.sprintf "%s perms.1 0o%03o <> 0o%03o"
         file perms new_perms in
       assert_equal ~msg new_perms perms;
-      let new_perms = 0o666 in
+      let new_perms = 0o644 in
       let fd = openfile path [] 0o000 in
       (try
          Unix_sys_stat.fchmod fd (to_mode_t new_perms);
@@ -204,20 +208,20 @@ let test_ops =
   let chown () =
     let file = nod_file in
     let path = mntpath file in
-    let uid = Unix.geteuid () in
-    let gid = Unix.getegid () in
+    let uid = Int32.of_int (Unix.geteuid ()) in
+    let gid = Int32.of_int (Unix.getegid ()) in
     run_fuse [mntdir] "chown" Unix.(LargeFile.(fun () ->
-      Unix_unistd.chown path (-1) (-1);
+      Unix_unistd.chown path (-1l) (-1l);
       let st = Unix_sys_stat.(Stat.to_unix (stat path)) in
-      let msg = Printf.sprintf "chown noopuid (%d <> %d)" uid st.st_uid in
-      assert_equal ~msg uid st.st_uid;
-      assert_equal ~msg:"chown noopgid" gid st.st_gid;
-      as_root (Unix_unistd.chown path (1)) (-1);
+      let msg = Printf.sprintf "chown noopuid (%ld <> %d)" uid st.st_uid in
+      assert_equal ~msg uid (Int32.of_int st.st_uid);
+      assert_equal ~msg:"chown noopgid" gid (Int32.of_int st.st_gid);
+      as_root (Unix_unistd.chown path (1l)) (-1l);
       let st = Unix_sys_stat.(Stat.to_unix (stat path)) in
       assert_equal ~msg:("chown setuid (1 <> "^(string_of_int st.st_uid)^")")
         1 st.st_uid;
-      assert_equal ~msg:"chown setuid but noopgid" gid st.st_gid;
-      as_root (Unix_unistd.chown path (-1)) (1);
+      assert_equal ~msg:"chown setuid but noopgid" gid (Int32.of_int st.st_gid);
+      as_root (Unix_unistd.chown path (-1l)) (1l);
       let st = Unix_sys_stat.(Stat.to_unix (stat path)) in
       assert_equal ~msg:"chown setgid but noopuid" 1 st.st_uid;
       assert_equal ~msg:"chown setgid" 1 st.st_gid;
@@ -225,8 +229,8 @@ let test_ops =
       (try
          as_root (Unix_unistd.fchown fd uid) gid;
          let st = Unix_sys_stat.(Stat.to_unix (fstat fd)) in
-         assert_equal ~msg:"fchown setuid" uid st.st_uid;
-         assert_equal ~msg:"fchown setgid" gid st.st_gid;
+         assert_equal ~msg:"fchown setuid" uid (Int32.of_int st.st_uid);
+         assert_equal ~msg:"fchown setgid" gid (Int32.of_int st.st_gid);
        with exn -> Unix_unistd.close fd; raise exn);
       Unix_unistd.close fd
     ))
@@ -390,7 +394,9 @@ let test_errs =
     run_fuse [mntdir] "readlink_eacces" (fun () ->
       let path = Filename.concat (mntpath dir) "symlink" in
       Unix.(assert_raises (Unix_error (EACCES, "readlink", path))
-              (fun () -> Unix_unistd.readlink path))
+              (fun () -> Unix_unistd.readlink path));
+      Unix.(assert_raises (Unix_error (EACCES, "access", path))
+              (fun () -> Unix_unistd.access path [R_OK]))
     );
     Unix.rmdir path
   in
@@ -402,7 +408,7 @@ let test_errs =
     run_fuse [mntdir] "chown_eperm" (fun () ->
       let path = mntpath file in
       Unix.(assert_raises (Unix_error (EPERM, "chown", path))
-              (fun () -> Unix_unistd.chown path 1 (-1)))
+              (fun () -> Unix_unistd.chown path 1l (-1l)))
     );
     Unix.unlink path
   in
