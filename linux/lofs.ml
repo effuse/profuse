@@ -99,13 +99,11 @@ struct
   let forget n req st = Out.(
     try
       let node = Nodes.get st.nodes (nodeid req) in
-      let lookups = node.Nodes.lookups - n in
-      (if lookups <= 0
-       then Nodes.forget node
-       else Nodes.update { node with Nodes.lookups });
+      Nodes.forget node n;
       st
     with Not_found ->
       (* TODO: FORGET is a non-returning command. log? *)
+      Printf.eprintf "forget not found\n%!";
       st
   )
 

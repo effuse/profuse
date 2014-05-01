@@ -34,5 +34,4 @@ val string_of_id : t -> int64 -> string
 val to_string    : t -> string
 
 val lookup : node -> string -> node
-val forget : node -> unit
-val update : node -> unit
+val forget : node -> int -> unit

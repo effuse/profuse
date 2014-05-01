@@ -108,15 +108,15 @@ let lookup parent name =
     Hashtbl.replace table id node;
     node
 
-let forget node =
+let forget node n =
   let { space } = node in
   let { table } = space in
-  let parent = Hashtbl.find table node.parent in
-  Hashtbl.remove parent.children node.name;
-  Hashtbl.remove table node.id;
-  space.free <- (Int64.add node.gen 1L, node.id)::space.free
-
-let update node =
-  let { space } = node in
-  let { table } = space in
-  Hashtbl.replace table node.id node
+  let lookups = node.lookups - n in
+  if lookups <= 0
+  then
+    let parent = Hashtbl.find table node.parent in
+    Hashtbl.remove parent.children node.name;
+    Hashtbl.remove table node.id;
+    space.free <- (Int64.add node.gen 1L, node.id)::space.free
+  else
+    Hashtbl.replace table node.id { node with lookups }
