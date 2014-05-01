@@ -45,9 +45,9 @@ struct
   type t = state
 
   module Support = Profuse.Linux_7_8(Out)
-  include Support (* mount *)
-
-  let nodeid req = In.(Ctypes.getf req.Fuse.hdr Hdr.nodeid)
+  let mount = Support.mount
+  let enosys = Support.enosys
+  let nodeid = Support.nodeid
 
   let store_attr_of_path path = Stat.(Stat.(
     let s = lstat path in
@@ -77,6 +77,7 @@ struct
       st
     with Not_found ->
       (* TODO: log? *)
+      Printf.eprintf "getattr not found\n%!";
       write_error req Unix.ENOENT;
       st
   )
@@ -107,30 +108,8 @@ struct
       st
   )
 
-  let store_entry parent name = Out.(
-    let path = Filename.concat parent.Nodes.path name in
-    let store_attr = store_attr_of_path path in (* can raise ENOENT *)
-    let node = Nodes.lookup parent name in
-    let nodeid = node.Nodes.id in
-    let generation = node.Nodes.gen in
-    Entry.store ~nodeid ~generation
-      ~entry_valid:0L ~entry_valid_nsec:0l
-      ~attr_valid:0L ~attr_valid_nsec:0l
-      ~store_attr
-  )
-
-  let respond_with_entry parent name req = Out.(
-    let path = Filename.concat parent.Nodes.path name in
-    let store_attr = store_attr_of_path path in (* can raise ENOENT *)
-    let node = Nodes.lookup parent name in
-    let nodeid = node.Nodes.id in
-    let generation = node.Nodes.gen in
-    write_reply req
-      (Entry.create ~nodeid ~generation
-         ~entry_valid:0L ~entry_valid_nsec:0l
-         ~attr_valid:0L ~attr_valid_nsec:0l
-         ~store_attr)
-  )
+  let store_entry = Support.store_entry store_attr_of_path
+  let respond_with_entry = Support.respond_with_entry store_attr_of_path
 
   let lookup name req st =
     respond_with_entry (Nodes.get st.nodes (nodeid req)) name req;
@@ -262,10 +241,10 @@ struct
   )
 
   (* TODO: do *)
-  let statfs req st = Out.write_error req Unix.ENOSYS; st
+  let statfs = enosys
 
   (* TODO: do *)
-  let fsync f req st = Out.write_error req Unix.ENOSYS; st
+  let fsync _f = enosys
 
   (* Can raise Unix.Unix_error *)
   (* TODO: write flags? *)
@@ -293,20 +272,21 @@ struct
     lookup name req st (* TODO: still increment lookups? *)
 
   (* TODO: do *)
-  let getxattr g req st = Out.write_error req Unix.ENOSYS; st
+  let getxattr _g = enosys
 
   (* TODO: do *)
-  let setxattr s req st = Out.write_error req Unix.ENOSYS; st
+  let setxattr _s = enosys
 
   (* TODO: do *)
-  let listxattr g req st = Out.write_error req Unix.ENOSYS; st
+  let listxattr _g = enosys
 
   (* TODO: do *)
-  let removexattr name req st = Out.write_error req Unix.ENOSYS; st
+  let removexattr _name = enosys
 
-  (* TODO: forward pid; fuse server != requestor *)
   let access a req st =
     let { Nodes.path } = Nodes.get st.nodes (nodeid req) in
+    let uid = Ctypes.getf req.Fuse.hdr In.Hdr.uid in
+    let gid = Ctypes.getf req.Fuse.hdr In.Hdr.gid in
     let code = Ctypes.getf a In.Access.mask in
     let perms = Unix_unistd.Access.(of_code ~host code) in
     try
@@ -368,22 +348,22 @@ struct
     st
 
   (* TODO: do *)
-  let fsyncdir f req st = Out.write_error req Unix.ENOSYS; st
+  let fsyncdir _f = enosys
 
   (* TODO: do *)
-  let getlk lk req st = Out.write_error req Unix.ENOSYS; st
+  let getlk _lk = enosys
 
   (* TODO: do *)
-  let setlk lk req st = Out.write_error req Unix.ENOSYS; st
+  let setlk _lk = enosys
 
   (* TODO: do *)
-  let setlkw lk req st = Out.write_error req Unix.ENOSYS; st
+  let setlkw _lk = enosys
 
   (* TODO: do *)
-  let interrupt i req st = Out.write_error req Unix.ENOSYS; st
+  let interrupt _i = enosys
 
   (* TODO: do *)
-  let bmap b req st = Out.write_error req Unix.ENOSYS; st
+  let bmap _b = enosys
 
   let destroy _req _st = ()
 
