@@ -439,6 +439,16 @@ module Server : SERVER = functor (Fs : FS) -> struct
       | Setattr s -> Printf.sprintf "0x%lX[%s]"
         (getf s Setattr.valid)
         (String.concat " " (SetattrValid.attrs (getf s Setattr.valid)))
+      | Access a ->
+        let code = Ctypes.getf a In.Access.mask in
+        let phost = Fuse.(req.chan.host.unix_unistd.Unix_unistd.access) in
+        let perms = Unix_unistd.Access.(of_code ~host:phost code) in
+        let uid = Ctypes.getf req.Fuse.hdr In.Hdr.uid in
+        let gid = Ctypes.getf req.Fuse.hdr In.Hdr.gid in
+        Printf.sprintf "%ld/%ld (%s)" uid gid
+          (List.fold_left Unix.(fun s -> function
+          | R_OK -> s^"R" | W_OK -> s^"W" | X_OK -> s^"X" | F_OK -> s^"F"
+           ) "" perms)
       | _ -> "FIX ME"
       )
 
@@ -453,6 +463,11 @@ module Server : SERVER = functor (Fs : FS) -> struct
         (describe_reply (deserialize req sz ptr))
         (Unsigned.UInt64.to_int64 (Ctypes.getf req.Fuse.hdr In.Hdr.unique));
       write_reply_raw req sz ptr
+
+    let write_ack req =
+      Printf.fprintf Fs.trace_channel "    returning ack from %Ld\n%!"
+        (Unsigned.UInt64.to_int64 (Ctypes.getf req.Fuse.hdr In.Hdr.unique));
+      write_ack req
 
     let write_error req err =
       Printf.fprintf Fs.trace_channel "    returning err %s from %Ld\n%!"
