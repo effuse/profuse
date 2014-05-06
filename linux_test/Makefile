@@ -42,6 +42,7 @@ run_test: test.ml
 		../_build/lib/out.cmx \
 		../_build/lib/nodes.cmx \
 		../_build/lib/handles.cmx \
+		../_build/lib/agent_handler.cmx \
 		../_build/linux/profuse.cmx \
 		../_build/linux/lofs.cmx \
 		-linkpkg test.ml

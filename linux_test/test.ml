@@ -65,6 +65,7 @@ let as_root fn k =
   lower_priv ();
   v
 
+let agents = Agent_handler.create ()
 let mounts = Hashtbl.create 2
 
 let serve_one tag fs =
@@ -103,10 +104,7 @@ let mount mnt () =
   lower_priv ();
   Unix.(try access srcdir [F_OK] with Unix_error _ -> mkdir srcdir 0o700);
   Unix.(try access mnt    [F_OK] with Unix_error _ -> mkdir mnt    0o700);
-  let state = Lofs.({
-    nodes   = Nodes.create srcdir;
-    handles = Handles.create ();
-  }) in
+  let state = as_root Lofs.make srcdir in
   let req, state = as_root
     (Linux_fs.mount ~argv:[|"test";"-o";"allow_other"|] ~mnt) state in
   Hashtbl.replace mounts mnt { chan=req.Fuse.chan; state };
@@ -166,13 +164,12 @@ let test_ops =
     let to_dev_t  = PosixTypes.(Ctypes.(Unsigned.(coerce uint64_t dev_t))) in
     let file = nod_file in
     let path = srcpath file in
-    ignore (Unix.umask 0o000);
     Unix.(assert_raises (Unix_error (ENOENT, "access", path))
             (fun () -> access path [F_OK]));
     run_fuse [mntdir] "mknod" (fun () ->
       let path = mntpath file in
       Unix_sys_stat.mknod path (to_mode_t nod_perms)
-        (to_dev_t  (Unsigned.UInt64.of_int 0));
+        (to_dev_t (Unsigned.UInt64.of_int 0));
       Unix_unistd.(access path [Unix.F_OK])
     );
     Unix.(access path [F_OK])
@@ -203,6 +200,27 @@ let test_ops =
        with exn -> Unix_unistd.close fd; raise exn);
       Unix_unistd.close fd
     ))
+  in
+
+  let access () =
+    let file = nod_file in
+    let path = mntpath file in
+    run_fuse [mntdir] "access" (fun () ->
+      let uid = 999l and gid = 999l in
+      Unix.(assert_raises ~msg:"uid 999 shouldn't be able to write"
+              (Unix_error (EACCES, "access", path))
+              (fun () ->
+                agents.Agent_handler.access ~uid ~gid path Unix.([W_OK])));
+      let uid = Int32.of_int (Unix.geteuid ()) in
+      let gid = Int32.of_int (Unix.getegid ()) in
+      Unix.(assert_raises ~msg:"user shouldn't be able to exec"
+              (Unix_error (EACCES, "access", path))
+              (fun () ->
+                agents.Agent_handler.access ~uid ~gid path Unix.([X_OK])));
+      let uid = 0l and gid = 0l in
+      (* root should be able to write *)
+      agents.Agent_handler.access ~uid ~gid path Unix.([W_OK])
+    )
   in
 
   let chown () =
@@ -346,6 +364,7 @@ let test_ops =
     "readlink", `Quick,readlink;
     "mknod",    `Quick,mknod;
     "chmod",    `Quick,chmod;
+    "access",   `Quick,access;
     "chown",    `Quick,chown;
     "symlink",  `Quick,symlink;
     "write",    `Quick,write;

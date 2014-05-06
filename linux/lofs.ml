@@ -22,7 +22,11 @@ module In = In.Linux_7_8
 let to_mode_t = PosixTypes.(Ctypes.(Unsigned.(coerce uint32_t mode_t)))
 let to_dev_t  = PosixTypes.(Ctypes.(Unsigned.(coerce uint64_t dev_t)))
 
-type state = { nodes : Nodes.t; handles : Handles.t }
+type state = {
+  nodes : Nodes.t;
+  handles : Handles.t;
+  agents : Agent_handler.t;
+}
 type t = state
 
 (* TODO: set umask *)
@@ -40,12 +44,22 @@ let string_of_state req st =
 let uint64_of_int64 = Unsigned.UInt64.of_int64
 let uint32_of_uint64 x = Unsigned.(UInt32.of_int (UInt64.to_int x))
 
+let make root = {
+  nodes = Nodes.create root;
+  handles = Handles.create ();
+  agents = Agent_handler.create ();
+}
+
 module Linux_7_8(Out : Out.LINUX_7_8) : Profuse.FULL with type t = state =
 struct
   type t = state
 
   module Support = Profuse.Linux_7_8(Out)
-  let mount = Support.mount
+
+  let mount ~argv ~mnt st =
+    ignore (Unix.umask 0o000);
+    Support.mount ~argv ~mnt st
+
   let enosys = Support.enosys
   let nodeid = Support.nodeid
 

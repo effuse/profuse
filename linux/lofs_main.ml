@@ -24,10 +24,7 @@ let mnt =
 module Server = Profuse.Server(Lofs)
 module Linux_fs = Lofs.Linux_7_8(Server.Trace_out)
 
-let state = Lofs.({
-  nodes   = Nodes.create (Unix.getcwd ());
-  handles = Handles.create ();
-})
+let state = Lofs.make (Unix.getcwd ())
 
 ;;
 
