@@ -29,7 +29,6 @@ type state = {
 }
 type t = state
 
-(* TODO: set umask *)
 (* TODO: check Nodes.get raising Not_found *)
 (* TODO: check uid/gid rights *)
 
@@ -140,8 +139,9 @@ struct
     Handles.with_dir_fd st.handles fh (fun h dir off ->
       let off = seek dir off in
       assert (off = req_off);
+      let host = Fuse.(req.chan.host) in
       write_reply req
-        (Out.Dirent.of_list begin
+        (Out.Dirent.of_list ~host begin
           try
             let name = Unix.readdir dir in
             let path = Filename.concat h.Handles.path name in
@@ -169,8 +169,9 @@ struct
       let { Nodes.path } = Nodes.get st.nodes (nodeid req) in
       let mode = Ctypes.getf op In.Open.mode in (* TODO: is only file_perm? *)
       let flags = Ctypes.getf op In.Open.flags in
+      let phost = Fuse.(req.chan.host.unix_fcntl.Unix_fcntl.oflags) in
       let flags = Unix_fcntl.Oflags.(
-        List.rev_map to_open_flag_exn (of_code ~host flags)
+        List.rev_map to_open_flag_exn (of_code ~host:phost flags)
       ) in
       let file = Unix.openfile path flags (Int32.to_int mode) in
       let kind = Unix.((fstat file).st_kind) in
@@ -298,13 +299,15 @@ struct
   let removexattr _name = enosys
 
   let access a req st =
+    let { agents } = st in
     let { Nodes.path } = Nodes.get st.nodes (nodeid req) in
     let uid = Ctypes.getf req.Fuse.hdr In.Hdr.uid in
     let gid = Ctypes.getf req.Fuse.hdr In.Hdr.gid in
     let code = Ctypes.getf a In.Access.mask in
-    let perms = Unix_unistd.Access.(of_code ~host code) in
+    let phost = Fuse.(req.chan.host.unix_unistd.Unix_unistd.access) in
+    let perms = Unix_unistd.Access.(of_code ~host:phost code) in
     try
-      Unix.access path perms;
+      agents.Agent_handler.access ~uid ~gid path perms;
       Out.write_ack req;
       st
     with Unix.Unix_error(err,_,_) ->
@@ -316,8 +319,9 @@ struct
       let ({ Nodes.path } as pnode) = Nodes.get st.nodes (nodeid req) in
       let mode = Ctypes.getf c In.Create.mode in (* TODO: is only file_perm? *)
       let flags = Ctypes.getf c In.Create.flags in
+      let phost = Fuse.(req.chan.host.unix_fcntl.Unix_fcntl.oflags) in
       let flags = Unix_fcntl.Oflags.(
-        List.rev_map to_open_flag_exn (of_code ~host flags)
+        List.rev_map to_open_flag_exn (of_code ~host:phost flags)
       ) in
       let path = Filename.concat path name in
       let file = Unix.(
@@ -387,12 +391,14 @@ struct
       if Valid.(is_set valid handle)
       then Handles.with_file_fd st.handles (Ctypes.getf s fh) (fun _h fd k ->
         (if Valid.(is_set valid mode)
-         then let mode = Ctypes.getf s mode in
-              let (kind,perm) = Stat.Mode.(
-                of_code_exn ~host (Int32.to_int mode)
-              ) in
-              assert (kind = k); (* TODO: ???!!! *)
-              Unix.fchmod fd perm);
+         then
+            let mode = Ctypes.getf s mode in
+            let phost = Fuse.(req.chan.host.unix_sys_stat.Unix_sys_stat.mode) in
+            let (kind,perm) = Stat.Mode.(
+              of_code_exn ~host:phost (Int32.to_int mode)
+            ) in
+            assert (kind = k); (* TODO: ???!!! *)
+            Unix.fchmod fd perm);
         (let set_uid = Valid.(is_set valid uid) in
          let set_gid = Valid.(is_set valid gid) in
          if set_uid || set_gid
@@ -410,13 +416,15 @@ struct
       else
         let { Nodes.path } = Nodes.get st.nodes (nodeid req) in
         (if Valid.(is_set valid mode)
-         then let mode = Ctypes.getf s mode in
-              let (kind,perm) = Stat.Mode.(
-                of_code_exn ~host (Int32.to_int mode)
-              ) in
-              let { Unix.st_kind } = Unix.stat path in
-              assert (kind = st_kind); (* TODO: ???!!! *)
-              Unix.chmod path perm);
+         then
+            let mode = Ctypes.getf s mode in
+            let phost = Fuse.(req.chan.host.unix_sys_stat.Unix_sys_stat.mode) in
+            let (kind,perm) = Stat.Mode.(
+              of_code_exn ~host:phost (Int32.to_int mode)
+            ) in
+            let { Unix.st_kind } = Unix.stat path in
+            assert (kind = st_kind); (* TODO: ???!!! *)
+            Unix.chmod path perm);
         (let set_uid = Valid.(is_set valid uid) in
          let set_gid = Valid.(is_set valid gid) in
          if set_uid || set_gid

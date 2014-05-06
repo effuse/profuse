@@ -80,19 +80,21 @@ module Attr = struct
       ~atimensec ~mtimensec ~ctimensec ~mode ~nlink ~uid ~gid ~rdev attr;
     attr
 
-  let describe pkt =
+  let describe ~host pkt =
+    let phost = host.Fuse.unix_sys_stat.Unix_sys_stat.mode in
     let i64 = Unsigned.UInt64.to_int64 in
     let i32 = Unsigned.UInt32.to_int32 in
+    let mode = Unsigned.UInt32.to_int (getf pkt mode) in
     (* TODO: nsec times? *)
     Printf.sprintf
-      "ino=%Ld size=%Ld blocks=%Ld atime=%Ld mtime=%Ld ctime=%Ld mode=%ld nlink=%ld uid=%ld gid=%ld rdev=%ld"
+      "ino=%Ld size=%Ld blocks=%Ld atime=%Ld mtime=%Ld ctime=%Ld mode=%s nlink=%ld uid=%ld gid=%ld rdev=%ld"
       (getf pkt ino)
       (getf pkt size)
       (getf pkt blocks)
       (i64 (getf pkt atime))
       (i64 (getf pkt mtime))
       (i64 (getf pkt ctime))
-      (i32 (getf pkt mode))
+      Unix_sys_stat.Mode.(to_string ~host:phost (of_code_exn ~host:phost mode))
       (i32 (getf pkt nlink))
       (i32 (getf pkt uid))
       (i32 (getf pkt gid))

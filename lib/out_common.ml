@@ -76,7 +76,8 @@ module Dirent = struct
   let entsz name = hdrsz + 8 * (((String.length name) + 7) / 8)
 
   (* TODO: respect size *)
-  let of_list listing offset req =
+  let of_list ~host listing offset req =
+    let phost = host.Fuse.unix_dirent.Unix_dirent.file_kind in
     let emit = ref false in
     let count = ref 0 in
     let listing = List.fold_left (fun acc ((off,_,name,_) as ent) ->
@@ -96,7 +97,7 @@ module Dirent = struct
       setf dirent off_     off;
       setf dirent namelen_ (UInt32.of_int (String.length name));
       setf dirent typ_
-        (UInt32.of_int (Unix_dirent.File_kind.(to_code ~host typ)));
+        (UInt32.of_int (Unix_dirent.File_kind.(to_code ~host:phost typ)));
       let sp = ref (p +@ (offsetof name_)) in
       String.iter (fun c -> !sp <-@ c; sp := !sp +@ 1) name;
       (* Printf.eprintf "dirent serialized %s\n%!" name; *)

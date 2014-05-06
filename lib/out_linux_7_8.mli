@@ -49,7 +49,7 @@ module Entry : sig
     attr_valid_nsec:int32 ->
     store_attr:(Struct.Attr.t structure -> unit) ->
     'b In_common.request -> char CArray.t
-  val describe : t structure -> string
+  val describe : host:Fuse.host -> t structure -> string
 end
 
 module Attr : sig

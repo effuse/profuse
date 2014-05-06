@@ -33,7 +33,7 @@ end
 module type READ = sig
   type t
 
-  val deserialize : 'a request -> int -> char ptr -> t reply
+  val deserialize    : 'a request -> int -> char ptr -> t reply
   val describe_reply : t reply -> string
 end
 
@@ -80,20 +80,20 @@ module Linux_7_8_wire = struct
   | Access
   | Forget (* TODO: should never happen? *)
   | Readlink of string
-  | Open     of Out_common.Open.t     structure
-  | Read     of Out_common.Read.t     structure
-  | Write    of Out_common.Write.t    structure
-  | Statfs (* TODO: do *)
+  | Open     of Out_common.Open.t       structure
+  | Read     of Out_common.Read.t       structure
+  | Write    of Out_common.Write.t      structure
+  | Statfs   of Struct_common.Kstatfs.t structure
   | Flush
   | Release
   | Fsync
   | Unlink
-  | Create   of Out_linux_7_8.Create.t structure
-  | Mknod    of Out_linux_7_8.Entry.t  structure
-  | Setattr  of Out_linux_7_8.Attr.t   structure
-  | Link     of Out_linux_7_8.Entry.t  structure
-  | Symlink  of Out_linux_7_8.Entry.t  structure
-  | Rename   of Out_linux_7_8.Entry.t  structure
+  | Create   of Out_linux_7_8.Create.t  structure
+  | Mknod    of Out_linux_7_8.Entry.t   structure
+  | Setattr  of Out_linux_7_8.Attr.t    structure
+  | Link     of Out_linux_7_8.Entry.t   structure
+  | Symlink  of Out_linux_7_8.Entry.t   structure
+  | Rename   of Out_linux_7_8.Entry.t   structure
   | Getlk (* TODO: do *)
   | Setlk (* TODO: do *)
   | Setlkw (* TODO: do *)
@@ -143,20 +143,20 @@ module Osx_7_8_wire = struct
   | Access
   | Forget (* TODO: should never happen? *)
   | Readlink of string
-  | Open     of Out_common.Open.t     structure
-  | Read     of Out_common.Read.t     structure
-  | Write    of Out_common.Write.t    structure
-  | Statfs (* TODO: do *)
+  | Open     of Out_common.Open.t       structure
+  | Read     of Out_common.Read.t       structure
+  | Write    of Out_common.Write.t      structure
+  | Statfs   of Struct_common.Kstatfs.t structure
   | Flush
   | Release
   | Fsync
   | Unlink
-  | Create   of Out_osx_7_8.Create.t structure
-  | Mknod    of Out_osx_7_8.Entry.t  structure
-  | Setattr  of Out_osx_7_8.Attr.t   structure
-  | Link     of Out_osx_7_8.Entry.t  structure
-  | Symlink  of Out_osx_7_8.Entry.t  structure
-  | Rename   of Out_osx_7_8.Entry.t  structure
+  | Create   of Out_osx_7_8.Create.t    structure
+  | Mknod    of Out_osx_7_8.Entry.t     structure
+  | Setattr  of Out_osx_7_8.Attr.t      structure
+  | Link     of Out_osx_7_8.Entry.t     structure
+  | Symlink  of Out_osx_7_8.Entry.t     structure
+  | Rename   of Out_osx_7_8.Entry.t     structure
   | Getlk (* TODO: do *)
   | Setlk (* TODO: do *)
   | Setlkw (* TODO: do *)
@@ -224,7 +224,8 @@ module Io : GEN_IO = struct
 
   (** Can raise Fs.UnknownErrno (TODO: ?) *)
   let write_error req err =
-    let nerrno = match Unix_errno.(to_code ~host err) with
+    let phost = Fuse.(req.chan.host.unix_errno) in
+    let nerrno = match Unix_errno.(to_code ~host:phost err) with
       | Some errno -> Int32.of_int (-errno)
       | None -> raise (Fuse.UnknownErrno err)
     in
@@ -272,7 +273,7 @@ module Linux_7_8 : LINUX_7_8 = struct
       | FUSE_OPEN        -> Open       (!@ (from_voidp Open.t buf))
       | FUSE_READ        -> Read       (!@ (from_voidp Read.t buf))
       | FUSE_WRITE       -> Write      (!@ (from_voidp Write.t buf))
-      | FUSE_STATFS      -> Statfs
+      | FUSE_STATFS      -> Statfs     (!@ (from_voidp Struct_common.Kstatfs.t buf))
       | FUSE_FLUSH       -> Flush
       | FUSE_RELEASE     -> Release
       | FUSE_FSYNC       -> Fsync
@@ -303,16 +304,18 @@ module Linux_7_8 : LINUX_7_8 = struct
 
   let deserialize req = deserialize ~parse req
 
-  let describe_reply ({pkt}) = match pkt with
+  let describe_reply ({chan; pkt}) =
+    let host = chan.Fuse.host in
+    match pkt with
     | Init i -> Init.describe i
     | Getattr a -> "GETATTR FIXME" (* TODO: more *)
-    | Lookup e -> Entry.describe e
+    | Lookup e -> Entry.describe ~host e
     | Opendir o -> "OPENDIR FIXME" (* TODO: more *)
     | Readdir r -> "READDIR FIXME" (* TODO: more *)
     | Releasedir -> "RELEASEDIR"
     | Fsyncdir -> "FSYNCDIR"
     | Rmdir -> "RMDIR"
-    | Mkdir e -> Entry.describe e
+    | Mkdir e -> Entry.describe ~host e
     | Getxattr -> "GETXATTR"
     | Setxattr -> "SETXATTR"
     | Listxattr -> "LISTXATTR"
@@ -323,17 +326,17 @@ module Linux_7_8 : LINUX_7_8 = struct
     | Open o -> "OPEN FIXME" (* TODO: more *)
     | Read r -> "READ FIXME" (* TODO: more *)
     | Write w -> "WRITE FIXME" (* TODO: more *)
-    | Statfs -> "STATFS"
+    | Statfs s -> "STATFS FIXME" (* TODO: more *)
     | Flush -> "FLUSH"
     | Release -> "RELEASE"
     | Fsync -> "FSYNC"
     | Unlink -> "UNLINK"
     | Create c -> "CREATE FIXME" (* TODO: more *)
-    | Mknod e -> Entry.describe e
+    | Mknod e -> Entry.describe ~host e
     | Setattr a -> "SETATTR FIXME" (* TODO: more *)
-    | Link e -> Entry.describe e
-    | Symlink e -> Entry.describe e
-    | Rename e -> Entry.describe e
+    | Link e -> Entry.describe ~host e
+    | Symlink e -> Entry.describe ~host e
+    | Rename e -> Entry.describe ~host e
     | Getlk -> "GETLK"
     | Setlk -> "SETLK"
     | Setlkw -> "SETLKW"
@@ -375,7 +378,7 @@ module Osx_7_8 : OSX_7_8 = struct
       | FUSE_OPEN        -> Open       (!@ (from_voidp Open.t buf))
       | FUSE_READ        -> Read       (!@ (from_voidp Read.t buf))
       | FUSE_WRITE       -> Write      (!@ (from_voidp Write.t buf))
-      | FUSE_STATFS      -> Statfs
+      | FUSE_STATFS      -> Statfs     (!@ (from_voidp Struct_common.Kstatfs.t buf))
       | FUSE_FLUSH       -> Flush
       | FUSE_RELEASE     -> Release
       | FUSE_FSYNC       -> Fsync
@@ -406,16 +409,18 @@ module Osx_7_8 : OSX_7_8 = struct
 
   let deserialize req = deserialize ~parse req
 
-  let describe_reply ({pkt}) = match pkt with
+  let describe_reply ({chan; pkt}) =
+    let host = chan.Fuse.host in
+    match pkt with
     | Init i -> Init.describe i
     | Getattr a -> "GETATTR FIXME" (* TODO: more *)
-    | Lookup e -> Entry.describe e
+    | Lookup e -> Entry.describe ~host e
     | Opendir o -> "OPENDIR FIXME" (* TODO: more *)
     | Readdir r -> "READDIR FIXME" (* TODO: more *)
     | Releasedir -> "RELEASEDIR"
     | Fsyncdir -> "FSYNCDIR"
     | Rmdir -> "RMDIR"
-    | Mkdir e -> Entry.describe e
+    | Mkdir e -> Entry.describe ~host e
     | Getxattr -> "GETXATTR"
     | Setxattr -> "SETXATTR"
     | Listxattr -> "LISTXATTR"
@@ -426,17 +431,17 @@ module Osx_7_8 : OSX_7_8 = struct
     | Open o -> "OPEN FIXME" (* TODO: more *)
     | Read r -> "READ FIXME" (* TODO: more *)
     | Write w -> "WRITE FIXME" (* TODO: more *)
-    | Statfs -> "STATFS"
+    | Statfs s -> "STATFS FIXME" (* TODO: more *)
     | Flush -> "FLUSH"
     | Release -> "RELEASE"
     | Fsync -> "FSYNC"
     | Unlink -> "UNLINK"
     | Create c -> "CREATE FIXME" (* TODO: more *)
-    | Mknod e -> Entry.describe e
+    | Mknod e -> Entry.describe ~host e
     | Setattr a -> "SETATTR FIXME" (* TODO: more *)
-    | Link e -> Entry.describe e
-    | Symlink e -> Entry.describe e
-    | Rename e -> Entry.describe e
+    | Link e -> Entry.describe ~host e
+    | Symlink e -> Entry.describe ~host e
+    | Rename e -> Entry.describe ~host e
     | Getlk -> "GETLK"
     | Setlk -> "SETLK"
     | Setlkw -> "SETLKW"
