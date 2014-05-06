@@ -242,12 +242,11 @@ let check_status cmd = function
   | Unix.WSTOPPED k ->
     raise (Fuse.ExecError (cmd,"ocaml stop signal "^(string_of_int k)))
   | Unix.WEXITED _ -> ()
-  
-(**
-   Can raise Fuse.ExecError, Fuse.ProtocolError
-   If this fails, you should be sure to unmount the mountpoint.
-*)
 module Linux_7_8(Out : Out.LINUX_7_8) = struct
+  (**
+     Can raise Fuse.ExecError, Fuse.ProtocolError
+     If this fails, you should be sure to unmount the mountpoint.
+  *)
   let mount ~argv ~mnt st =
     let max_write = 1 lsl 16 in
 
@@ -270,7 +269,7 @@ module Linux_7_8(Out : Out.LINUX_7_8) = struct
 
     let init_fs = Fuse.({
       mnt; fd; unique=UInt64.zero; version=(0,0);
-      max_readahead=0; max_write; flags=no_flags;
+      max_readahead=0; max_write; flags=no_flags; host;
     }) in
     let req = In.read init_fs () in
 
@@ -294,7 +293,7 @@ module Linux_7_8(Out : Out.LINUX_7_8) = struct
         ~flags:(UInt32.of_int 0) ~max_write in
       let fs = Fuse.({
         mnt; fd; unique=init_fs.unique; version = (major, minor);
-        max_readahead; max_write; flags = 0l;
+        max_readahead; max_write; flags = 0l; host;
       }) in
       Out.write_reply req pkt;
       req, st

@@ -17,6 +17,14 @@
 
 type flags = int32
 
+type host = {
+  unix_fcntl    : Unix_fcntl.host;
+  unix_errno    : Unix_errno.host;
+  unix_sys_stat : Unix_sys_stat.host;
+  unix_dirent   : Unix_dirent.host;
+  unix_unistd   : Unix_unistd.host;
+}
+
 type chan = {
   fd : Unix.file_descr;
   mutable unique : Unsigned.uint64;
@@ -25,6 +33,7 @@ type chan = {
   max_readahead : int;
   max_write : int;
   flags : flags;
+  host : host;
 }
 
 type ('hdr, 'body) packet = {
@@ -38,16 +47,10 @@ exception ExecError of string * string
 exception ProtocolError of chan * string
 exception Destroy of int
 
-type host = {
-  unix_fcntl : Unix_fcntl.host;
+let host = {
+  unix_fcntl    = Unix_fcntl.host;
+  unix_errno    = Unix_errno.host;
+  unix_sys_stat = Unix_sys_stat.host;
+  unix_dirent   = Unix_dirent.host;
+  unix_unistd   = Unix_unistd.host;
 }
-
-module type HOST = sig
-  val host : host
-  module In : sig
-      
-  end
-  module Out : sig
-
-  end
-end
