@@ -1,8 +1,12 @@
 # OASIS_START
-# DO NOT EDIT (digest: 35cbcf75f37e148f4654147a36024bee)
+# DO NOT EDIT (digest: 97cf5d70b40e51e62d4fa37653c4739a)
 View
 Opcode
 Fuse
+Struct
 In_common
-Struct_common
+In
+Out
+Nodes
+Handles
 # OASIS_STOP
