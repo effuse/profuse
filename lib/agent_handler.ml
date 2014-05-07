@@ -55,21 +55,29 @@ let make box = let { interp } = box in {
     unwrap_result (interp ~uid ~gid (Chown (path, u, g))));
 }
 
-let zero = make {
-  interp = (fun ~uid ~gid _cmd -> raise (Failure "Agent handler not started"));
-}
-
 let fork_proc listen request =
   let request_in, request_out = Unix.pipe () in
   let reply_in, reply_out = Unix.pipe () in
-  let agent_handler = Unix.fork () in
-  if agent_handler = 0
-  then listen
-    (Unix.in_channel_of_descr request_in)
-    (Unix.out_channel_of_descr reply_out)
-  else request
-    (Unix.out_channel_of_descr request_out)
-    (Unix.in_channel_of_descr reply_in)
+  let child = Unix.fork () in
+  if child = 0
+  then begin
+    Unix.close request_out;
+    Unix.close reply_in;
+    listen
+      (Unix.in_channel_of_descr request_in)
+      (Unix.out_channel_of_descr reply_out)
+  end
+  else begin
+    at_exit (fun () ->
+      Unix.close request_out;
+      Unix.close reply_in;
+    );
+    Unix.close request_in;
+    Unix.close reply_out;
+    request
+      (Unix.out_channel_of_descr request_out)
+      (Unix.in_channel_of_descr reply_in)
+  end
 
 let agent_request (type a) request reply (cmd : a command) : a result =
   Marshal.to_channel request cmd [];
@@ -89,31 +97,33 @@ let create_agent uid gid =
   fork_proc (fun (type a) requestc replyc ->
     Unix.setgid (Int32.to_int gid);
     Unix.setuid (Int32.to_int uid);
-    while true do
-      Marshal.to_channel replyc
-        ((reply ((Marshal.from_channel requestc) : a command)) : a result) [];
+    begin try while true do
+        Marshal.to_channel replyc
+          ((reply ((Marshal.from_channel requestc) : a command)) : a result) [];
       flush replyc
-    done;
-    raise Exit
+      done with End_of_file -> exit 0
+    end;
+    exit 0
   ) agent_request
 
 let listen (type a) request reply =
   let agents = Hashtbl.create 8 in
-  while true do
-    let directive : a directive = Marshal.from_channel request in
-    let { uid; gid; cmd } = directive in
-    let agent =
-      try
-        Hashtbl.find agents (uid,gid)
-      with Not_found ->
-        let a = create_agent uid gid in
-        Hashtbl.replace agents (uid,gid) a;
-        a
-    in
-    Marshal.to_channel reply (agent cmd) [];
-    flush reply
-  done;
-  raise Exit
+  begin try while true do
+      let directive : a directive = Marshal.from_channel request in
+      let { uid; gid; cmd } = directive in
+      let agent =
+        try
+          Hashtbl.find agents (uid,gid)
+        with Not_found ->
+          let a = create_agent uid gid in
+          Hashtbl.replace agents (uid,gid) a;
+          a
+      in
+      Marshal.to_channel reply (agent cmd) [];
+      flush reply
+    done with End_of_file -> exit 0
+  end;
+  exit 0
 
 let request request reply = {
   interp = (fun (type a) ~uid ~gid (cmd : a command) ->
