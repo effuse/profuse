@@ -10,7 +10,7 @@ BuildTools:  ocamlbuild
 Library profuse
   Path: lib
   FindlibName: profuse
-  Modules: View, Opcode, Fuse, In_common, Struct_common
+  Modules: View, Opcode, Fuse, Struct, In_common, In, Out, Nodes, Handles
   BuildDepends: unix-errno, unix-sys-stat, unix-dirent, unix-unistd, unix-fcntl, fd-send-recv, ctypes, ctypes.foreign
   NativeOpt: -w @f@p@u@s@40
   ByteOpt:   -w @f@p@u@s@40
@@ -24,13 +24,22 @@ Library linux
   NativeOpt: -w @f@p@u@s@40
   ByteOpt:   -w @f@p@u@s@40
 
+Library cli
+  Path: lib/cli
+  FindlibName: cli
+  FindlibParent: profuse
+  Modules: Fuse_cli
+  BuildDepends: profuse.linux
+  NativeOpt: -w @f@p@u@s@40
+  ByteOpt:   -w @f@p@u@s@40
+
 Executable lofs_main
   Path: linux
   MainIs: lofs_main.ml
   Custom: true
   CompiledObject: best
   Install: false
-  BuildDepends: profuse.linux
+  BuildDepends: profuse.cli
   NativeOpt: -w @f@p@u@s@40
   ByteOpt:   -w @f@p@u@s@40
 
