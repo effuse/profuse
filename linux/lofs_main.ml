@@ -15,37 +15,8 @@
  *
  *)
 
-let mnt =
-  if Array.length Sys.argv > 1
-  then Sys.argv.(Array.length Sys.argv - 1)
-  else (Printf.eprintf "%s: missing mountpoint argument\n%!" Sys.argv.(0);
-        exit 1)
-
-module Server = Profuse.Server(Lofs)
-module Linux_fs = Lofs.Linux_7_8(Server.Trace_out)
-
-let state = Lofs.make (Unix.getcwd ())
+module Cli = Fuse_cli.Make(Lofs)
 
 ;;
 
-try
-  let {Fuse.chan}, state = Linux_fs.mount
-    (Array.sub Sys.argv 0 (Array.length Sys.argv - 1)) mnt state in
-  Sys.(set_signal sigint (Signal_handle (fun _ -> Profuse.unmount chan)));
-  let serve = Server.trace chan in
-  let rec forever state = forever (serve "lofs" state) in
-  forever state
-with Fuse.Destroy k -> exit k
-| Fuse.ExecError (exec, cause) ->
-  Printf.eprintf "\nFUSE Couldn't exec '%s': %s\n%!" exec cause;
-  Profuse.unmount_path mnt;
-  exit 1
-| Fuse.ProtocolError (fs, message) ->
-  Printf.eprintf "\nFUSE Protocol error: %s\n%!" message;
-  (try
-     Profuse.unmount fs
-   with Unix.Unix_error (e,syscall,_) ->
-     Printf.eprintf "FUSE encountered UNIX error during unmount.%s: %s\n%!"
-       syscall (Unix.error_message e)
-  );
-  exit 1
+Cli.run (Lofs.make (Unix.getcwd ()))

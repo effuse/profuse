@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: e302966e5d00b73381f4f4e8117aa70c)
+# DO NOT EDIT (digest: 342f883aa74b36aced2c9f59da57fbdd)
 version = "0.1.0"
 description = "FUSE protocol version 7.8"
 requires =
@@ -18,6 +18,17 @@ package "linux" (
  archive(native) = "linux.cmxa"
  archive(native, plugin) = "linux.cmxs"
  exists_if = "linux.cma"
+)
+
+package "cli" (
+ version = "0.1.0"
+ description = "FUSE protocol version 7.8"
+ requires = "profuse.linux"
+ archive(byte) = "cli.cma"
+ archive(byte, plugin) = "cli.cma"
+ archive(native) = "cli.cmxa"
+ archive(native, plugin) = "cli.cmxs"
+ exists_if = "cli.cma"
 )
 # OASIS_STOP
 
