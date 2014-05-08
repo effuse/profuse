@@ -32,10 +32,10 @@ module Attr = struct
   let mtimensec = "mtimensec" -:* uint32_t
   let ctimensec = "ctimensec" -:* uint32_t
   (* TODO: check order *)
-  let mode      = "mode"      -:* uint32_t
+  let mode      = "mode"      -:* int32_of_32
   let nlink     = "nlink"     -:* uint32_t
-  let uid       = "uid"       -:* uint32_t
-  let gid       = "gid"       -:* uint32_t
+  let uid       = "uid"       -:* int32_of_32
+  let gid       = "gid"       -:* int32_of_32
   let rdev      = "rdev"      -:* uint32_t
   let () = seal t
 
@@ -84,7 +84,7 @@ module Attr = struct
     let phost = host.Fuse.unix_sys_stat.Unix_sys_stat.mode in
     let i64 = Unsigned.UInt64.to_int64 in
     let i32 = Unsigned.UInt32.to_int32 in
-    let mode = Unsigned.UInt32.to_int (getf pkt mode) in
+    let mode = Int32.to_int (getf pkt mode) in
     (* TODO: nsec times? *)
     Printf.sprintf
       "ino=%Ld size=%Ld blocks=%Ld atime=%Ld mtime=%Ld ctime=%Ld mode=%s nlink=%ld uid=%ld gid=%ld rdev=%ld"
@@ -96,7 +96,7 @@ module Attr = struct
       (i64 (getf pkt ctime))
       Unix_sys_stat.Mode.(to_string ~host:phost (of_code_exn ~host:phost mode))
       (i32 (getf pkt nlink))
-      (i32 (getf pkt uid))
-      (i32 (getf pkt gid))
+      (getf pkt uid)
+      (getf pkt gid)
       (i32 (getf pkt rdev))
 end

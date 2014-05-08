@@ -168,7 +168,7 @@ module Mknod = struct
   type t
   let t : t structure typ = structure "In_Mknod"
   let ( -:* ) s x = field t s x
-  let mode = "mode" -:* uint32_t
+  let mode = "mode" -:* int32_of_32
   let rdev = "rdev" -:* uint32_t
   let name = "name" -:* array 0 char
   let () = seal t
@@ -178,7 +178,7 @@ module Mkdir = struct
   type t
   let t : t structure typ = structure "In_Mkdir"
   let ( -:* ) s x = field t s x
-  let mode    = "mode"    -:* uint32_t
+  let mode    = "mode"    -:* int32_of_32
   let padding = "padding" -:* uint32_t
   let name    = "name"    -:* array 0 char
   let () = seal t

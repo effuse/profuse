@@ -431,7 +431,7 @@ module Server : SERVER = functor (Fs : FS) -> struct
       | Forget f -> string_of_int (getf f Forget.nlookup)
       | Lookup name -> name
       | Mknod (m,name) -> Printf.sprintf "mode=%ld rdev=%ld %s"
-        (Unsigned.UInt32.to_int32 (getf m Mknod.mode))
+        (getf m Mknod.mode)
         (Unsigned.UInt32.to_int32 (getf m Mknod.rdev))
         name
       | Create (c,name) -> Printf.sprintf "flags=%ld mode=%ld %s"

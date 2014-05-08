@@ -64,7 +64,7 @@ struct
 
   let store_attr_of_path path = Stat.(Stat.(
     let s = lstat path in
-    Struct_linux_7_8.Attr.store
+    Struct.Linux_7_8.Attr.store
       ~ino:(Unsigned.UInt64.to_int64 (ino_int s))
       ~size:(size_int s)
       ~blocks:(blocks_int s)
@@ -74,10 +74,10 @@ struct
       ~mtimensec:(mtimensec_int s)
       ~ctime:(uint64_of_int64 (ctime_int s))
       ~ctimensec:(ctimensec_int s)
-      ~mode:(mode_int s)
+      ~mode:(Unsigned.UInt32.to_int32 (mode_int s))
       ~nlink:(uint32_of_uint64 (nlink_int s))
-      ~uid:(uid_int s)
-      ~gid:(gid_int s)
+      ~uid:(Unsigned.UInt32.to_int32 (uid_int s))
+      ~gid:(Unsigned.UInt32.to_int32 (gid_int s))
       ~rdev:(uint32_of_uint64 (rdev_int s))
   ))
 
@@ -350,7 +350,7 @@ struct
     (* TODO: regular -> open with O_CREAT | O_EXCL | O_WRONLY for compat? *)
     (* TODO: fifo -> mkfifo for compat? *)
     Unix_sys_stat.mknod path
-      (to_mode_t mode)
+      (to_mode_t (Unsigned.UInt32.of_int32 mode))
       (to_dev_t (Unsigned.UInt64.of_int64
                    (Int64.of_int32
                       (Unsigned.UInt32.to_int32 rdev))));
@@ -361,7 +361,7 @@ struct
     let ({ Nodes.path } as pnode) = Nodes.get st.nodes (nodeid req) in
     let path = Filename.concat path name in
     let mode = Ctypes.getf m In.Mkdir.mode in
-    Unix.mkdir path (Unsigned.UInt32.to_int mode);
+    Unix.mkdir path (Int32.to_int mode);
     respond_with_entry pnode name req;
     st
 
