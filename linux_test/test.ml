@@ -155,11 +155,26 @@ let test_ops =
     Unix.unlink path
   in
 
-  let nod_file  = "nod" in
-  let nod_perms = 0o777 in
   let to_mode_t i = PosixTypes.(Ctypes.(Unsigned.(
     coerce uint32_t mode_t (UInt32.of_int i)
   ))) in
+
+  let dir_file = "dir" in
+  let dir_perms = 0o777 in
+  let mkdir () =
+    let file = dir_file in
+    let path = srcpath file in
+    Unix.(assert_raises (Unix_error (ENOENT, "access", path))
+            (fun () -> access path [F_OK]));
+    run_fuse [mntdir] "mkdir" (fun () ->
+      let path = mntpath file in
+      Unix_sys_stat.mkdir path (to_mode_t dir_perms);
+    );
+    Unix.(access path [F_OK])
+  in
+
+  let nod_file  = "nod" in
+  let nod_perms = 0o777 in
   let mknod () =
     let to_dev_t  = PosixTypes.(Ctypes.(Unsigned.(coerce uint64_t dev_t))) in
     let file = nod_file in
@@ -254,6 +269,15 @@ let test_ops =
     ))
   in
 
+  let rmdir () =
+    let file = dir_file in
+    let path = srcpath file in
+    run_fuse [mntdir] "rmdir" (fun () ->
+      let path = mntpath file in
+      Unix_unistd.rmdir path
+    )
+  in
+
   let symlink () =
     let file = "symlink" in
     let lnk = "unicorn" in
@@ -340,8 +364,15 @@ let test_ops =
          assert_equal ~msg:"ftruncate extends with 0" wstr (String.sub s 0 wlen)
        with exn -> Unix_unistd.close fd; raise exn);
       Unix_unistd.close fd
-    );
-    Unix.unlink (srcpath file)
+    )
+  in
+
+  let unlink () =
+    let file = nod_file in
+    run_fuse [mntdir] "unlink" (fun () ->
+      let path = mntpath file in
+      Unix_unistd.unlink path
+    )
   in
 
   let create () =
@@ -362,13 +393,16 @@ let test_ops =
   "ops", [
     "read",     `Quick,read;
     "readlink", `Quick,readlink;
+    "mkdir",    `Quick,mkdir;
     "mknod",    `Quick,mknod;
     "chmod",    `Quick,chmod;
     "access",   `Quick,access;
     "chown",    `Quick,chown;
+    "rmdir",    `Quick,rmdir;
     "symlink",  `Quick,symlink;
     "write",    `Quick,write;
     "truncate", `Quick,truncate;
+    "unlink",   `Quick,unlink;
     "create",   `Quick,create;
   ]
 
