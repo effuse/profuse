@@ -22,8 +22,11 @@ type 'a result =
 
 type 'a perspective = uid:int32 -> gid:int32 -> 'a
 type t = {
+  mkdir  : (string -> int32 -> unit) perspective;
+  mknod  : (string -> int32 -> int32 -> unit) perspective;
   access : (string -> Unix.access_permission list -> unit) perspective;
-  chown : (string -> int32 -> int32 -> unit) perspective;
+  chown  : (string -> int32 -> int32 -> unit) perspective;
+  rmdir  : (string -> unit) perspective;
 }
 
 val create : unit -> t
