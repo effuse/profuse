@@ -156,11 +156,16 @@ let test_ops =
   in
 
   let to_mode_t i = PosixTypes.(Ctypes.(Unsigned.(
-    coerce uint32_t mode_t (UInt32.of_int i)
+    coerce uint32_t mode_t (UInt32.of_int32 i)
+  ))) in
+  let to_dev_t i = PosixTypes.(Ctypes.(Unsigned.(
+    coerce uint64_t dev_t (UInt64.of_int i)
   ))) in
 
   let dir_file = "dir" in
-  let dir_perms = 0o777 in
+  let dir_perms = 0o700l in
+  let subdir_file = Filename.concat dir_file "subdir" in
+  let subdir_perms = 0o700l in
   let mkdir () =
     let file = dir_file in
     let path = srcpath file in
@@ -169,22 +174,32 @@ let test_ops =
     run_fuse [mntdir] "mkdir" (fun () ->
       let path = mntpath file in
       Unix_sys_stat.mkdir path (to_mode_t dir_perms);
+      let path = mntpath subdir_file in
+      let uid = 999l and gid = 999l in
+      Unix.(assert_raises ~msg:"uid 999 shouldn't be able to mkdir"
+              (Unix_error (EACCES, "mkdir", path))
+              (fun () ->
+                agents.Agent_handler.mkdir ~uid ~gid path subdir_perms));
+      Unix_sys_stat.mkdir path (to_mode_t subdir_perms)
     );
     Unix.(access path [F_OK])
   in
 
-  let nod_file  = "nod" in
-  let nod_perms = 0o777 in
+  let nod_file  = Filename.concat dir_file "nod" in
+  let nod_perms = 0o777l in
   let mknod () =
-    let to_dev_t  = PosixTypes.(Ctypes.(Unsigned.(coerce uint64_t dev_t))) in
     let file = nod_file in
     let path = srcpath file in
     Unix.(assert_raises (Unix_error (ENOENT, "access", path))
             (fun () -> access path [F_OK]));
     run_fuse [mntdir] "mknod" (fun () ->
       let path = mntpath file in
-      Unix_sys_stat.mknod path (to_mode_t nod_perms)
-        (to_dev_t (Unsigned.UInt64.of_int 0));
+      let uid = 999l and gid = 999l in
+      Unix.(assert_raises ~msg:"uid 999 shouldn't be able to mknod"
+              (Unix_error (EACCES, "mknod", path))
+              (fun () ->
+                agents.Agent_handler.mknod ~uid ~gid path nod_perms 0l));
+      Unix_sys_stat.mknod path (to_mode_t nod_perms) (to_dev_t 0);
       Unix_unistd.(access path [Unix.F_OK])
     );
     Unix.(access path [F_OK])
@@ -195,23 +210,23 @@ let test_ops =
     let path = mntpath file in
     run_fuse [mntdir] "chmod" Unix.(LargeFile.(fun () ->
       let perms = Unix_sys_stat.(Stat.to_unix (stat path)).st_perm in
-      let msg = Printf.sprintf "%s perms.0 0o%03o <> 0o%03o"
+      let msg = Printf.sprintf "%s perms.0 0o%03o <> 0o%03lo"
         file perms nod_perms in
-      assert_equal ~msg nod_perms perms;
-      let new_perms = 0o644 in
+      assert_equal ~msg (Int32.to_int nod_perms) perms;
+      let new_perms = 0o644l in
       Unix_sys_stat.chmod path (to_mode_t new_perms);
       let perms = Unix_sys_stat.(Stat.to_unix (stat path)).st_perm in
-      let msg = Printf.sprintf "%s perms.1 0o%03o <> 0o%03o"
+      let msg = Printf.sprintf "%s perms.1 0o%03o <> 0o%03lo"
         file perms new_perms in
-      assert_equal ~msg new_perms perms;
-      let new_perms = 0o644 in
+      assert_equal ~msg (Int32.to_int new_perms) perms;
+      let new_perms = 0o644l in
       let fd = openfile path [] 0o000 in
       (try
          Unix_sys_stat.fchmod fd (to_mode_t new_perms);
          let perms = Unix_sys_stat.(Stat.to_unix (stat path)).st_perm in
-         let msg = Printf.sprintf "%s perms.2 0o%03o <> 0o%03o"
+         let msg = Printf.sprintf "%s perms.2 0o%03o <> 0o%03lo"
            file perms new_perms in
-         assert_equal ~msg new_perms perms
+         assert_equal ~msg (Int32.to_int new_perms) perms
        with exn -> Unix_unistd.close fd; raise exn);
       Unix_unistd.close fd
     ))
@@ -267,15 +282,6 @@ let test_ops =
        with exn -> Unix_unistd.close fd; raise exn);
       Unix_unistd.close fd
     ))
-  in
-
-  let rmdir () =
-    let file = dir_file in
-    let path = srcpath file in
-    run_fuse [mntdir] "rmdir" (fun () ->
-      let path = mntpath file in
-      Unix_unistd.rmdir path
-    )
   in
 
   let symlink () =
@@ -375,6 +381,24 @@ let test_ops =
     )
   in
 
+  let rmdir () =
+    let file = dir_file in
+    let path = srcpath file in
+    run_fuse [mntdir] "rmdir" (fun () ->
+      let path = mntpath file in
+      Unix.(assert_raises ~msg:"should throw ENOTEMPTY for rmdir"
+              (Unix_error (ENOTEMPTY, "rmdir", path))
+              (fun () -> Unix_unistd.rmdir path));
+      let subdir_path = mntpath subdir_file in
+      let uid = 999l and gid = 999l in
+      Unix.(assert_raises ~msg:"uid 999 shouldn't be able to rmdir"
+              (Unix_error (EACCES, "rmdir", subdir_path))
+              (fun () -> agents.Agent_handler.rmdir ~uid ~gid subdir_path));
+      Unix_unistd.rmdir subdir_path;
+      Unix_unistd.rmdir path
+    )
+  in
+
   let create () =
     let string = "a short create test\n" in
     let len = String.length string in
@@ -398,11 +422,11 @@ let test_ops =
     "chmod",    `Quick,chmod;
     "access",   `Quick,access;
     "chown",    `Quick,chown;
-    "rmdir",    `Quick,rmdir;
     "symlink",  `Quick,symlink;
     "write",    `Quick,write;
     "truncate", `Quick,truncate;
     "unlink",   `Quick,unlink;
+    "rmdir",    `Quick,rmdir;
     "create",   `Quick,create;
   ]
 
