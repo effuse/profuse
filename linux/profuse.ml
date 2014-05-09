@@ -412,6 +412,16 @@ module Server : SERVER = functor (Fs : FS) -> struct
     let module H = Handler(Serve_out) in
     fun t -> H.dispatch (read ()) t
 
+  let string_of_mode req mode =
+    let open Unix_sys_stat.Mode in
+    let host = Fuse.(req.chan.host.unix_sys_stat.Unix_sys_stat.mode) in
+    to_string ~host (of_code_exn ~host mode)
+
+  let string_of_perms req perms =
+    let open Unix_sys_stat.File_perm in
+    let host = Fuse.(req.chan.host.unix_sys_stat.Unix_sys_stat.file_perm) in
+    to_string ~host (full_of_code ~host perms)
+
   let string_of_request req t =
     let open Ctypes in
     let open In in
@@ -430,12 +440,15 @@ module Server : SERVER = functor (Fs : FS) -> struct
       | Symlink (name,target) -> name ^ " -> " ^ target
       | Forget f -> string_of_int (getf f Forget.nlookup)
       | Lookup name -> name
-      | Mknod (m,name) -> Printf.sprintf "mode=%ld rdev=%ld %s"
-        (getf m Mknod.mode)
+      | Mkdir (m,name) -> Printf.sprintf "mode=%s %s"
+        (string_of_perms req (Int32.to_int (getf m Mkdir.mode))) name
+      | Mknod (m,name) -> Printf.sprintf "mode=%s rdev=%ld %s"
+        (string_of_mode req (Int32.to_int (getf m Mknod.mode)))
         (Unsigned.UInt32.to_int32 (getf m Mknod.rdev))
         name
-      | Create (c,name) -> Printf.sprintf "flags=%ld mode=%ld %s"
-        (getf c Create.flags) (getf c Create.mode) name
+      | Create (c,name) -> Printf.sprintf "flags=%ld mode=%s %s"
+        (getf c Create.flags)
+        (string_of_mode req (Int32.to_int (getf c Create.mode))) name
       | Setattr s -> Printf.sprintf "0x%lX[%s]"
         (getf s Setattr.valid)
         (String.concat " " (SetattrValid.attrs (getf s Setattr.valid)))
@@ -445,10 +458,11 @@ module Server : SERVER = functor (Fs : FS) -> struct
         let perms = Unix_unistd.Access.(of_code ~host:phost code) in
         let uid = Ctypes.getf req.Fuse.hdr In.Hdr.uid in
         let gid = Ctypes.getf req.Fuse.hdr In.Hdr.gid in
-        Printf.sprintf "%ld/%ld (%s)" uid gid
+        Printf.sprintf "uid:%ld gid:%ld (%s)" uid gid
           (List.fold_left Unix.(fun s -> function
           | R_OK -> s^"R" | W_OK -> s^"W" | X_OK -> s^"X" | F_OK -> s^"F"
            ) "" perms)
+      | Unlink name | Rmdir name -> name
       | _ -> "FIX ME"
       )
 
