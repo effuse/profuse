@@ -425,9 +425,11 @@ module Server : SERVER = functor (Fs : FS) -> struct
   let string_of_request req t =
     let open Ctypes in
     let open In in
-    Printf.sprintf "%s.p%ld.%Ld (%s) %s"
+    Printf.sprintf "%s.p%ld.u%ld.g%ld.%Ld (%s) %s"
       (Opcode.to_string (getf req.Fuse.hdr Hdr.opcode))
       (getf req.Fuse.hdr Hdr.pid)
+      (getf req.Fuse.hdr Hdr.uid)
+      (getf req.Fuse.hdr Hdr.gid)
       (Unsigned.UInt64.to_int64 (getf req.Fuse.hdr Hdr.unique))
       (Fs.string_of_nodeid (getf req.Fuse.hdr Hdr.nodeid) t)
       (match req.Fuse.pkt with

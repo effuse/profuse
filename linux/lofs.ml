@@ -19,9 +19,6 @@ module Stat = Unix_sys_stat
 
 module In = In.Linux_7_8
 
-let to_mode_t = PosixTypes.(Ctypes.(Unsigned.(coerce uint32_t mode_t)))
-let to_dev_t  = PosixTypes.(Ctypes.(Unsigned.(coerce uint64_t dev_t)))
-
 type state = {
   nodes : Nodes.t;
   handles : Handles.t;
@@ -247,10 +244,13 @@ struct
 
   (* Can raise Unix.Unix_error *)
   let rmdir name req st = Out.(
+    let { agents } = st in
     let { Nodes.path } = Nodes.get st.nodes (nodeid req) in
+    let uid = Ctypes.getf req.Fuse.hdr In.Hdr.uid in
+    let gid = Ctypes.getf req.Fuse.hdr In.Hdr.gid in
     let path = Filename.concat path name in
     (* errors caught by our caller *)
-    Unix.rmdir path;
+    agents.Agent_handler.rmdir ~uid ~gid path;
     write_ack req;
     st
   )
@@ -306,13 +306,9 @@ struct
     let code = Ctypes.getf a In.Access.mask in
     let phost = Fuse.(req.chan.host.unix_unistd.Unix_unistd.access) in
     let perms = Unix_unistd.Access.(of_code ~host:phost code) in
-    try
-      agents.Agent_handler.access ~uid ~gid path perms;
-      Out.write_ack req;
-      st
-    with Unix.Unix_error(err,_,_) ->
-      Out.write_error req err;
-      st
+    agents.Agent_handler.access ~uid ~gid path perms;
+    Out.write_ack req;
+    st
 
   let create c name req st = Out.(
     try
@@ -341,7 +337,10 @@ struct
   )
 
   let mknod m name req st =
+    let { agents } = st in
     let ({ Nodes.path } as pnode) = Nodes.get st.nodes (nodeid req) in
+    let uid = Ctypes.getf req.Fuse.hdr In.Hdr.uid in
+    let gid = Ctypes.getf req.Fuse.hdr In.Hdr.gid in
     let path = Filename.concat path name in
     let mode = Ctypes.getf m In.Mknod.mode in
     let rdev = Ctypes.getf m In.Mknod.rdev in (* TODO: use this? *)
@@ -349,19 +348,19 @@ struct
     (* TODO: dev_t is usually 64-bit but rdev is 32-bit. translate how? *)
     (* TODO: regular -> open with O_CREAT | O_EXCL | O_WRONLY for compat? *)
     (* TODO: fifo -> mkfifo for compat? *)
-    Unix_sys_stat.mknod path
-      (to_mode_t (Unsigned.UInt32.of_int32 mode))
-      (to_dev_t (Unsigned.UInt64.of_int64
-                   (Int64.of_int32
-                      (Unsigned.UInt32.to_int32 rdev))));
+    agents.Agent_handler.mknod ~uid ~gid path mode
+      (Unsigned.UInt32.to_int32 rdev);
     respond_with_entry pnode name req;
     st
 
   let mkdir m name req st =
+    let { agents } = st in
     let ({ Nodes.path } as pnode) = Nodes.get st.nodes (nodeid req) in
+    let uid = Ctypes.getf req.Fuse.hdr In.Hdr.uid in
+    let gid = Ctypes.getf req.Fuse.hdr In.Hdr.gid in
     let path = Filename.concat path name in
     let mode = Ctypes.getf m In.Mkdir.mode in
-    Unix.mkdir path (Int32.to_int mode);
+    agents.Agent_handler.mkdir ~uid ~gid path mode;
     respond_with_entry pnode name req;
     st
 
