@@ -20,6 +20,7 @@ type 'a result =
 | Unix_error of Unix.error * string * string
 | Err of exn
 
+type fd = Unix.file_descr
 type 'a perspective = uid:int32 -> gid:int32 -> 'a
 type t = {
   mkdir  : (string -> int32 -> unit) perspective;
@@ -27,6 +28,7 @@ type t = {
   access : (string -> Unix.access_permission list -> unit) perspective;
   chown  : (string -> int32 -> int32 -> unit) perspective;
   rmdir  : (string -> unit) perspective;
+  open_  : (string -> Unix.open_flag list -> int32 -> fd) perspective;
 }
 
 val create : unit -> t
