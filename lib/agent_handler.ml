@@ -154,15 +154,17 @@ let result_patch_fd fdsock = function
   | Ok () -> Ok (recv_fd fdsock)
   | (Unix_error (_,_,_) | Err _) as r -> r
 
+let is_ok = function Ok _ -> true | Unix_error (_,_,_) | Err _ -> false
+
 let result_pipe_fd (type a) (type b) from_sock to_sock
-    : < result : a; fd : b > cmd -> unit =
-  function
+    : b result -> < result : a; fd : b > cmd -> unit =
+  fun result -> function
   | Mkdir _  -> ()
   | Mknod _  -> ()
   | Access _ -> ()
   | Chown _  -> ()
   | Rmdir _  -> ()
-  | Open _   -> pipe_fd from_sock to_sock
+  | Open _   -> if is_ok result then pipe_fd from_sock to_sock
 
 let result_recv_fd (type a) (type b) fdsock
     : < result : a; fd : b > cmd -> b result -> a result =
@@ -185,7 +187,9 @@ let reply (type a) (type b)
     Unix.chown path (Int32.to_int uid) (Int32.to_int gid)
   | Rmdir path -> Unix.rmdir path
   | Open (path, flags, mode) ->
-    send_fd fdsock (Unix.openfile path flags (Int32.to_int mode))
+    let fd = Unix.openfile path flags (Int32.to_int mode) in
+    send_fd fdsock fd;
+    Unix.close fd
   ) with
   | Unix.Unix_error (err, call, arg) -> Unix_error (err, call, arg)
   | exn -> Err exn
@@ -197,7 +201,7 @@ let agent_request (type a) (type b) psock request reply csock
     Marshal.to_channel request cmd [];
     flush request;
     let result : b result = Marshal.from_channel reply in
-    result_pipe_fd csock psock cmd;
+    result_pipe_fd csock psock result cmd;
     result
 
 let create_agent psock uid gid =
@@ -241,7 +245,9 @@ let request request reply fdsock = {
       cmd_send_fd fdsock cmd;
       Marshal.to_channel request { uid; gid; cmd } [];
       flush request;
-      result_recv_fd fdsock cmd ((Marshal.from_channel reply) : b result)
+      let result : b result = Marshal.from_channel reply in
+      let result = result_recv_fd fdsock cmd result in
+      result
   )
 }
 

@@ -219,7 +219,7 @@ let test_ops =
       let msg = Printf.sprintf "%s perms.1 0o%03o <> 0o%03lo"
         file perms new_perms in
       assert_equal ~msg (Int32.to_int new_perms) perms;
-      let new_perms = 0o644l in
+      let new_perms = 0o640l in
       let fd = openfile path [] 0o000 in
       (try
          Unix_sys_stat.fchmod fd (to_mode_t new_perms);
@@ -273,7 +273,7 @@ let test_ops =
       let st = Unix_sys_stat.(Stat.to_unix (stat path)) in
       assert_equal ~msg:"chown setgid but noopuid" 1 st.st_uid;
       assert_equal ~msg:"chown setgid" 1 st.st_gid;
-      let fd = openfile path [] 0o000 in
+      let fd = as_root (Unix.openfile path []) 0o000 in
       (try
          as_root (Unix_unistd.fchown fd uid) gid;
          let st = Unix_sys_stat.(Stat.to_unix (fstat fd)) in
@@ -383,7 +383,6 @@ let test_ops =
 
   let rmdir () =
     let file = dir_file in
-    let path = srcpath file in
     run_fuse [mntdir] "rmdir" (fun () ->
       let path = mntpath file in
       Unix.(assert_raises ~msg:"should throw ENOTEMPTY for rmdir"
@@ -490,12 +489,31 @@ let test_errs =
     Unix.unlink path
   in
 
+  let open_eacces () =
+    let file = "private" in
+    let path = srcpath file in
+    ignore (Unix.system ("touch "^path));
+    Unix.chmod path 0o640;
+    run_fuse [mntdir] "open" (fun () ->
+      let path = mntpath file in
+      let uid = 999l and gid = 999l in
+      Unix.(assert_raises ~msg:"uid 999 shouldn't be able to open"
+              (Unix_error (EACCES, "open", path))
+              (fun () ->
+                let fd = agents.Agent_handler.open_ ~uid ~gid
+                  path [O_RDONLY] 0o600_l
+                in Unix_unistd.close fd))
+    );
+    Unix.unlink path
+  in
+
   "errs", [
     "enoent",         `Quick,enoent;
     "symlink_eexist", `Quick,symlink_eexist;
     "eloop",          `Quick,eloop;
     "readlink_eacces",`Quick,readlink_eacces;
     "chown_eperm",    `Quick,chown_eperm;
+    "open_eacces",    `Quick,open_eacces;
   ]
 
 let unmount mnt () =

@@ -163,14 +163,17 @@ struct
 
   let open_ op req st = Out.(
     try
+      let { agents } = st in
       let { Nodes.path } = Nodes.get st.nodes (nodeid req) in
+      let uid = Ctypes.getf req.Fuse.hdr In.Hdr.uid in
+      let gid = Ctypes.getf req.Fuse.hdr In.Hdr.gid in
       let mode = Ctypes.getf op In.Open.mode in (* TODO: is only file_perm? *)
       let flags = Ctypes.getf op In.Open.flags in
       let phost = Fuse.(req.chan.host.unix_fcntl.Unix_fcntl.oflags) in
       let flags = Unix_fcntl.Oflags.(
         List.rev_map to_open_flag_exn (of_code ~host:phost flags)
       ) in
-      let file = Unix.openfile path flags (Int32.to_int mode) in
+      let file = agents.Agent_handler.open_ ~uid ~gid path flags mode in
       let kind = Unix.((fstat file).st_kind) in
       let h = Handles.(alloc st.handles path (File (file, kind))) in
       Out.(write_reply req (Open.create ~fh:h.Handles.id ~open_flags:0l));
