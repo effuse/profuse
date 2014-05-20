@@ -11,7 +11,7 @@ Library profuse
   Path: lib
   FindlibName: profuse
   Modules: View, Opcode, Fuse, Struct, In_common, In, Out, Nodes, Handles
-  BuildDepends: unix-errno, unix-sys-stat, unix-dirent, unix-unistd, unix-fcntl, fd-send-recv, ctypes, ctypes.foreign
+  BuildDepends: unix-errno, unix-sys-stat, unix-dirent, unix-unistd, unix-fcntl, fd-send-recv, ctypes, ctypes.foreign, stringext
   NativeOpt: -w @f@p@u@s@40
   ByteOpt:   -w @f@p@u@s@40
 
