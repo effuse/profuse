@@ -1,9 +1,9 @@
 # OASIS_START
-# DO NOT EDIT (digest: 342f883aa74b36aced2c9f59da57fbdd)
+# DO NOT EDIT (digest: 90ca69c4ee10d41709ce7c7d4ea708e8)
 version = "0.1.0"
 description = "FUSE protocol version 7.8"
 requires =
-"unix-errno unix-sys-stat unix-dirent unix-unistd unix-fcntl fd-send-recv ctypes ctypes.foreign"
+"unix-errno unix-sys-stat unix-dirent unix-unistd unix-fcntl fd-send-recv ctypes ctypes.foreign stringext"
 archive(byte) = "profuse.cma"
 archive(byte, plugin) = "profuse.cma"
 archive(native) = "profuse.cmxa"

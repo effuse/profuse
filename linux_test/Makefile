@@ -11,6 +11,7 @@ FLAGS=-package lwt.unix \
       -package unix-dirent \
       -package unix-sys-stat \
       -package unix-fcntl \
+      -package stringext \
       -g -thread
 
 all: run_test run_as

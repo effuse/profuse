@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 625de9be8e3f6208214e3af39f555754)
+# DO NOT EDIT (digest: 05717321508224701b46f4321edd5f83)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -22,6 +22,7 @@
 <lib/*.ml{,i}>: pkg_ctypes
 <lib/*.ml{,i}>: pkg_ctypes.foreign
 <lib/*.ml{,i}>: pkg_fd-send-recv
+<lib/*.ml{,i}>: pkg_stringext
 <lib/*.ml{,i}>: pkg_unix-dirent
 <lib/*.ml{,i}>: pkg_unix-errno
 <lib/*.ml{,i}>: pkg_unix-fcntl
@@ -42,6 +43,7 @@
 <lib/cli/*.ml{,i}>: pkg_ctypes
 <lib/cli/*.ml{,i}>: pkg_ctypes.foreign
 <lib/cli/*.ml{,i}>: pkg_fd-send-recv
+<lib/cli/*.ml{,i}>: pkg_stringext
 <lib/cli/*.ml{,i}>: pkg_unix-dirent
 <lib/cli/*.ml{,i}>: pkg_unix-errno
 <lib/cli/*.ml{,i}>: pkg_unix-fcntl
@@ -57,6 +59,7 @@
 <linux/lofs_main.{native,byte}>: pkg_ctypes
 <linux/lofs_main.{native,byte}>: pkg_ctypes.foreign
 <linux/lofs_main.{native,byte}>: pkg_fd-send-recv
+<linux/lofs_main.{native,byte}>: pkg_stringext
 <linux/lofs_main.{native,byte}>: pkg_unix-dirent
 <linux/lofs_main.{native,byte}>: pkg_unix-errno
 <linux/lofs_main.{native,byte}>: pkg_unix-fcntl
@@ -67,6 +70,7 @@
 <linux/*.ml{,i}>: pkg_ctypes
 <linux/*.ml{,i}>: pkg_ctypes.foreign
 <linux/*.ml{,i}>: pkg_fd-send-recv
+<linux/*.ml{,i}>: pkg_stringext
 <linux/*.ml{,i}>: pkg_unix-dirent
 <linux/*.ml{,i}>: pkg_unix-errno
 <linux/*.ml{,i}>: pkg_unix-fcntl
