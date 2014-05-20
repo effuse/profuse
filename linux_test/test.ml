@@ -477,6 +477,18 @@ let test_errs =
     Unix.rmdir path
   in
 
+  let readlink_einval () =
+    let dir = "bad_dir" in
+    let path = srcpath dir in
+    Unix.mkdir path 0o000;
+    run_fuse [mntdir] "readlink_einval" (fun () ->
+      let path = mntpath dir in
+      Unix.(assert_raises (Unix_error (EINVAL, "readlink", path))
+              (fun () -> Unix_unistd.readlink path))
+    );
+    Unix.rmdir path
+  in
+
   let chown_eperm () =
     let file = "eperm" in
     let path = srcpath file in
@@ -512,6 +524,7 @@ let test_errs =
     "symlink_eexist", `Quick,symlink_eexist;
     "eloop",          `Quick,eloop;
     "readlink_eacces",`Quick,readlink_eacces;
+    "readlink_einval",`Quick,readlink_einval;
     "chown_eperm",    `Quick,chown_eperm;
     "open_eacces",    `Quick,open_eacces;
   ]
