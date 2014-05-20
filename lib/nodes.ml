@@ -16,107 +16,125 @@
  *)
 
 type id = int64
-type node = {
-  space    : t;
+type 'a node = {
+  space    : 'a space;
   parent   : id;
   gen      : int64;
   id       : id;
   name     : string;
-  path     : string;
+  data     : 'a;
   children : (string, id) Hashtbl.t;
   lookups  : int;
 }
-and t = {
+and 'a space = {
   label        : string;
-  root         : string;
-  table        : (id,node) Hashtbl.t;
+  root         : 'a;
+  table        : (id,'a node) Hashtbl.t;
   mutable free : (int64 * id) list;
   mutable max  : id;
 }
 
-let nodes_count = ref 0
+module type NODE = sig
+  type t
 
-let create ?(label="nodes_"^(string_of_int !nodes_count)) root =
-  incr nodes_count;
-  {
-    label;
-    root;
-    table = Hashtbl.create 256;
-    free  = [];
-    max   = 2L; (* 0 is the FS, 1 is the root *)
-  }
+  val to_string : t -> string
+  val child : t node -> string -> t
+end
 
-let get space id =
-  let { table } = space in
-  try Hashtbl.find table id
-  with Not_found ->
-    if id=1L then
+module Path : NODE with type t = string list = struct
+  type t = string list
+
+  let to_string path = String.concat Filename.dir_sep (List.rev path)
+  let child node name = name::node.data
+end
+
+module Make(N : NODE) = struct
+  type t = N.t space
+
+  let nodes_count = ref 0
+
+  let create ?(label="nodes_"^(string_of_int !nodes_count)) root =
+    incr nodes_count;
+    {
+      label;
+      root;
+      table = Hashtbl.create 256;
+      free  = [];
+      max   = 2L; (* 0 is the FS, 1 is the root *)
+    }
+
+  let get space id =
+    let { table } = space in
+    try Hashtbl.find table id
+    with Not_found ->
+      if id=1L then
+        let node = {
+          space;
+          parent = 1L;
+          gen = 0L;
+          id = 1L;
+          name = "";
+          data = space.root;
+          children = Hashtbl.create 32;
+          lookups = 0;
+        } in
+        Hashtbl.replace table id node;
+        node
+      else raise Not_found
+
+  let string_of_id s id =
+    if id = Int64.zero (* TODO: should be in get for FUSE_INIT? *)
+    then "id=0"
+    else let {gen; id; data} = get s id in
+         Printf.sprintf "%Ld.%Ld.%s" gen id (N.to_string data)
+
+  let alloc_id s =
+    match s.free with
+    | genid::r -> s.free <- r; genid
+    | [] -> let id = s.max in s.max <- Int64.add id 1L; (0L, id)
+
+  let to_string s =
+    Printf.sprintf "%s table size: %d" s.label (Hashtbl.length s.table)
+
+  let lookup parent name =
+    let { space } = parent in
+    let { table } = space in
+    try
+      let id = Hashtbl.find parent.children name in
+      try
+        let node = Hashtbl.find table id in
+        Hashtbl.replace table id { node with lookups = node.lookups + 1 };
+        node
+      with Not_found ->
+        raise (Failure
+                 (Printf.sprintf "parent %s has %s but %s does not"
+                    (string_of_id space parent.id)
+                    name space.label
+                 ))
+    with Not_found ->
+      let data = N.child parent name in
+      let (gen,id) = alloc_id space in
       let node = {
         space;
-        parent = 1L;
-        gen = 0L;
-        id = 1L;
-        name = "";
-        path = space.root;
-        children = Hashtbl.create 32;
-        lookups = 0;
+        parent=parent.id;
+        gen; id; name; data;
+        children=Hashtbl.create 8;
+        lookups=1;
       } in
+      Hashtbl.replace parent.children name id;
       Hashtbl.replace table id node;
       node
-    else raise Not_found
 
-let string_of_id s id =
-  if id = Int64.zero (* TODO: should be in get for FUSE_INIT? *)
-  then "id=0"
-  else let {gen; id; path} = get s id in
-       Printf.sprintf "%Ld.%Ld.%s" gen id path
-
-let alloc_id s =
-  match s.free with
-  | genid::r -> s.free <- r; genid
-  | [] -> let id = s.max in s.max <- Int64.add id 1L; (0L, id)
-
-let to_string s =
-  Printf.sprintf "%s table size: %d" s.label (Hashtbl.length s.table)
-
-let lookup parent name =
-  let { space } = parent in
-  let { table } = space in
-  try
-    let id = Hashtbl.find parent.children name in
-    try
-      let node = Hashtbl.find table id in
-      Hashtbl.replace table id { node with lookups = node.lookups + 1 };
-      node
-    with Not_found ->
-      raise (Failure
-               (Printf.sprintf "parent %s has %s but %s does not"
-                  (string_of_id space parent.id)
-                  name space.label
-               ))
-  with Not_found ->
-    let path = Filename.concat parent.path name in
-    let (gen,id) = alloc_id space in
-    let node = {
-      space;
-      parent=parent.id;
-      gen; id; name; path;
-      children=Hashtbl.create 8;
-      lookups=1;
-    } in
-    Hashtbl.replace parent.children name id;
-    Hashtbl.replace table id node;
-    node
-
-let forget node n =
-  let { space } = node in
-  let { table } = space in
-  let lookups = node.lookups - n in
-  if lookups <= 0
-  then
-    let parent = Hashtbl.find table node.parent in
-    Hashtbl.remove parent.children node.name;
-    Hashtbl.remove table node.id;
-    space.free <- (Int64.add node.gen 1L, node.id)::space.free
-  else
-    Hashtbl.replace table node.id { node with lookups }
+  let forget node n =
+    let { space } = node in
+    let { table } = space in
+    let lookups = node.lookups - n in
+    if lookups <= 0
+    then
+      let parent = Hashtbl.find table node.parent in
+      Hashtbl.remove parent.children node.name;
+      Hashtbl.remove table node.id;
+      space.free <- (Int64.add node.gen 1L, node.id)::space.free
+    else
+      Hashtbl.replace table node.id { node with lookups }
+end

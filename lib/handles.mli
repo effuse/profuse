@@ -15,18 +15,29 @@
  *
  *)
 
-type id = int64
-type fh =
-| Dir of Unix.dir_handle * int
-| File of Unix.file_descr * Unix_sys_stat.File_kind.t
-type handle = { space : t; id : id; path : string; kind : fh; }
-and t
+module type HANDLE = sig
+  type t
 
-val create         : ?label:string -> unit -> t
-val free           : handle -> unit
-val alloc          : t -> string -> fh -> handle
-val get            : t -> id -> handle
-val with_dir_fd    : t -> id -> (handle -> Unix.dir_handle -> int -> 'a) -> 'a
-val with_file_fd   :
-  t -> id -> (handle -> Unix.file_descr -> Unix_sys_stat.File_kind.t -> 'a) -> 'a
-val set_dir_offset : handle -> int -> unit
+  val close : t -> unit
+end
+
+module Unix_dir  : HANDLE with type t = Unix.dir_handle
+module Unix_file : HANDLE with type t = Unix.file_descr
+
+module Make(D : HANDLE)(F : HANDLE) : sig
+  type id = int64
+  type fh =
+  | Dir of D.t * int
+  | File of F.t * Unix_sys_stat.File_kind.t
+  type handle = { space : t; id : id; path : string; kind : fh; }
+  and t
+
+  val create         : ?label:string -> unit -> t
+  val free           : handle -> unit
+  val alloc          : t -> string -> fh -> handle
+  val get            : t -> id -> handle
+  val with_dir_fd    : t -> id -> (handle -> D.t -> int -> 'a) -> 'a
+  val with_file_fd   :
+    t -> id -> (handle -> F.t -> Unix_sys_stat.File_kind.t -> 'a) -> 'a
+  val set_dir_offset : handle -> int -> unit
+end

@@ -307,10 +307,8 @@ module Linux_7_8(Out : Out.LINUX_7_8) = struct
 
   let enosys req st = Out.write_error req Unix.ENOSYS; st
 
-  let store_entry store_attr_of_path parent name = Out.(
-    let path = Filename.concat parent.Nodes.path name in
-    let store_attr = store_attr_of_path path in (* can raise ENOENT *)
-    let node = Nodes.lookup parent name in
+  let store_entry store_attr_of_node node = Out.(
+    let store_attr = store_attr_of_node node in (* can raise ENOENT *)
     let nodeid = node.Nodes.id in
     let generation = node.Nodes.gen in
     Entry.store ~nodeid ~generation
@@ -319,10 +317,8 @@ module Linux_7_8(Out : Out.LINUX_7_8) = struct
       ~store_attr
   )
 
-  let respond_with_entry store_attr_of_path parent name req = Out.(
-    let path = Filename.concat parent.Nodes.path name in
-    let store_attr = store_attr_of_path path in (* can raise ENOENT *)
-    let node = Nodes.lookup parent name in
+  let respond_with_entry store_attr_of_node node req = Out.(
+    let store_attr = store_attr_of_node node in (* can raise ENOENT *)
     let nodeid = node.Nodes.id in
     let generation = node.Nodes.gen in
     write_reply req

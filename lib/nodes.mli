@@ -16,22 +16,35 @@
  *)
 
 type id = int64
-type node = {
-  space    : t;
+type 'a node = {
+  space    : 'a space;
   parent   : id;
   gen      : int64;
   id       : id;
   name     : string;
-  path     : string;
+  data     : 'a;
   children : (string, id) Hashtbl.t;
   lookups  : int;
 }
-and t
+and 'a space
 
-val create       : ?label:string -> string -> t
-val get          : t -> int64 -> node
-val string_of_id : t -> int64 -> string
-val to_string    : t -> string
+module type NODE = sig
+  type t
 
-val lookup : node -> string -> node
-val forget : node -> int -> unit
+  val to_string : t -> string
+  val child : t node -> string -> t
+end
+
+module Path : NODE with type t = string list
+
+module Make(N : NODE) : sig
+  type t = N.t space
+
+  val create       : ?label:string -> N.t -> t
+  val get          : t -> id -> N.t node
+  val string_of_id : t -> id -> string
+  val to_string    : t -> string
+
+  val lookup : N.t node -> string -> N.t node
+  val forget : N.t node -> int -> unit
+end
