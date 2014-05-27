@@ -21,23 +21,33 @@ module type HANDLE = sig
   val close : t -> unit
 end
 
-module Unix_dir  : HANDLE with type t = Unix.dir_handle
+type id = int64
+type ('d, 'f) fh =
+| Dir of 'd
+| File of 'f * Unix_sys_stat.File_kind.t
+type 'k h = {
+  space : 'k h space;
+  id : id;
+  kind : 'k;
+}
+and 'h space
+
+module Unix_dir  : sig
+  include HANDLE with type t = Unix.dir_handle * int
+
+  val set_dir_offset : (t, _) fh h -> int -> unit
+end
 module Unix_file : HANDLE with type t = Unix.file_descr
 
 module Make(D : HANDLE)(F : HANDLE) : sig
-  type id = int64
-  type fh =
-  | Dir of D.t * int
-  | File of F.t * Unix_sys_stat.File_kind.t
-  type handle = { space : t; id : id; path : string; kind : fh; }
-  and t
+  type handle = (D.t, F.t) fh h
+  type t = handle space
 
   val create         : ?label:string -> unit -> t
   val free           : handle -> unit
-  val alloc          : t -> string -> fh -> handle
+  val alloc          : t -> (D.t, F.t) fh -> handle
   val get            : t -> id -> handle
-  val with_dir_fd    : t -> id -> (handle -> D.t -> int -> 'a) -> 'a
+  val with_dir_fd    : t -> id -> (handle -> D.t -> 'a) -> 'a
   val with_file_fd   :
     t -> id -> (handle -> F.t -> Unix_sys_stat.File_kind.t -> 'a) -> 'a
-  val set_dir_offset : handle -> int -> unit
 end

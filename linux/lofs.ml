@@ -18,13 +18,13 @@
 module Stat = Unix_sys_stat
 
 module In = In.Linux_7_8
-module Handles = Handles.Make(Handles.Unix_dir)(Handles.Unix_file)
+module H = Handles.Make(Handles.Unix_dir)(Handles.Unix_file)
 module N = Nodes.Make(Nodes.Path)
 
 type state = {
-  nodes : N.t;
-  handles : Handles.t;
-  agents : Agent_handler.t;
+  nodes   : N.t;
+  handles : H.t;
+  agents  : Agent_handler.t;
 }
 type t = state
 
@@ -44,7 +44,7 @@ let uint32_of_uint64 x = Unsigned.(UInt32.of_int (UInt64.to_int x))
 
 let make root = {
   nodes = N.create (List.rev (Stringext.split root ~on:'/'));
-  handles = Handles.create ();
+  handles = H.create ();
   agents = Agent_handler.create ();
 }
 
@@ -96,10 +96,11 @@ struct
 
   let opendir op req st = Out.(
     try
-      let { Nodes.data } = N.get st.nodes (nodeid req) in
+      let { nodes } = st in
+      let { Nodes.data } = N.get nodes (nodeid req) in
       let path = Nodes.Path.to_string data in
       let dir = Unix.opendir path in
-      let h = Handles.(alloc st.handles path (Dir (dir, 0))) in
+      let h = H.(alloc st.handles (Handles.Dir (dir, 0))) in
       write_reply req (Open.create ~fh:h.Handles.id ~open_flags:0l);
       (* TODO: open_flags?? *)
       st
@@ -139,20 +140,19 @@ struct
       else off
     in
     let fh = Ctypes.getf r In.Read.fh in
-    Handles.with_dir_fd st.handles fh (fun h dir off ->
+    H.with_dir_fd st.handles fh (fun h (dir,off) ->
       let off = seek dir off in
       assert (off = req_off);
       let host = Fuse.(req.chan.host) in
       write_reply req
         (Out.Dirent.of_list ~host begin
           try
-            let name = Unix.readdir dir in
-            let path = Filename.concat h.Handles.path name in
-            let stats = Unix.LargeFile.lstat path in
+            let { Unix_dirent.Dirent.name; kind; ino } =
+              Unix_dirent.readdir dir
+            in
             let off = off + 1 in
-            Handles.set_dir_offset h off;
-            Unix.LargeFile.([off, Int64.of_int stats.st_ino, name,
-                             Unix_dirent.File_kind.of_file_kind stats.st_kind])
+            Handles.Unix_dir.set_dir_offset h off;
+            Unix.LargeFile.([off, ino, name, kind])
           with End_of_file -> []
         end 0)
     );
@@ -170,8 +170,8 @@ struct
 
   let open_ op req st = Out.(
     try
-      let { agents } = st in
-      let { Nodes.data } = N.get st.nodes (nodeid req) in
+      let { nodes; handles; agents } = st in
+      let { Nodes.data } = N.get nodes (nodeid req) in
       let path = Nodes.Path.to_string data in
       let uid = Ctypes.getf req.Fuse.hdr In.Hdr.uid in
       let gid = Ctypes.getf req.Fuse.hdr In.Hdr.gid in
@@ -183,7 +183,7 @@ struct
       ) in
       let file = agents.Agent_handler.open_ ~uid ~gid path flags mode in
       let kind = Unix.((fstat file).st_kind) in
-      let h = Handles.(alloc st.handles path (File (file, kind))) in
+      let h = H.(alloc handles (Handles.File (file, kind))) in
       Out.(write_reply req (Open.create ~fh:h.Handles.id ~open_flags:0l));
       (* TODO: flags *)
       st
@@ -196,7 +196,7 @@ struct
     let fh = Ctypes.getf r In.Read.fh in
     let offset = Ctypes.getf r In.Read.offset in
     let size = Ctypes.getf r In.Read.size in
-    Handles.with_file_fd st.handles fh (fun { Handles.path } fd _k -> Out.(
+    H.with_file_fd st.handles fh (fun _h fd _k -> Out.(
       write_reply req
         (Read.create ~size ~data_fn:(fun buf ->
           let ptr = Ctypes.(to_voidp (bigarray_start array1 buf)) in
@@ -213,7 +213,7 @@ struct
   (* TODO: flags? *)
   let release r req st =
     try
-      Handles.(free (get st.handles (Ctypes.getf r In.Release.fh)));
+      H.(free (get st.handles (Ctypes.getf r In.Release.fh)));
       Out.write_ack req;
       st
     with Not_found ->
@@ -280,7 +280,7 @@ struct
     let fh = Ctypes.getf w In.Write.fh in
     let offset = Ctypes.getf w In.Write.offset in
     let size = Ctypes.getf w In.Write.size in
-    Handles.with_file_fd st.handles fh (fun { Handles.path } fd _k -> Out.(
+    H.with_file_fd st.handles fh (fun _h fd _k -> Out.(
       let data = Ctypes.(to_voidp (CArray.start (getf w In.Write.data))) in
       (* errors caught by our caller *)
       let off = Unix.LargeFile.lseek fd offset Unix.SEEK_SET in
@@ -327,7 +327,8 @@ struct
 
   let create c name req st = Out.(
     try
-      let ({ Nodes.data } as pnode) = N.get st.nodes (nodeid req) in
+      let { nodes; handles } = st in
+      let ({ Nodes.data } as pnode) = N.get nodes (nodeid req) in
       let path = Nodes.Path.to_string data in
       let mode = Ctypes.getf c In.Create.mode in (* TODO: is only file_perm? *)
       let flags = Ctypes.getf c In.Create.flags in
@@ -340,7 +341,7 @@ struct
         openfile path (O_WRONLY::O_CREAT::O_TRUNC::flags) (Int32.to_int mode)
       ) in
       let kind = Unix.((Unix.fstat file).st_kind) in
-      let h = Handles.(alloc st.handles path (File (file, kind))) in
+      let h = H.(alloc handles (Handles.File (file, kind))) in
       write_reply req
         (Create.create
            ~store_entry:(store_entry (N.lookup pnode name))
@@ -406,7 +407,7 @@ struct
     let valid = Ctypes.getf s valid in
     begin
       if Valid.(is_set valid handle)
-      then Handles.with_file_fd st.handles (Ctypes.getf s fh) (fun _h fd k ->
+      then H.with_file_fd st.handles (Ctypes.getf s fh) (fun _h fd k ->
         (if Valid.(is_set valid mode)
          then
             let mode = Ctypes.getf s mode in
