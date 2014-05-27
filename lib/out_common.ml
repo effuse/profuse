@@ -97,7 +97,8 @@ module Dirent = struct
       setf dirent off_     off;
       setf dirent namelen_ (UInt32.of_int (String.length name));
       setf dirent typ_
-        (UInt32.of_int (Unix_dirent.File_kind.(to_code ~host:phost typ)));
+        (UInt32.of_int (int_of_char
+                          (Unix_dirent.File_kind.(to_code ~host:phost typ))));
       let sp = ref (p +@ (offsetof name_)) in
       String.iter (fun c -> !sp <-@ c; sp := !sp +@ 1) name;
       (* Printf.eprintf "dirent serialized %s\n%!" name; *)
