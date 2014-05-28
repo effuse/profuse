@@ -17,8 +17,7 @@
 
 module Make : functor (Fs : Profuse.FS) -> sig
   module Server : module type of Profuse.Server(Fs)
-  module Linux_fs : Profuse.FULL with type t = Fs.t
 
   val mnt : string
-  val run : Linux_fs.t -> 'a
+  val run : Fs.t -> 'a
 end

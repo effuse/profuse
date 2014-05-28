@@ -202,15 +202,19 @@ module type FS = sig
   module Linux_7_8 : functor (Out : Out.LINUX_7_8) -> FULL with type t = t
 end
 
-module type SERVER = functor (Fs : FS) -> sig
-  module Serve_out : Out.LINUX_7_8
-  module Trace_out : Out.LINUX_7_8
+module type SERVER = sig
+  type t
 
-  val string_of_request : req -> Fs.t -> string
+  val string_of_request : req -> t -> string
 
-  val serve : Fuse.chan -> Fs.t -> Fs.t
-  val trace : Fuse.chan -> string -> Fs.t -> Fs.t
+  val mount       : argv:string array -> mnt:string -> t -> req * t
+  val mount_trace : argv:string array -> mnt:string -> t -> req * t
+
+  val serve : Fuse.chan -> t -> t
+  val trace : Fuse.chan -> string -> t -> t
 end
+
+module type FS_SERVER = functor (Fs : FS) -> SERVER with type t = Fs.t
 
 let no_flags = 0l
 
@@ -351,7 +355,9 @@ let detach fs = Fuse.(
   detach_path fs.mnt
 )
 
-module Server : SERVER = functor (Fs : FS) -> struct
+module Server : FS_SERVER = functor (Fs : FS) -> struct
+
+  type t = Fs.t
 
   module Handler(Out : Out.LINUX_7_8) = struct
     module Fs = Fs.Linux_7_8(Out)
@@ -401,12 +407,13 @@ module Server : SERVER = functor (Fs : FS) -> struct
       | exn -> Out.write_error req Unix.EIO; raise exn
   end
 
-  module Serve_out = Out.Linux_7_8
+  module Serve_handler = Handler(Out.Linux_7_8)
+
+  let mount = Serve_handler.Fs.mount
 
   let serve chan =
     let read = In.read chan in
-    let module H = Handler(Serve_out) in
-    fun t -> H.dispatch (read ()) t
+    fun t -> Serve_handler.dispatch (read ()) t
 
   let string_of_mode req mode =
     let open Unix_sys_stat.Mode in
@@ -488,16 +495,18 @@ module Server : SERVER = functor (Fs : FS) -> struct
       write_error req err
 
   end
+  module Trace_handler = Handler(Trace_out)
+
+  let mount_trace = Trace_handler.Fs.mount
 
   let trace chan =
     let read = In.read chan in
-    let module H = Handler(Trace_out) in
     fun tag t ->
       let req = read () in
       (* can raise Opcode.Unknown?? *)
       Printf.fprintf Fs.trace_channel "    %s %s\n%!"
         tag (string_of_request req t);
-      let t = H.dispatch req t in
+      let t = Trace_handler.dispatch req t in
       Printf.fprintf Fs.trace_channel "    %s\n%!" (Fs.string_of_state req t);
       t
 end

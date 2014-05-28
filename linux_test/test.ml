@@ -22,7 +22,6 @@ open Lwt
 
 module Lwt_th = Lwt_preemptive
 module Server = Profuse.Server(Lofs)
-module Linux_fs = Lofs.Linux_7_8(Server.Trace_out)
 
 type fs = {
   chan  : Fuse.chan;
@@ -106,7 +105,7 @@ let mount mnt () =
   Unix.(try access mnt    [F_OK] with Unix_error _ -> mkdir mnt    0o700);
   let state = as_root Lofs.make srcdir in
   let req, state = as_root
-    (Linux_fs.mount ~argv:[|"test";"-o";"allow_other"|] ~mnt) state in
+    (Server.mount_trace ~argv:[|"test";"-o";"allow_other"|] ~mnt) state in
   Hashtbl.replace mounts mnt { chan=req.Fuse.chan; state };
   Printf.eprintf "%s\n%!" (Server.string_of_request req state)
 

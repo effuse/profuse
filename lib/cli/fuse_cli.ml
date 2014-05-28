@@ -17,7 +17,6 @@
 
 module Make(Fs : Profuse.FS) = struct
   module Server = Profuse.Server(Fs)
-  module Linux_fs = Fs.Linux_7_8(Server.Trace_out)
 
   let mnt =
     if Array.length Sys.argv > 1
@@ -27,7 +26,7 @@ module Make(Fs : Profuse.FS) = struct
 
   let run state =
     try
-      let {Fuse.chan}, state = Linux_fs.mount
+      let {Fuse.chan}, state = Server.mount_trace
         (Array.sub Sys.argv 0 (Array.length Sys.argv - 1)) mnt state in
       Sys.(set_signal sigint (Signal_handle (fun _ -> Profuse.unmount chan)));
       let serve = Server.trace chan in
