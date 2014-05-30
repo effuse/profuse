@@ -15,9 +15,7 @@
  *
  *)
 
-module Make(Fs : Profuse.FS) = struct
-  module Server = Profuse.Server(Fs)
-
+module Make(Server : Profuse.SERVER) = struct
   let mnt =
     if Array.length Sys.argv > 1
     then Sys.argv.(Array.length Sys.argv - 1)

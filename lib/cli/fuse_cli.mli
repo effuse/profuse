@@ -15,9 +15,7 @@
  *
  *)
 
-module Make : functor (Fs : Profuse.FS) -> sig
-  module Server : module type of Profuse.Server(Fs)
-
+module Make : functor (Server : Profuse.SERVER) -> sig
   val mnt : string
-  val run : Fs.t -> 'a
+  val run : Server.t -> 'a
 end

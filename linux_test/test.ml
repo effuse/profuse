@@ -21,7 +21,8 @@ open OUnit
 open Lwt
 
 module Lwt_th = Lwt_preemptive
-module Server = Profuse.Server(Lofs)
+module Server = Profuse.Server(In.Linux_7_8)(Out.Linux_7_8)(Lofs)
+module Support = Profuse.Linux_7_8(In.Linux_7_8)(Out.Linux_7_8)
 
 type fs = {
   chan  : Fuse.chan;
@@ -107,7 +108,9 @@ let mount mnt () =
   let req, state = as_root
     (Server.mount_trace ~argv:[|"test";"-o";"allow_other"|] ~mnt) state in
   Hashtbl.replace mounts mnt { chan=req.Fuse.chan; state };
-  Printf.eprintf "%s\n%!" (Server.string_of_request req state)
+  (* TODO: move into In.read? *)
+  Printf.eprintf "%s\n%!"
+    (Support.string_of_request Lofs.string_of_nodeid req state)
 
 let test_mount =
   "mount", [

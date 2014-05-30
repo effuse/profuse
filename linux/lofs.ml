@@ -17,7 +17,6 @@
 
 module Stat = Unix_sys_stat
 
-module In = In.Linux_7_8
 module H = Handles.Make(Handles.Unix_dir)(Handles.Unix_file)
 module N = Nodes.Make(Nodes.Path)
 
@@ -31,13 +30,7 @@ type t = state
 (* TODO: check N.get raising Not_found *)
 (* TODO: check uid/gid rights *)
 
-(* can be overridden with include *)
-let trace_channel = stderr
-
 let string_of_nodeid nodeid st = N.string_of_id st.nodes nodeid
-
-let string_of_state req st =
-  Printf.sprintf "Nodes: %s" (N.to_string st.nodes)
 
 let uint64_of_int64 = Unsigned.UInt64.of_int64
 let uint32_of_uint64 x = Unsigned.(UInt32.of_int (UInt64.to_int x))
@@ -48,15 +41,20 @@ let make root = {
   agents = Agent_handler.create ();
 }
 
-module Linux_7_8(Out : Out.LINUX_7_8) : Profuse.FULL with type t = state =
+module Linux_7_8(In : In.LINUX_7_8)(Out : Out.LINUX_7_8)
+  : Profuse.FULL with type t = state and module In = In =
 struct
+  module In = In
   type t = state
 
-  module Support = Profuse.Linux_7_8(Out)
+  module Support = Profuse.Linux_7_8(In)(Out)
 
-  let mount ~argv ~mnt st =
+  let string_of_state req st =
+    Printf.sprintf "Nodes: %s" (N.to_string st.nodes)
+
+  let negotiate_mount pkt req st =
     ignore (Unix.umask 0o000);
-    Support.mount ~argv ~mnt st
+    Support.negotiate_mount pkt req st
 
   let enosys = Support.enosys
   let nodeid = Support.nodeid

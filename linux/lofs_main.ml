@@ -15,7 +15,7 @@
  *
  *)
 
-module Cli = Fuse_cli.Make(Lofs)
+module Cli = Fuse_cli.Make(Profuse.Server(In.Linux_7_8)(Out.Linux_7_8)(Lofs))
 
 ;;
 

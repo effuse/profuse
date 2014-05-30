@@ -42,6 +42,8 @@ module type WRITE = sig
   val write_reply     : 'b request -> ('b request -> char carray) -> unit
   val write_ack       : 'b request -> unit
   val write_error     : _ request -> Unix.error -> unit
+
+  val trace_channel   : out_channel
 end
 
 module type GEN_IO = sig
@@ -241,6 +243,9 @@ module Io : GEN_IO = struct
            (req.chan,
             (Printf.sprintf "Packet has %d bytes but only read %d" sz len)));
       parse req hdr (sz - Hdr.hdrsz) (to_voidp (buf +@ Hdr.hdrsz))
+
+  (* can be overridden by include *)
+  let trace_channel = stderr
 end
 
 module Linux_7_8 : LINUX_7_8 = struct
