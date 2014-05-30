@@ -19,7 +19,7 @@ Library linux
   Path: linux
   FindlibName: linux
   FindlibParent: profuse
-  Modules: Profuse, Lofs
+  Modules: Profuse, Lofs, Proxfuse
   BuildDepends: profuse
   NativeOpt: -w @f@p@u@s@40
   ByteOpt:   -w @f@p@u@s@40
@@ -36,6 +36,26 @@ Library cli
 Executable lofs_main
   Path: linux
   MainIs: lofs_main.ml
+  Custom: true
+  CompiledObject: best
+  Install: false
+  BuildDepends: profuse.cli
+  NativeOpt: -w @f@p@u@s@40
+  ByteOpt:   -w @f@p@u@s@40
+
+Executable proxfuse_client
+  Path: linux
+  MainIs: proxfuse_client.ml
+  Custom: true
+  CompiledObject: best
+  Install: false
+  BuildDepends: profuse.cli
+  NativeOpt: -w @f@p@u@s@40
+  ByteOpt:   -w @f@p@u@s@40
+
+Executable proxlofs_server
+  Path: linux
+  MainIs: proxlofs_server.ml
   Custom: true
   CompiledObject: best
   Install: false
