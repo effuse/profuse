@@ -315,7 +315,7 @@ module Linux_7_8(In : In.LINUX_7_8)(Out : Out.LINUX_7_8) = struct
     let pkt = Out.Init.create ~major ~minor ~max_readahead
       ~flags:UInt32.zero ~max_write:Fuse.(req.chan.max_write) in
     let chan = Fuse.({ req.chan with
-      version = (major, minor); max_readahead; flags = 0l; host;
+      version = (major, minor); max_readahead; flags = 0l;
     }) in
     Out.write_reply req pkt;
     {req with Fuse.chan}, st

@@ -105,7 +105,7 @@ module Client = struct
     let _buf = remote out req st in
     let chan = req.Fuse.chan in
     (*let chan = Fuse.({ chan with
-      version = (major, minor); max_readahead; flags; host;
+      version = (major, minor); max_readahead; flags;
       }) in*)
     { req with Fuse.chan }, st
 
@@ -116,6 +116,7 @@ module Client = struct
     let read = In.read chan in
     fun t -> ignore (remote out (read ()) t : char Ctypes.ptr); t
 
+  (* TODO: trace the return messages *)
   let trace chan =
     let read = In.read chan in
     fun tag t ->
@@ -131,60 +132,6 @@ module Server : Profuse.FS_SERVER =
   functor (In : In.LINUX_7_8) -> functor (Out : Out.LINUX_7_8) ->
     functor (Fs : Profuse.FS) ->
 struct
-  module In = struct
-    include In
-
-(*
-    (* TODO: catch errors *)
-    let read chan =
-      let pipe_in, pipe_out = Unix.pipe () in
-      let subread = read { chan with Fuse.fd=pipe_in } in
-      fun () ->
-        let buf = receive chan.Fuse.fd in
-        let len = String.length buf in
-        let written = Unix.write pipe_out buf 0 len in
-        assert (written = len);
-        subread ()*)
-  end
-  module Out = struct
-    include Out
-
-(*    (* TODO: don't copy into string *)
-    let write_reply_raw req sz ptr =
-      let buf = Ctypes.string_from_ptr ptr ~length:sz in
-      let len = Fuse.(
-        try
-          Unix.send req.chan.fd buf 0 sz []
-        with Unix.Unix_error(err,fn,param) ->
-          raise (ProtocolError
-                   (req.chan,
-                    (Printf.sprintf "Unix Error on %s(%S): %s" fn param
-                       (Unix.error_message err))))
-      ) in
-      if sz <> len
-      then raise Fuse.(
-        ProtocolError
-          (req.chan,
-           (Printf.sprintf "Tried to write %d but only wrote %d" sz len)))
-
-    let write_reply req arrfn =
-      let arr = arrfn req in
-      let sz  = Ctypes.CArray.length arr + Hdr.hdrsz in
-      let ptr = Ctypes.(CArray.start arr -@ Hdr.hdrsz) in
-      write_reply_raw req sz ptr
-
-    let write_ack req = write_reply req (Hdr.packet ~count:0)
-
-    (** Can raise Fs.UnknownErrno (TODO: ?) *)
-    let write_error req err =
-      let phost = Fuse.(req.chan.host.unix_errno) in
-      let nerrno = match Unix_errno.(to_code ~host:phost err) with
-        | Some errno -> Int32.of_int (-errno)
-        | None -> raise (Fuse.UnknownErrno err)
-      in
-      write_reply req (Hdr.packet ~nerrno ~count:0)*)
-  end
-
   module Trace = Profuse.Trace(In)(Out)
 
   module S = Profuse.Server(In)(Out)(Fs)
