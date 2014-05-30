@@ -74,7 +74,7 @@ type t =
 | FUSE_BMAP
 
 (* ro *)
-| FUSE_DESTROY (* = 38 *) (* 0 reply *)
+| FUSE_DESTROY (* = 38 *) (* no reply *)
 (* end ro *)
 
 (* > 7.8 *)
@@ -247,5 +247,5 @@ let view = view
   uint32_t
 
 let returns = function
-  | FUSE_FORGET -> false
+  | FUSE_FORGET | FUSE_DESTROY -> false
   | _ -> true
