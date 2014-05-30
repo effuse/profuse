@@ -245,3 +245,7 @@ let view = view
   ~read:of_uint32
   ~write:(fun o -> UInt32.of_int (to_int o))
   uint32_t
+
+let returns = function
+  | FUSE_FORGET -> false
+  | _ -> true

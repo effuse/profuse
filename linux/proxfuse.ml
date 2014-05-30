@@ -87,12 +87,18 @@ module Client = struct
     let buf = Ctypes.string_from_ptr ptr ~length in
     let sent = Unix.send (fd st) buf 0 length [] in
     assert (length = sent); (* TODO: Check? Buffer? *)
-    let str = receive (fd st) in
-    let sz = String.length str in
-    let buf = Ctypes.(allocate_n char ~count:sz) in
-    Ctypes.(for i=0 to sz - 1 do (buf +@ i) <-@ str.[i] done);
-    Out.write_reply_raw req sz buf;
-    buf
+    let opcode = Ctypes.getf req.Fuse.hdr In.Hdr.opcode in
+    if Opcode.returns opcode
+    then
+      let str = receive (fd st) in
+      let sz = String.length str in
+      let buf = Ctypes.(allocate_n char ~count:sz) in
+      Ctypes.(for i=0 to sz - 1 do (buf +@ i) <-@ str.[i] done);
+      Out.write_reply_raw req sz buf;
+      buf
+    else Ctypes.( (* TODO: ? *)
+      coerce (ptr void) (ptr char) (ptr_of_raw_address Int64.zero)
+    )
 
   (* TODO: update chan *)
   let proxy_mount out _pkt req st =
