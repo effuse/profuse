@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 05717321508224701b46f4321edd5f83)
+# DO NOT EDIT (digest: ae11a960639aad7d85e18cc5e373a9a3)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -67,6 +67,40 @@
 <linux/lofs_main.{native,byte}>: pkg_unix-unistd
 <linux/lofs_main.{native,byte}>: use_cli
 <linux/lofs_main.{native,byte}>: use_linux
+<linux/lofs_main.{native,byte}>: custom
+# Executable proxfuse_client
+<linux/proxfuse_client.{native,byte}>: oasis_executable_proxfuse_client_byte
+<linux/*.ml{,i}>: oasis_executable_proxfuse_client_byte
+<linux/proxfuse_client.{native,byte}>: oasis_executable_proxfuse_client_native
+<linux/*.ml{,i}>: oasis_executable_proxfuse_client_native
+<linux/proxfuse_client.{native,byte}>: pkg_ctypes
+<linux/proxfuse_client.{native,byte}>: pkg_ctypes.foreign
+<linux/proxfuse_client.{native,byte}>: pkg_fd-send-recv
+<linux/proxfuse_client.{native,byte}>: pkg_stringext
+<linux/proxfuse_client.{native,byte}>: pkg_unix-dirent
+<linux/proxfuse_client.{native,byte}>: pkg_unix-errno
+<linux/proxfuse_client.{native,byte}>: pkg_unix-fcntl
+<linux/proxfuse_client.{native,byte}>: pkg_unix-sys-stat
+<linux/proxfuse_client.{native,byte}>: pkg_unix-unistd
+<linux/proxfuse_client.{native,byte}>: use_cli
+<linux/proxfuse_client.{native,byte}>: use_linux
+<linux/proxfuse_client.{native,byte}>: custom
+# Executable proxlofs_server
+<linux/proxlofs_server.{native,byte}>: oasis_executable_proxlofs_server_byte
+<linux/*.ml{,i}>: oasis_executable_proxlofs_server_byte
+<linux/proxlofs_server.{native,byte}>: oasis_executable_proxlofs_server_native
+<linux/*.ml{,i}>: oasis_executable_proxlofs_server_native
+<linux/proxlofs_server.{native,byte}>: pkg_ctypes
+<linux/proxlofs_server.{native,byte}>: pkg_ctypes.foreign
+<linux/proxlofs_server.{native,byte}>: pkg_fd-send-recv
+<linux/proxlofs_server.{native,byte}>: pkg_stringext
+<linux/proxlofs_server.{native,byte}>: pkg_unix-dirent
+<linux/proxlofs_server.{native,byte}>: pkg_unix-errno
+<linux/proxlofs_server.{native,byte}>: pkg_unix-fcntl
+<linux/proxlofs_server.{native,byte}>: pkg_unix-sys-stat
+<linux/proxlofs_server.{native,byte}>: pkg_unix-unistd
+<linux/proxlofs_server.{native,byte}>: use_cli
+<linux/proxlofs_server.{native,byte}>: use_linux
 <linux/*.ml{,i}>: pkg_ctypes
 <linux/*.ml{,i}>: pkg_ctypes.foreign
 <linux/*.ml{,i}>: pkg_fd-send-recv
@@ -79,7 +113,7 @@
 <linux/*.ml{,i}>: use_cli
 <linux/*.ml{,i}>: use_linux
 <linux/*.ml{,i}>: use_profuse
-<linux/lofs_main.{native,byte}>: custom
+<linux/proxlofs_server.{native,byte}>: custom
 # OASIS_STOP
 true: debug
 

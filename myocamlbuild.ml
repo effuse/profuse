@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: a37fdf7e37ac1d5ec5c3ad610e392be2) *)
+(* DO NOT EDIT (digest: a695fed2d6eeedcb124d2f7ebb641239) *)
 module OASISGettext = struct
 (* # 22 "src/oasis/OASISGettext.ml" *)
 
@@ -39,10 +39,10 @@ module OASISExpr = struct
   open OASISGettext
 
 
-  type test = string 
+  type test = string
 
 
-  type flag = string 
+  type flag = string
 
 
   type t =
@@ -52,10 +52,10 @@ module OASISExpr = struct
     | EOr of t * t
     | EFlag of flag
     | ETest of test * string
-    
 
 
-  type 'a choices = (t * 'a) list 
+
+  type 'a choices = (t * 'a) list
 
 
   let eval var_get t =
@@ -430,10 +430,10 @@ module MyOCamlbuildBase = struct
   module OC = Ocamlbuild_pack.Ocaml_compiler
 
 
-  type dir = string 
-  type file = string 
-  type name = string 
-  type tag = string 
+  type dir = string
+  type file = string
+  type name = string
+  type tag = string
 
 
 (* # 62 "src/plugins/ocamlbuild/MyOCamlbuildBase.ml" *)
@@ -448,7 +448,7 @@ module MyOCamlbuildBase = struct
          * directory.
          *)
         includes:  (dir * dir list) list;
-      } 
+      }
 
 
   let env_filename =
@@ -657,6 +657,80 @@ let package_default =
             [(OASISExpr.EBool true, S [A "-w"; A "@f@p@u@s@40"])]);
           (["oasis_executable_lofs_main_native"; "ocaml"; "compile"; "native"
            ],
+            [(OASISExpr.EBool true, S [A "-w"; A "@f@p@u@s@40"])]);
+          (["oasis_executable_proxfuse_client_byte"; "ocaml"; "link"; "byte"],
+            [(OASISExpr.EBool true, S [A "-w"; A "@f@p@u@s@40"])]);
+          ([
+              "oasis_executable_proxfuse_client_native";
+              "ocaml";
+              "link";
+              "native"
+           ],
+            [(OASISExpr.EBool true, S [A "-w"; A "@f@p@u@s@40"])]);
+          ([
+              "oasis_executable_proxfuse_client_byte";
+              "ocaml";
+              "ocamldep";
+              "byte"
+           ],
+            [(OASISExpr.EBool true, S [A "-w"; A "@f@p@u@s@40"])]);
+          ([
+              "oasis_executable_proxfuse_client_native";
+              "ocaml";
+              "ocamldep";
+              "native"
+           ],
+            [(OASISExpr.EBool true, S [A "-w"; A "@f@p@u@s@40"])]);
+          ([
+              "oasis_executable_proxfuse_client_byte";
+              "ocaml";
+              "compile";
+              "byte"
+           ],
+            [(OASISExpr.EBool true, S [A "-w"; A "@f@p@u@s@40"])]);
+          ([
+              "oasis_executable_proxfuse_client_native";
+              "ocaml";
+              "compile";
+              "native"
+           ],
+            [(OASISExpr.EBool true, S [A "-w"; A "@f@p@u@s@40"])]);
+          (["oasis_executable_proxlofs_server_byte"; "ocaml"; "link"; "byte"],
+            [(OASISExpr.EBool true, S [A "-w"; A "@f@p@u@s@40"])]);
+          ([
+              "oasis_executable_proxlofs_server_native";
+              "ocaml";
+              "link";
+              "native"
+           ],
+            [(OASISExpr.EBool true, S [A "-w"; A "@f@p@u@s@40"])]);
+          ([
+              "oasis_executable_proxlofs_server_byte";
+              "ocaml";
+              "ocamldep";
+              "byte"
+           ],
+            [(OASISExpr.EBool true, S [A "-w"; A "@f@p@u@s@40"])]);
+          ([
+              "oasis_executable_proxlofs_server_native";
+              "ocaml";
+              "ocamldep";
+              "native"
+           ],
+            [(OASISExpr.EBool true, S [A "-w"; A "@f@p@u@s@40"])]);
+          ([
+              "oasis_executable_proxlofs_server_byte";
+              "ocaml";
+              "compile";
+              "byte"
+           ],
+            [(OASISExpr.EBool true, S [A "-w"; A "@f@p@u@s@40"])]);
+          ([
+              "oasis_executable_proxlofs_server_native";
+              "ocaml";
+              "compile";
+              "native"
+           ],
             [(OASISExpr.EBool true, S [A "-w"; A "@f@p@u@s@40"])])
        ];
      includes = [("linux", ["lib"; "lib/cli"]); ("lib/cli", ["linux"])]
@@ -665,6 +739,6 @@ let package_default =
 
 let dispatch_default = MyOCamlbuildBase.dispatch_default package_default;;
 
-# 669 "myocamlbuild.ml"
+# 743 "myocamlbuild.ml"
 (* OASIS_STOP *)
 Ocamlbuild_plugin.dispatch dispatch_default;;
