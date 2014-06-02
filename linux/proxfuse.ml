@@ -17,8 +17,6 @@
 
 exception Remote_shutdown
 
-let port = 2014
-
 let rec receive_bytes fd buf offset len flags =
   let recvd = Unix.recv fd buf offset len flags in
   if recvd = 0 then raise Remote_shutdown
@@ -43,8 +41,15 @@ let receive fd =
   receive_bytes fd buf 0 sz [];
   buf
 
+let parse_server argv0 server =
+  match Stringext.split ~max:2 server ~on:':' with
+  | [] -> assert false
+  | [_] -> (Printf.eprintf "%s : malformed ipaddr:port\n%!" argv0; exit 1)
+  | server::port::_ -> server, int_of_string port
+
 module Client = struct
   (* TODO: negotiate endianness, host profile, and protocol flavor *)
+  (* TODO: pass command-line mount parameters *)
 
   module In = In.Linux_7_8
   module Support = Profuse.Linux_7_8(In)(Out.Linux_7_8)
@@ -72,6 +77,7 @@ module Client = struct
       then argv.(argc - 1)
       else (Printf.eprintf "%s : missing endpoint argument\n%!" argv.(0); exit 1)
     in
+    let server, port = parse_server argv.(0) server in
     let argv = Array.sub argv 0 (argc - 1) in
     let fd = Unix.(socket PF_INET SOCK_STREAM 0) in
     let addr = Unix.(ADDR_INET (inet_addr_of_string server, port)) in
@@ -132,10 +138,10 @@ module Server : Profuse.FS_SERVER =
   functor (In : In.LINUX_7_8) -> functor (Out : Out.LINUX_7_8) ->
     functor (Fs : Profuse.FS) ->
 struct
+  module In = In
   module Trace = Profuse.Trace(In)(Out)
 
   module S = Profuse.Server(In)(Out)(Fs)
-  module T = Profuse.Server(In)(Trace)(Fs)
 
   module Fs_trace = Fs.Linux_7_8(In)(Trace)
   module Fs = Fs.Linux_7_8(In)(Out)
@@ -143,18 +149,12 @@ struct
   type t = Fs.t
 
   let serve = S.serve
-  let trace = T.trace
+  let trace = S.trace
 
   let mount_wrapper reply ~argv ~mnt st =
     let max_write = 1 lsl 16 in
 
-    let argc = Array.length argv in
-    let interface =
-      if argc > 1
-      then argv.(argc - 1)
-      else (Printf.eprintf "%s : missing interface argument\n%!" argv.(0); exit 1)
-    in
-    let _argv = Array.sub argv 0 (argc - 1) in
+    let interface, port = parse_server argv.(0) mnt in
     let fd = Unix.(socket PF_INET SOCK_STREAM 0) in
     let addr = Unix.(ADDR_INET (inet_addr_of_string interface, port)) in
     Unix.bind fd addr;
