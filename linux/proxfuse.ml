@@ -96,12 +96,16 @@ module Client = struct
     let opcode = Ctypes.getf req.Fuse.hdr In.Hdr.opcode in
     if Opcode.returns opcode
     then
-      let str = receive (fd st) in
-      let sz = String.length str in
-      let buf = Ctypes.(allocate_n char ~count:sz) in
-      Ctypes.(for i=0 to sz - 1 do (buf +@ i) <-@ str.[i] done);
-      Out.write_reply_raw req sz buf;
-      buf
+      try
+        let str = receive (fd st) in
+        let sz = String.length str in
+        let buf = Ctypes.(allocate_n char ~count:sz) in
+        Ctypes.(for i=0 to sz - 1 do (buf +@ i) <-@ str.[i] done);
+        Out.write_reply_raw req sz buf;
+        buf
+      with Remote_shutdown ->
+        (* TODO: ? *)
+        (Profuse.unmount req.Fuse.chan; exit 0)
     else Ctypes.( (* TODO: ? *)
       coerce (ptr void) (ptr char) (ptr_of_raw_address Int64.zero)
     )
