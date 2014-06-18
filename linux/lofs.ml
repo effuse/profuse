@@ -198,9 +198,7 @@ struct
       write_reply req
         (Read.create ~size ~data_fn:(fun buf ->
           let ptr = Ctypes.(to_voidp (bigarray_start array1 buf)) in
-          let off = Unix.LargeFile.lseek fd offset Unix.SEEK_SET in
-          assert (off=offset); (* TODO: necessary? *)
-          Unix_unistd.read fd ptr size
+          Unix_unistd.pread fd ptr size offset
          )))
     );
     st
@@ -281,9 +279,7 @@ struct
     H.with_file_fd st.handles fh (fun _h fd _k -> Out.(
       let data = Ctypes.(to_voidp (CArray.start (getf w In.Write.data))) in
       (* errors caught by our caller *)
-      let off = Unix.LargeFile.lseek fd offset Unix.SEEK_SET in
-      assert (off=offset); (* TODO: necessary? *)
-      let size = Unix_unistd.write fd data size in
+      let size = Unix_unistd.pwrite fd data size offset in
       write_reply req (Write.create ~size)
     ));
     st
