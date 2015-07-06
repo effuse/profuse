@@ -1,0 +1,29 @@
+opam-version: "1.2"
+maintainer:   "sheets@alum.mit.edu"
+authors:      "David Sheets"
+homepage:     "https://github.com/dsheets/profuse"
+bug-reports:  "https://github.com/dsheets/profuse/issues"
+dev-repo:     "https://github.com/dsheets/profuse.git"
+license:      "ISC"
+
+build: [make "build"]
+build-test: [
+  ["./configure" "--enable-tests"]
+  [make "test"]
+]
+install: [make "install"]
+remove: ["ocamlfind" "remove" "profuse"]
+
+depends: [
+  "ocamlfind" {build}
+  "unix-errno"
+  "unix-sys-stat"
+  "unix-dirent"
+  "unix-unistd"
+  "unix-fcntl"
+  "fd-send-recv"
+  "stringext"
+  "ctypes" {= "0.3.4"}
+  "lwt"      {test}
+  "alcotest" {test}
+]
