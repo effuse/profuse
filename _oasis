@@ -10,7 +10,11 @@ BuildTools:  ocamlbuild
 Library profuse
   Path: lib
   FindlibName: profuse
-  Modules: View, Opcode, Fuse, Struct, In_common, In, Out, Nodes, Handles
+  Modules: Struct_common, In_common, Out_common,
+           Struct_linux_7_8, In_linux_7_8, Out_linux_7_8,
+           Struct_osx_7_8, In_osx_7_8, Out_osx_7_8,
+           Struct, In, Out,
+           Agent_handler, Handles, Nodes, View, Opcode, Fuse
   BuildDepends: unix-errno, unix-sys-stat, unix-dirent, unix-unistd, unix-fcntl, fd-send-recv, ctypes, ctypes.foreign, stringext
   NativeOpt: -w @f@p@u@s@40
   ByteOpt:   -w @f@p@u@s@40
