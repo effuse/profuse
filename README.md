@@ -1,9 +1,17 @@
-# profuse
+## profuse
 
 **profuse** is an OCaml implementation of the FUSE protocol version
  7.8. This protocol version is common to UNIX/GNU Linux, FreeBSD, and OS
  X. Presently, the library only provides Linux and OS X implementations.
 
+### Install
+
+You need to add the ocamllabs opam-repository to have all the right dependencies:
+
+```shell
+opam remote add ocl https://github.com/ocamllabs/opam-repo-dev.git
+opam install profuse
+```
 
 ### Use lofs with docker
 
