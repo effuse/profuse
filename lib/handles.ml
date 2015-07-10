@@ -39,12 +39,14 @@ type ('d,'f) fh =
 | Dir of 'd
 | File of 'f * Stat.File_kind.t
 
+let update { space; id } h' = Hashtbl.replace space.table id h'
+
 module Unix_dir = struct
   type t = Unix.dir_handle * int
 
   let set_dir_offset = function
-    | { space; id; kind=Dir (dir, _) } as h -> fun offset ->
-      Hashtbl.replace space.table id { h with kind=Dir (dir, offset) }
+    | { kind=Dir (dir, _) } as h -> fun offset ->
+      update h { h with kind=Dir (dir, offset) }
     | { kind=File (_,_) } -> raise Unix.(Unix_error (ENOTDIR,"",""))
 
   let close (h,_) = Unix.closedir h

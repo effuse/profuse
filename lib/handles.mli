@@ -32,6 +32,8 @@ type 'k h = {
 }
 and 'h space
 
+val update : 'k h -> 'k h -> unit
+
 module Unix_dir  : sig
   include HANDLE with type t = Unix.dir_handle * int
 
