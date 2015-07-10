@@ -398,6 +398,7 @@ module Linux_7_8(In : In.LINUX_7_8)(Out : Out.LINUX_7_8) = struct
           | R_OK -> s^"R" | W_OK -> s^"W" | X_OK -> s^"X" | F_OK -> s^"F"
            ) "" perms)
       | Unlink name | Rmdir name -> name
+      | Rename (_r,src,dest) -> src ^ " -> " ^ dest
       | _ -> "FIX ME"
       )
 end

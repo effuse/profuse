@@ -236,7 +236,7 @@ struct
     (* errors caught by our caller *)
     Unix.rename (Filename.concat path src) (Filename.concat newpath dest);
     (* TODO: still increment lookups? *)
-    respond_with_entry (N.lookup newdir dest) req;
+    write_ack req;
     st
   )
 
