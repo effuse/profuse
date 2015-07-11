@@ -33,6 +33,32 @@ module Kstatfs = struct
   let padding = "padding" -:* uint32_t
   let spare   = "spare"   -:* array 6 uint32_t
   let () = seal t
+
+  let blocks_  = blocks
+  let bfree_   = bfree
+  let bavail_  = bavail
+  let files_   = files
+  let ffree_   = ffree
+  let bsize_   = bsize
+  let namelen_ = namelen
+  let frsize_  = frsize
+
+  let store ~blocks ~bfree ~bavail ~files ~ffree ~bsize ~namelen ~frsize mem =
+    setf mem blocks_  blocks;
+    setf mem bfree_   bfree;
+    setf mem bavail_  bavail;
+    setf mem files_   files;
+    setf mem ffree_   ffree;
+    setf mem bsize_   bsize;
+    setf mem namelen_ namelen;
+    setf mem frsize_  frsize;
+    ()
+
+  let create ~blocks ~bfree ~bavail ~files ~ffree ~bsize ~namelen ~frsize () =
+    let kstatfs = make t in
+    store ~blocks ~bfree ~bavail ~files ~ffree ~bsize ~namelen ~frsize kstatfs;
+    kstatfs
+
 end
 
 module File_lock = struct
