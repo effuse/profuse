@@ -1,0 +1,26 @@
+version = "0.3.0"
+description = "Linux FUSE protocol 7.8 bindings"
+requires = "ctypes.stubs unix-sys-stat unix-errno unix-dirent.unix unix-fcntl unix-unistd"
+archive(byte) = "profuse.cma"
+archive(byte, plugin) = "profuse.cma"
+archive(native) = "profuse.cmxa"
+archive(native, plugin) = "profuse.cmxs"
+exists_if = "profuse.cma"
+
+package "lwt" (
+  requires = "profuse lwt.unix unix-errno.unix"
+  archive(byte) = "profuse_lwt.cma"
+  archive(byte, plugin) = "profuse_lwt.cma"
+  archive(native) = "profuse_lwt.cmxa"
+  archive(native, plugin) = "profuse_lwt.cmxs"
+  exists_if = "profuse_lwt.cma"
+)
+
+package "linux" (
+  requires = "profuse lwt"
+  archive(byte) = "profuse_linux.cma"
+  archive(byte, plugin) = "profuse_linux.cma"
+  archive(native) = "profuse_linux.cmxa"
+  archive(native, plugin) = "profuse_linux.cmxs"
+  exists_if = "profuse_linux.cma"
+)

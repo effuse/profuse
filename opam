@@ -16,9 +16,9 @@ remove: ["ocamlfind" "remove" "profuse"]
 
 depends: [
   "ocamlfind" {build}
-  "unix-errno"
+  "unix-errno" {>= "0.3.0"}
   "unix-sys-stat"
-  "unix-dirent"
+  "unix-dirent" {>= "0.3.0"}
   "unix-unistd"
   "unix-fcntl"
   "fd-send-recv"

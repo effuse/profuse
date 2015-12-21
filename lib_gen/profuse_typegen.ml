@@ -1,5 +1,5 @@
 (*
- * Copyright (c) 2014 David Sheets <sheets@alum.mit.edu>
+ * Copyright (c) 2015 David Sheets <sheets@alum.mit.edu>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,9 +16,11 @@
  *)
 
 open Ctypes
-open Unsigned
 
-let int_of_32 = view ~read:UInt32.to_int ~write:UInt32.of_int uint32_t
-let int32_of_32 = view ~read:UInt32.to_int32 ~write:UInt32.of_int32 uint32_t
-let int_of_64 = view ~read:UInt64.to_int ~write:UInt64.of_int uint64_t
-let int64_of_64 = view ~read:UInt64.to_int64 ~write:UInt64.of_int64 uint64_t
+let () =
+  let type_oc = open_out "lib_gen/profuse_types_detect.c" in
+  let fmt = Format.formatter_of_out_channel type_oc in
+  Format.fprintf fmt "#include <stdint.h>@.";
+  Format.fprintf fmt "#include \"fuse_kernel.h\"@.";
+  Cstubs.Types.write_c fmt (module Profuse_types.C);
+  close_out type_oc;
