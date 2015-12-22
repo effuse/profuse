@@ -15,7 +15,9 @@
  *
  *)
 
-module Stat = Unix_sys_stat
+(* TODO: this should either stop using Unix or move elsewhere *)
+
+module Stat = Sys_stat
 
 module type HANDLE = sig
   type t
@@ -37,7 +39,7 @@ and 'h space = {
 }
 type ('d,'f) fh =
 | Dir of 'd
-| File of 'f * Stat.File_kind.t
+| File of 'f * Unix.file_kind
 
 let update { space; id } h' = Hashtbl.replace space.table id h'
 

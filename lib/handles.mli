@@ -24,7 +24,7 @@ end
 type id = int64
 type ('d, 'f) fh =
 | Dir of 'd
-| File of 'f * Unix_sys_stat.File_kind.t
+| File of 'f * Unix.file_kind
 type 'k h = {
   space : 'k h space;
   id : id;
@@ -51,5 +51,5 @@ module Make(D : HANDLE)(F : HANDLE) : sig
   val get            : t -> id -> handle
   val with_dir_fd    : t -> id -> (handle -> D.t -> 'a) -> 'a
   val with_file_fd   :
-    t -> id -> (handle -> F.t -> Unix_sys_stat.File_kind.t -> 'a) -> 'a
+    t -> id -> (handle -> F.t -> Unix.file_kind -> 'a) -> 'a
 end

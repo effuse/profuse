@@ -9,7 +9,7 @@ module Host : sig
   type t = {
     fcntl : Fcntl.host;
     errno : Errno.Host.t;
-    sys_stat : Unix_sys_stat.host;
+    sys_stat : Sys_stat.Host.t;
     dirent : Dirent.Host.t;
     unistd : Unix_unistd.host;
   }

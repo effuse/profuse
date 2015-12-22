@@ -1,6 +1,6 @@
 version = "0.3.0"
 description = "Linux FUSE protocol 7.8 bindings"
-requires = "ctypes.stubs unix-sys-stat unix-errno unix-dirent.unix unix-fcntl unix-unistd"
+requires = "ctypes.stubs unix-sys-stat.unix unix-errno unix-dirent.unix unix-fcntl unix-unistd"
 archive(byte) = "profuse.cma"
 archive(byte, plugin) = "profuse.cma"
 archive(native) = "profuse.cmxa"

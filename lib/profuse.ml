@@ -31,7 +31,7 @@ module Host = struct
   type t = {
     fcntl    : Fcntl.host;
     errno    : Errno.Host.t;
-    sys_stat : Unix_sys_stat.host;
+    sys_stat : Sys_stat.Host.t;
     dirent   : Dirent.Host.t;
     unistd   : Unix_unistd.host;
   }
@@ -39,7 +39,7 @@ module Host = struct
   let linux_4_0_5 = {
     fcntl    = Fcntl_unix.host; (* TODO: FIXME *)
     errno    = Errno_host.Linux.v4_0_5;
-    sys_stat = Unix_sys_stat.host; (* TODO: FIXME *)
+    sys_stat = Sys_stat_unix.host; (* TODO: FIXME *)
     dirent   = Dirent_unix.host; (* TODO: FIXME *)
     unistd   = Unix_unistd.host; (* TODO: FIXME *)
   }
