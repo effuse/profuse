@@ -63,7 +63,6 @@ type ('hdr, 'body) packet = {
   chan : chan;
   hdr  : 'hdr Ctypes.structure;
   pkt  : 'body;
-  (*mem  : UInt8.t Ctypes.ptr;*)
 }
 
 module Struct = struct
@@ -292,6 +291,9 @@ module In = struct
       let bodysz = count in
       let count = hdrsz + bodysz in
       let pkt = allocate_n char ~count in
+      (* TODO: FIXME this should be a memzero *)
+      for i = 0 to count - 1 do (pkt +@ i) <-@ '\000' done;
+      print_endline "after In.Hdr.packet memzero";
       let hdr = !@ (coerce (ptr char) (ptr T.t) pkt) in
       setf hdr T.len    (UInt32.of_int count);
       setf hdr T.opcode opcode;
@@ -316,6 +318,9 @@ module In = struct
       let bodysz = count in
       let count = hdrsz + bodysz in
       let pkt = allocate_n char ~count in
+      (* TODO: FIXME this should be a memzero *)
+      for i = 0 to count - 1 do (pkt +@ i) <-@ '\000' done;
+      print_endline "after In.Hdr.packet_from_hdr memzero";
       let dest = to_voidp pkt in
       memcpy ~dest ~src:(to_voidp (addr hdr)) hdrsz;
       setf hdr T.len (UInt32.of_int count);
@@ -564,9 +569,9 @@ module In = struct
 
     let unknown i = Unknown i
 
-    let parse chan hdr len buf (*mem*) =
+    let parse chan hdr len buf =
       let opcode = Hdr.(getf hdr T.opcode) in
-      {chan; hdr; (*mem;*) pkt=Opcode.(match opcode with
+      {chan; hdr; pkt=Opcode.(match opcode with
          | FUSE_INIT        -> Init       (!@ (from_voidp Init.T.t buf))
          | FUSE_GETATTR     -> Getattr
          | FUSE_LOOKUP      -> Lookup     (coerce (ptr void) string buf)
@@ -651,6 +656,9 @@ module Out = struct
       let bodysz = count in
       let count = hdrsz + bodysz in
       let pkt = allocate_n char ~count in
+      (* TODO: FIXME this should be a memzero *)
+      for i = 0 to count - 1 do (pkt +@ i) <-@ '\000' done;
+      print_endline "after Out.Hdr.packet memzero";
       let hdr = !@ (coerce (ptr char) (ptr T.t) pkt) in
       setf hdr T.len    (UInt32.of_int count);
       setf hdr T.error  nerrno;
@@ -693,19 +701,21 @@ module Out = struct
       let count = !count in
       let pkt = Hdr.packet ~count req in
       let buf = CArray.start pkt in
-      let _sz = List.fold_left (fun p (off,ino,name,typ) -> (* TODO: use sz? *)
+      let ep = List.fold_left (fun p (off,ino,name,typ) ->
         let sz = size name in
         let dirent = !@ (coerce (ptr char) (ptr T.t) p) in
         let typ = Dirent.File_kind.(to_code ~host:phost typ) in
-        setf dirent T.ino     (UInt64.of_int ino);
+        setf dirent T.ino     (UInt64.of_int64 ino);
         setf dirent T.off     (UInt64.of_int off);
         setf dirent T.namelen (UInt32.of_int (String.length name));
         setf dirent T.typ     (UInt32.of_int (int_of_char typ));
         let sp = ref (p +@ hdrsz) in
+        (* TODO: better copy *)
         String.iter (fun c -> !sp <-@ c; sp := !sp +@ 1) name;
         (* Printf.eprintf "dirent serialized %s\n%!" name; *)
         p +@ sz (* TODO: zero-write padding? *)
       ) buf (List.rev listing) in
+      assert (ptr_diff buf ep = count);
       pkt
   end
 
@@ -879,9 +889,9 @@ module Out = struct
 
     let unknown opcode len buf = Unknown (opcode, len, buf)
 
-    let parse ({ chan } as req) hdr len buf (*mem*) =
+    let parse ({ chan } as req) hdr len buf =
       let opcode = In.Hdr.(getf req.hdr T.opcode) in
-      {chan; hdr; (*mem;*) pkt=In.Opcode.(match opcode with
+      {chan; hdr; pkt=In.Opcode.(match opcode with
          | FUSE_INIT        -> Init       (!@ (from_voidp Init.T.t buf))
          | FUSE_GETATTR     -> Getattr    (!@ (from_voidp Attr.T.t buf))
          | FUSE_LOOKUP      -> Lookup     (!@ (from_voidp Entry.T.t buf))

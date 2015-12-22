@@ -35,7 +35,6 @@ type ('hdr, 'body) packet = {
   chan : chan;
   hdr : 'hdr Ctypes.structure;
   pkt : 'body;
-  (*mem  : Unsigned.UInt8.t Ctypes.ptr;*)
 }
 
 module Types : sig
@@ -881,7 +880,7 @@ module In : sig
 
     val parse :
       chan -> Hdr.T.t Ctypes.structure -> int -> unit Ctypes.ptr
-      (*-> Unsigned.UInt8.t Ctypes.ptr*) -> (Hdr.T.t, t) packet
+      -> (Hdr.T.t, t) packet
   end
 end
 
@@ -913,7 +912,7 @@ module Out : sig
 
     val of_list :
       host:Host.t ->
-      (int * int * string * Dirent.File_kind.t) list ->
+      (int * int64 * string * Dirent.File_kind.t) list ->
       int -> 'a request -> char Ctypes.CArray.t
   end
 
@@ -1058,7 +1057,7 @@ module Out : sig
 
     val deserialize :
       (In.Hdr.T.t, 'a) packet -> int -> char Ctypes.ptr
-      (*-> Unsigned.UInt8.t Ctypes.ptr*) -> (Hdr.T.t, t) packet
+      -> (Hdr.T.t, t) packet
 
     val describe_reply : ('a,t) packet -> string
   end

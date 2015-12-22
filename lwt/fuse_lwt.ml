@@ -48,7 +48,7 @@ module IO : IO_LWT = struct
     include In
 
     (* TODO: ugggh this shouldn't be needed/used! REMOVE *)
-    let memcpy_b2p ~dest ~src n =
+    let memcpy_b2p ~dest ~src =
       let sp = ref dest in
       Bytes.iter (fun c -> !sp <-@ c; sp := !sp +@ 1) src
 
@@ -73,7 +73,9 @@ module IO : IO_LWT = struct
           *)
           
           let mem = allocate_n uint8_t ~count:n in
-          memcpy_b2p ~dest:(coerce (ptr uint8_t) (ptr char) mem) ~src:buf n;
+          (* TODO: FIXME this should be a memzero *)
+          for i = 0 to n - 1 do (mem +@ i) <-@ UInt8.zero done;
+          memcpy_b2p ~dest:(coerce (ptr uint8_t) (ptr char) mem) ~src:buf;
           let hdr_ptr = coerce (ptr uint8_t) (ptr Hdr.T.t) mem in
           let hdr = !@ hdr_ptr in
           chan.unique <- getf hdr Hdr.T.unique;
@@ -88,8 +90,7 @@ module IO : IO_LWT = struct
           ) >>= fun () ->
           let len = len - Hdr.sz in
           let ptr = to_voidp (mem +@ Hdr.sz) in
-          let message = Message.parse chan hdr len ptr (*mem*) in
-          Gc.full_major ();
+          let message = Message.parse chan hdr len ptr in
           return message
         ) Unix.(function
           | Unix_error ((
@@ -107,10 +108,9 @@ module IO : IO_LWT = struct
             let pkt = Hdr.packet ~opcode:Opcode.FUSE_DESTROY ~unique
                 ~nodeid ~uid ~gid ~pid ~count:0
             in
-            (*let mem = coerce (ptr char) (ptr uint8_t) (CArray.start pkt) in*)
             let hdr = !@ (coerce (ptr char) (ptr Hdr.T.t)
                             ((CArray.start pkt) -@ Hdr.sz)) in
-            Lwt.return Profuse.({ chan; hdr; (*mem;*) pkt=Message.Destroy })
+            Lwt.return Profuse.({ chan; hdr; pkt=Message.Destroy })
           | Unix_error (err, call, s) ->
             let msg =
               Printf.sprintf "%s(%s) error: %s" call s (error_message err)
@@ -132,7 +132,7 @@ module IO : IO_LWT = struct
     let write_ack req = write_reply req (Out.Hdr.packet ~count:0)
 
     let write_error req err =
-      let host = Profuse.(req.chan.host.Host.errno) in
+      let host = req.chan.host.Host.errno in
       let nerrno = match Errno.to_code ~host err with
         | Some errno -> Int32.of_int (-errno)
         | None -> match Errno.to_code ~host Errno.EIO with
@@ -245,11 +245,8 @@ module Trace(F : FS_LWT) : FS_LWT with type t = F.t = struct
           let arr = arrfn req in
           let sz  = CArray.length arr + Profuse.Out.Hdr.sz in
           let ptr = CArray.start arr -@ Profuse.Out.Hdr.sz in
-          (*let mem =
-            Ctypes.(coerce (ptr char) (ptr uint8_t) (CArray.start arr))
-            in*)
           Printf.eprintf "    returning %s from %Ld\n%!"
-            Out.Message.(describe_reply (deserialize req sz ptr (*mem*)))
+            Out.Message.(describe_reply (deserialize req sz ptr))
             (UInt64.to_int64 (getf req.hdr Profuse.In.Hdr.T.unique));
           write_reply_raw req sz ptr
 
