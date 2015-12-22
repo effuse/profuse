@@ -297,59 +297,59 @@ module Dispatch(F : FS_LWT) : FS_LWT with type t = F.t = struct
     include Calls
 
     let dispatch req t =
-    try In.Message.(match req.pkt with
-      | Init _ -> raise (ProtocolError (req.chan, "INIT after mount"))
-      | Getattr -> getattr req t
-      | Opendir op -> opendir op req t
-      | Forget f -> forget (Ctypes.getf f In.Forget.T.nlookup) req t
-      | Lookup name -> lookup name req t
-      | Readdir r -> readdir r req t
-      | Readlink -> readlink req t
-      | Releasedir r -> releasedir r req t
-      | Open op -> open_ op req t
-      | Read r -> read r req t
-      | Flush f -> flush f req t
-      | Release r -> release r req t
-      | Symlink (name,target) -> symlink name target req t
-      | Rename (r,src,dest) -> rename r src dest req t
-      | Unlink name -> unlink name req t
-      | Rmdir name -> rmdir name req t
-      | Statfs -> statfs req t
-      | Fsync f -> fsync f req t
-      | Write (w, data) -> write w data req t
-      | Link (l,name) -> link l name req t
-      | Getxattr g -> getxattr g req t
-      | Setxattr s -> setxattr s req t
-      | Listxattr g -> listxattr g req t
-      | Removexattr name -> removexattr name req t
-      | Access a -> access a req t
-      | Create (c,name) -> create c name req t
-      | Mknod (m,name) -> mknod m name req t
-      | Mkdir (m,name) -> mkdir m name req t
-      | Fsyncdir f -> fsyncdir f req t
-      | Getlk lk  -> getlk  lk req t
-      | Setlk lk  -> setlk  lk req t
-      | Setlkw lk -> setlkw lk req t
-      | Interrupt i -> interrupt i req t
-      | Bmap b -> bmap b req t
-      | Destroy -> destroy req t
-      | Setattr s -> setattr s req t
-      | Other _ | Unknown _ ->
-        IO.(Out.write_error req Errno.ENOSYS >>= fun () -> return t)
-    ) with
-    | Unix.Unix_error(e, _, _) ->
-      let host = req.chan.host.Host.errno in
-      let errno = match Errno_unix.of_unix ~host e with
-        | [] -> Errno.EIO
-        | errno::_ -> errno
-      in
-      IO.(Out.write_error req errno
-          >>= fun () ->
-          return t
-         )
-    | (Destroy k) as exn -> IO.fail exn
-    | exn -> IO.(Out.write_error req Errno.EIO >>= fun () -> fail exn)
-
+      catch In.Message.(fun () -> match req.pkt with
+        | Init _ -> fail (ProtocolError (req.chan, "INIT after mount"))
+        | Getattr -> getattr req t
+        | Opendir op -> opendir op req t
+        | Forget f -> forget (Ctypes.getf f In.Forget.T.nlookup) req t
+        | Lookup name -> lookup name req t
+        | Readdir r -> readdir r req t
+        | Readlink -> readlink req t
+        | Releasedir r -> releasedir r req t
+        | Open op -> open_ op req t
+        | Read r -> read r req t
+        | Flush f -> flush f req t
+        | Release r -> release r req t
+        | Symlink (name,target) -> symlink name target req t
+        | Rename (r,src,dest) -> rename r src dest req t
+        | Unlink name -> unlink name req t
+        | Rmdir name -> rmdir name req t
+        | Statfs -> statfs req t
+        | Fsync f -> fsync f req t
+        | Write (w, data) -> write w data req t
+        | Link (l,name) -> link l name req t
+        | Getxattr g -> getxattr g req t
+        | Setxattr s -> setxattr s req t
+        | Listxattr g -> listxattr g req t
+        | Removexattr name -> removexattr name req t
+        | Access a -> access a req t
+        | Create (c,name) -> create c name req t
+        | Mknod (m,name) -> mknod m name req t
+        | Mkdir (m,name) -> mkdir m name req t
+        | Fsyncdir f -> fsyncdir f req t
+        | Getlk lk  -> getlk  lk req t
+        | Setlk lk  -> setlk  lk req t
+        | Setlkw lk -> setlkw lk req t
+        | Interrupt i -> interrupt i req t
+        | Bmap b -> bmap b req t
+        | Destroy -> destroy req t
+        | Setattr s -> setattr s req t
+        | Other _ | Unknown _ ->
+          IO.(Out.write_error req Errno.ENOSYS >>= fun () -> return t)
+      ) (function
+        | Unix.Unix_error(e, _, _) ->
+          let host = req.chan.host.Host.errno in
+          let errno = match Errno_unix.of_unix ~host e with
+            | [] -> Errno.EIO
+            | errno::_ -> errno
+          in
+          IO.(Out.write_error req errno
+              >>= fun () ->
+              return t
+             )
+        | (Destroy k) as exn -> IO.fail exn
+        | exn -> IO.(Out.write_error req Errno.EIO >>= fun () -> fail exn)
+      )
   end
 end
 
