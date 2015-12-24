@@ -48,9 +48,10 @@ module IO : IO_LWT = struct
     include In
 
     (* TODO: ugggh this shouldn't be needed/used! REMOVE *)
-    let memcpy_b2p ~dest ~src =
-      let sp = ref dest in
-      Bytes.iter (fun c -> !sp <-@ c; sp := !sp +@ 1) src
+    let memcpy_b2p ~dest ~src n =
+      for i = 0 to n - 1 do
+        (dest +@ i) <-@ Bytes.get src i
+      done
 
     let read chan =
       let approx_page_size = 4096 in
@@ -75,7 +76,7 @@ module IO : IO_LWT = struct
           let mem = allocate_n uint8_t ~count:n in
           (* TODO: FIXME this should be a memzero *)
           for i = 0 to n - 1 do (mem +@ i) <-@ UInt8.zero done;
-          memcpy_b2p ~dest:(coerce (ptr uint8_t) (ptr char) mem) ~src:buf;
+          memcpy_b2p ~dest:(coerce (ptr uint8_t) (ptr char) mem) ~src:buf n;
           let hdr_ptr = coerce (ptr uint8_t) (ptr Hdr.T.t) mem in
           let hdr = !@ hdr_ptr in
           chan.unique <- getf hdr Hdr.T.unique;
