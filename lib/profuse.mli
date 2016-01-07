@@ -7,7 +7,7 @@ end
 
 module Host : sig
   type t = {
-    fcntl : Fcntl.host;
+    fcntl : Fcntl.Host.t;
     errno : Errno.Host.t;
     sys_stat : Sys_stat.Host.t;
     dirent : Dirent.Host.t;
