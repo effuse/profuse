@@ -243,7 +243,36 @@ module Trace(F : FS_LWT) : FS_LWT with type t = F.t = struct
             perms
         | Unlink name | Rmdir name -> name
         | Rename (_r,src,dest) -> src ^ " -> " ^ dest
-        | _ -> "FIX ME"
+        | Read r ->
+          let fh = getf r Read.T.fh in
+          let offset = getf r Read.T.offset in
+          let size = getf r Read.T.size in
+          Printf.sprintf "fh=%Ld offset=%Ld size=%ld"
+            (UInt64.to_int64 fh)
+            (UInt64.to_int64 offset)
+            (UInt32.to_int32 size)
+        | Interrupt _
+        | Getxattr _
+        | Setxattr _
+        | Listxattr _
+        | Removexattr _
+        | Getlk _
+        | Setlk _
+        | Setlkw _
+        | Link (_,_)
+        | Open _
+        | Write (_,_)
+        | Flush _
+        | Release _
+        | Opendir _
+        | Readdir _
+        | Releasedir _
+        | Fsyncdir _
+        | Fsync _
+        | Statfs
+        | Bmap _ -> "FIX ME"
+        | Other opcode -> "OTHER "^(Opcode.to_string opcode)
+        | Unknown i -> "UNKNOWN "^(Int32.to_string i)
       ))
 
   module Calls(IO : IO_LWT) : FS_IO_LWT with type t = t = struct
