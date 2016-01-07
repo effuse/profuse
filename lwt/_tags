@@ -1,2 +1,2 @@
-<*.*>: package(lwt.unix), package(ctypes), package(unix-errno.unix), package(unix-fcntl)
+<*.*>: package(lwt.unix), package(ctypes), package(unix-errno.unix), package(unix-fcntl), package(unix-sys-stat)
 true: debug

@@ -154,20 +154,18 @@ module Trace(F : FS_LWT) : FS_LWT with type t = F.t = struct
   let string_of_nodeid = F.string_of_nodeid
 
   let string_of_mode req mode =
-    (*let open Sys_stat.Mode in
-      let host = Fuse.(req.chan.host.unix_sys_stat.Unix_sys_stat.mode) in
-      to_string ~host (of_code_exn ~host mode)
-    *)
-    (* TODO: fix symbolic host map *)
-    string_of_int mode
+    let sys_stat = Fuse.(req.chan.host).Profuse.Host.sys_stat in
+    let host = sys_stat.Sys_stat.Host.mode in
+    let open Sys_stat.Mode in
+    Printf.sprintf "%s (%x)"
+      (to_string ~host (of_code_exn ~host mode))
+      mode
 
   let string_of_perms req perms =
-    (*let open Sys_stat.File_perm in
-      let host = Fuse.(req.chan.host.unix_sys_stat.Unix_sys_stat.file_perm) in
-      to_string ~host (full_of_code ~host perms)
-    *)
-    (* TODO: fix symbolic host map *)
-    string_of_int perms
+    let sys_stat = Fuse.(req.chan.host).Profuse.Host.sys_stat in
+    let host = sys_stat.Sys_stat.Host.file_perm in
+    let open Sys_stat.File_perm in
+    to_string ~host (full_of_code ~host perms)
 
   let string_of_request string_of_nodeid req t =
     let module Hdr = Profuse.In.Hdr.T in
