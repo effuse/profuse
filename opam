@@ -23,7 +23,7 @@ depends: [
   "unix-fcntl"
   "fd-send-recv"
   "stringext"
-  "ctypes" {= "0.3.4"}
+  "ctypes" {>= "0.4.0"}
   "lwt"      {test}
   "alcotest" {test}
 ]
