@@ -409,7 +409,7 @@ module C(F: Cstubs.Types.TYPE) = struct
       type t = Open.t
       let t = Open.t
       let flags = Open.flags
-      let mode = Open.flags
+      let mode = Open.mode
         (*
       let t : t structure typ = structure "fuse_open_in" (*"fuse_create_in"*)
       let ( -:* ) s x = field t s x
