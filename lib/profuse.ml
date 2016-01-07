@@ -126,23 +126,21 @@ module Struct = struct
       attr
 
     let describe ~host pkt =
-      (*let phost = host.Host.sys_stat.Sys_stat.mode in*)
+      let phost = host.Host.sys_stat.Sys_stat.Host.mode in
       let i64 = UInt64.to_int64 in
       let i32 = UInt32.to_int32 in
       let mode = UInt32.to_int (getf pkt T.mode) in
       (* TODO: nsec times? *)
       Printf.sprintf
-        "ino=%Ld size=%Ld blocks=%Ld atime=%Ld mtime=%Ld ctime=%Ld mode=%x nlink=%ld uid=%ld gid=%ld rdev=%ld"
+        "ino=%Ld size=%Ld blocks=%Ld atime=%Ld mtime=%Ld ctime=%Ld mode=%s (0x%x) nlink=%ld uid=%ld gid=%ld rdev=%ld"
         (i64 (getf pkt T.ino))
         (i64 (getf pkt T.size))
         (i64 (getf pkt T.blocks))
         (i64 (getf pkt T.atime))
         (i64 (getf pkt T.mtime))
         (i64 (getf pkt T.ctime))
-        mode
-        (*
         Sys_stat.Mode.(to_string ~host:phost (of_code_exn ~host:phost mode))
-        *)
+        mode
         (i32 (getf pkt T.nlink))
         (i32 (getf pkt T.uid))
         (i32 (getf pkt T.gid))
@@ -760,6 +758,12 @@ module Out = struct
       let pkt = Hdr.make req T.t in
       store ~fh ~open_flags pkt req;
       CArray.from_ptr (coerce (ptr T.t) (ptr char) (addr pkt)) (sizeof T.t)
+
+    let describe pkt =
+      Printf.sprintf
+        "fh=%Ld flags=0x%x"
+        (UInt64.to_int64 (getf pkt T.fh))
+        (UInt32.to_int (getf pkt T.open_flags))
   end
 
   module Init = struct
@@ -990,7 +994,7 @@ module Out = struct
       | Access -> "ACCESS"
       | Forget -> "FORGET"
       | Readlink r -> r
-      | Open o -> "OPEN FIXME" (* TODO: more *)
+      | Open o -> Open.describe o
       | Read r -> "READ FIXME" (* TODO: more *)
       | Write w -> "WRITE FIXME" (* TODO: more *)
       | Statfs s -> "STATFS FIXME" (* TODO: more *)
@@ -998,7 +1002,9 @@ module Out = struct
       | Release -> "RELEASE"
       | Fsync -> "FSYNC"
       | Unlink -> "UNLINK"
-      | Create (entry,open_) -> "CREATE FIXME" (* TODO: more *)
+      | Create (entry,open_) ->
+        Printf.sprintf "[%s][%s]"
+          (Entry.describe ~host entry) (Open.describe open_)
       | Mknod e -> Entry.describe ~host e
       | Setattr a -> "SETATTR FIXME" (* TODO: more *)
       | Link e -> Entry.describe ~host e

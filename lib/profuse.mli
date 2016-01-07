@@ -588,8 +588,7 @@ module Struct : sig
       rdev:Unsigned.uint32 ->
       unit -> T.t structure
 
-    val describe :
-      host:'a -> T.t structure -> string
+    val describe : host:Host.t -> T.t structure -> string
 
   end
 end
@@ -985,8 +984,7 @@ module Out : sig
       store_attr:(Types.Struct.Attr.t structure -> unit) ->
       'a request -> char Ctypes.CArray.t
 
-    val describe :
-      host:'a -> T.t structure -> string
+    val describe : host:Host.t -> T.t structure -> string
   end
 
   module Attr : sig
