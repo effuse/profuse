@@ -53,6 +53,27 @@ module IO : IO_LWT = struct
         (dest +@ i) <-@ Bytes.get src i
       done
 
+    let remaining = ref None
+    let parse chan n mem =
+      let hdr_ptr = coerce (ptr uint8_t) (ptr Hdr.T.t) mem in
+      let hdr = !@ hdr_ptr in
+      chan.unique <- getf hdr Hdr.T.unique;
+      let len = UInt32.to_int (getf hdr Hdr.T.len) in
+      (if n < len
+       then (* TODO: accumulate? *)
+         let msg =
+           Printf.sprintf "Packet has %d bytes but only read %d" len n
+         in
+         fail (ProtocolError (chan, msg))
+       else if n > len
+       then (remaining := Some (n - len, mem +@ len); return_unit)
+       else return_unit
+      ) >>= fun () ->
+      let len = len - Hdr.sz in
+      let ptr = to_voidp (mem +@ Hdr.sz) in
+      let message = Message.parse chan hdr len ptr in
+      return message
+
     let read chan =
       let approx_page_size = 4096 in
       let count = chan.max_write + approx_page_size in
@@ -61,38 +82,28 @@ module IO : IO_LWT = struct
         (* TODO: stop copying! *)
         (*let buf = allocate_n uint8_t ~count in (* TODO: pool? *)*)
         catch (fun () ->
-          Lwt_unix.(read (of_unix_file_descr chan.fd)) buf 0 count
-          >>= fun n ->
-          (*let fd = Unix.(
-            openfile ("read_packet_"^(string_of_int !pnum))
+          match !remaining with
+          | None ->
+            Lwt_unix.(read (of_unix_file_descr chan.fd)) buf 0 count
+            >>= fun n ->
+            (*let fd = Unix.(
+              openfile ("read_packet_"^(string_of_int !pnum))
               [O_WRONLY;O_CREAT] 0o600
-          ) in
-          let logn = Unix.write fd buf 0 n in
-          assert (logn = n);
-          let () = Unix.close fd in
-          incr pnum;
-          *)
-          
-          let mem = allocate_n uint8_t ~count:n in
-          (* TODO: FIXME this should be a memzero *)
-          for i = 0 to n - 1 do (mem +@ i) <-@ UInt8.zero done;
-          memcpy_b2p ~dest:(coerce (ptr uint8_t) (ptr char) mem) ~src:buf n;
-          let hdr_ptr = coerce (ptr uint8_t) (ptr Hdr.T.t) mem in
-          let hdr = !@ hdr_ptr in
-          chan.unique <- getf hdr Hdr.T.unique;
-          let len = UInt32.to_int (getf hdr Hdr.T.len) in
-          (if n <> len
-           then
-             let msg =
-               Printf.sprintf "Packet has %d bytes but only read %d" len n
-             in
-             fail (ProtocolError (chan, msg))
-           else return_unit
-          ) >>= fun () ->
-          let len = len - Hdr.sz in
-          let ptr = to_voidp (mem +@ Hdr.sz) in
-          let message = Message.parse chan hdr len ptr in
-          return message
+              ) in
+              let logn = Unix.write fd buf 0 n in
+              assert (logn = n);
+              let () = Unix.close fd in
+              incr pnum;
+            *)
+
+            let mem = allocate_n uint8_t ~count:n in
+            (* TODO: FIXME this should be a memzero *)
+            for i = 0 to n - 1 do (mem +@ i) <-@ UInt8.zero done;
+            memcpy_b2p ~dest:(coerce (ptr uint8_t) (ptr char) mem) ~src:buf n;
+            parse chan n mem
+          | Some (n, mem) ->
+            remaining := None;
+            parse chan n mem
         ) Unix.(function
           | Unix_error ((
             EINTR  (* SIGINT *)
