@@ -735,6 +735,8 @@ module Out = struct
       let buf = bigarray_of_ptr array1 size Bigarray.char body in
       let sz = data_fn buf in
       Hdr.set_size pkt sz
+
+    let describe carray = string_of_int (CArray.length carray)
   end
 
   module Write = struct
@@ -995,7 +997,7 @@ module Out = struct
       | Forget -> "FORGET"
       | Readlink r -> r
       | Open o -> Open.describe o
-      | Read r -> "READ FIXME" (* TODO: more *)
+      | Read r -> Read.describe r
       | Write w -> "WRITE FIXME" (* TODO: more *)
       | Statfs s -> "STATFS FIXME" (* TODO: more *)
       | Flush -> "FLUSH"
