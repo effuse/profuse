@@ -15,17 +15,40 @@ module type FS_LWT = sig
       FS_IO_LWT with type 'a IO.t = 'a IO.t and type t = t
 end
 
-(* TODO: ugggh this shouldn't be needed/used! REMOVE *)
-let memcpy_p2b ~dest ~src n =
-  for i = 0 to n - 1 do
-    Bytes.set dest i (!@ (src +@ i))
-  done
+type socket = {
+  id    : int;
+  read  : uint8 Ctypes.ptr -> int -> int Lwt.t;
+  write : uint8 Ctypes.ptr -> int -> int Lwt.t;
+}
 
-(* TODO: stop copying! *)
+let null_socket = {
+  id = -1;
+  read  = (fun _ _ -> Lwt.return 0);
+  write = (fun _ _ -> Lwt.return 0);
+}
+
+let socket_table = ref (Array.make 0 null_socket)
+
+(* TODO: release socket *)
+let new_socket ~read ~write =
+  let table = !socket_table in
+  let next_id = Array.length table in
+  let table = Array.init (next_id + 1) (fun i ->
+    if i <> next_id
+    then table.(i)
+    else { id = next_id; read; write }
+  )  in
+  socket_table := table;
+  table.(next_id)
+
+let socket_id { id } = id
+
+let get_socket k =
+  (!socket_table).(k)
+
 let write_reply_raw req sz ptr =
-  let buf = Bytes.create sz in
-  memcpy_p2b ~dest:buf ~src:ptr sz;
-  Lwt_unix.(write (of_unix_file_descr req.chan.fd)) buf 0 sz
+  let socket = get_socket req.chan.id in
+  socket.write (coerce (Ctypes.ptr char) (Ctypes.ptr uint8_t) ptr) sz
   >>= fun len ->
   if sz <> len
   then
@@ -77,14 +100,14 @@ module IO : IO_LWT = struct
     let read chan =
       let approx_page_size = 4096 in
       let count = chan.max_write + approx_page_size in
-      let buf = Bytes.create count in
+      let buf = allocate_n uint8_t ~count in (* TODO: pool? *)
       fun () ->
         (* TODO: stop copying! *)
-        (*let buf = allocate_n uint8_t ~count in (* TODO: pool? *)*)
         catch (fun () ->
           match !remaining with
           | None ->
-            Lwt_unix.(read (of_unix_file_descr chan.fd)) buf 0 count
+            let socket = get_socket chan.Profuse.id in
+            socket.read buf count
             >>= fun n ->
             (*let fd = Unix.(
               openfile ("read_packet_"^(string_of_int !pnum))
@@ -95,12 +118,7 @@ module IO : IO_LWT = struct
               let () = Unix.close fd in
               incr pnum;
             *)
-
-            let mem = allocate_n uint8_t ~count:n in
-            (* TODO: FIXME this should be a memzero *)
-            for i = 0 to n - 1 do (mem +@ i) <-@ UInt8.zero done;
-            memcpy_b2p ~dest:(coerce (ptr uint8_t) (ptr char) mem) ~src:buf n;
-            parse chan n mem
+            parse chan n buf
           | Some (n, mem) ->
             remaining := None;
             parse chan n mem

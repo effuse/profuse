@@ -46,7 +46,7 @@ module Host = struct
 end
 
 type chan = {
-  fd : Unix.file_descr;
+  id : int;
   mutable unique : Unsigned.uint64;
   mnt : string;
   version : int * int;

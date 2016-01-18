@@ -25,3 +25,12 @@ module type MOUNT_LWT =
 
 module Server(M : MOUNT_LWT)(F : FS_LWT)(IO : IO_LWT)
   : SERVER_LWT with module IO = IO and type t = F.t
+
+type socket
+
+val new_socket :
+  read:(Unsigned.uint8 Ctypes.ptr -> int -> int Lwt.t) ->
+  write:(Unsigned.uint8 Ctypes.ptr -> int -> int Lwt.t) ->
+  socket
+
+val socket_id : socket -> int
