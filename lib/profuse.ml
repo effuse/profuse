@@ -291,7 +291,6 @@ module In = struct
       let pkt = allocate_n char ~count in
       (* TODO: FIXME this should be a memzero *)
       for i = 0 to count - 1 do (pkt +@ i) <-@ '\000' done;
-      print_endline "after In.Hdr.packet memzero";
       let hdr = !@ (coerce (ptr char) (ptr T.t) pkt) in
       setf hdr T.len    (UInt32.of_int count);
       setf hdr T.opcode opcode;
@@ -318,7 +317,6 @@ module In = struct
       let pkt = allocate_n char ~count in
       (* TODO: FIXME this should be a memzero *)
       for i = 0 to count - 1 do (pkt +@ i) <-@ '\000' done;
-      print_endline "after In.Hdr.packet_from_hdr memzero";
       let dest = to_voidp pkt in
       memcpy ~dest ~src:(to_voidp (addr hdr)) hdrsz;
       setf hdr T.len (UInt32.of_int count);
@@ -656,7 +654,6 @@ module Out = struct
       let pkt = allocate_n char ~count in
       (* TODO: FIXME this should be a memzero *)
       for i = 0 to count - 1 do (pkt +@ i) <-@ '\000' done;
-      print_endline "after Out.Hdr.packet memzero";
       let hdr = !@ (coerce (ptr char) (ptr T.t) pkt) in
       setf hdr T.len    (UInt32.of_int count);
       setf hdr T.error  nerrno;
