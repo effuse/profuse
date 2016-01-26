@@ -235,6 +235,14 @@ module Trace(F : FS_LWT) : FS_LWT with type t = F.t = struct
           Printf.sprintf "flags=[%s] mode=%s %s"
             flags_s
             (string_of_mode req (UInt32.to_int (getf c Create.T.mode))) name
+        | Open o ->
+          let host = req.chan.host.Host.fcntl.Fcntl.Host.oflags in
+          let flags_code = UInt32.to_int (getf o Open.T.flags) in
+          let flags = Fcntl.Oflags.of_code ~host flags_code in
+          let flags_s =
+            String.concat " " (List.map Fcntl.Oflags.to_string flags)
+          in
+          Printf.sprintf "flags=[%s]" flags_s
         | Setattr s ->
           Printf.sprintf "0x%lX[%s]"
             (UInt32.to_int32 (getf s Setattr.T.valid))
@@ -278,7 +286,6 @@ module Trace(F : FS_LWT) : FS_LWT with type t = F.t = struct
         | Setlk _
         | Setlkw _
         | Link (_,_)
-        | Open _
         | Write (_,_)
         | Flush _
         | Release _
