@@ -244,13 +244,10 @@ module Trace(F : FS_LWT) : FS_LWT with type t = F.t = struct
           in
           Printf.sprintf "flags=[%s]" flags_s
         | Setattr s ->
+          let attrs = Setattr.Valid.of_uint32 (getf s Setattr.T.valid) in
           Printf.sprintf "0x%lX[%s]"
             (UInt32.to_int32 (getf s Setattr.T.valid))
-            (*
-(String.concat " " (Setattr.Valid.T.attrs (getf s Setattr.T.valid)))
-               *)
-            (* TODO: fix symbolic host map *)
-            (string_of_int (UInt32.to_int (getf s Setattr.T.valid)))
+            (String.concat " " (Setattr.Valid.to_string_list attrs))
         | Access a ->
           let code = getf a Access.T.mask in
           (*let phost = Fuse.(req.chan.host.unistd.Unix_unistd.access) in

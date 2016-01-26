@@ -795,10 +795,13 @@ module In : sig
         atime : bool;
         mtime : bool;
         fh : bool;
+        unknown : int32;
         (*atime_now : bool;
         mtime_now : bool;
           lockowner : bool;*)
       }
+
+      val to_string_list : t -> string list
 
       val of_uint32 : Unsigned.uint32 -> t
 

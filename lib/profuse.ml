@@ -439,6 +439,7 @@ module In = struct
         atime : bool;
         mtime : bool;
         fh : bool;
+        unknown : int32;
         (*atime_now : bool;
         mtime_now : bool;
           lockowner : bool;*)
@@ -446,6 +447,27 @@ module In = struct
 
       let (&&&) = UInt32.logand
       let (|||) = UInt32.logor
+
+      let to_string_list valid =
+        let list = if valid.mode  then ["mode"]      else []   in
+        let list = if valid.uid   then "uid"  ::list else list in
+        let list = if valid.gid   then "gid"  ::list else list in
+        let list = if valid.size  then "size" ::list else list in
+        let list = if valid.atime then "atime"::list else list in
+        let list = if valid.mtime then "mtime"::list else list in
+        let list = if valid.fh    then "fh"   ::list else list in
+        if valid.unknown = Int32.zero
+        then list
+        else (Printf.sprintf "unknown[0x%lx]" valid.unknown)::list
+
+      let all = UInt32.zero
+                ||| T.fattr_mode
+                ||| T.fattr_uid
+                ||| T.fattr_gid
+                ||| T.fattr_size
+                ||| T.fattr_atime
+                ||| T.fattr_mtime
+                ||| T.fattr_fh
 
       let of_uint32 i = {
         mode = UInt32.(compare zero (i &&& T.fattr_mode) <> 0);
@@ -455,6 +477,7 @@ module In = struct
         atime = UInt32.(compare zero (i &&& T.fattr_atime) <> 0);
         mtime = UInt32.(compare zero (i &&& T.fattr_mtime) <> 0);
         fh = UInt32.(compare zero (i &&& T.fattr_fh) <> 0);
+        unknown = UInt32.(to_int32 (i &&& (lognot all)));
         (*atime_now = UInt32.(compare zero (i &&& T.fattr_atime_now) <> 0);
         mtime_now = UInt32.(compare zero (i &&& T.fattr_mtime_now) <> 0);
           lockowner = UInt32.(compare zero (i &&& T.fattr_lockowner) <> 0);*)
