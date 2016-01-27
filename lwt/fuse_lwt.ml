@@ -274,7 +274,9 @@ module Trace(F : FS_LWT) : FS_LWT with type t = F.t = struct
             (UInt64.to_int64 fh)
             (UInt64.to_int64 offset)
             (UInt32.to_int32 size)
-        | Interrupt _
+        | Interrupt i ->
+          let unique = UInt64.to_int64 (getf i Interrupt.T.unique) in
+          Printf.sprintf "request %Ld" unique
         | Getxattr _
         | Setxattr _
         | Listxattr _
