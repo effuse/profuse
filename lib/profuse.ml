@@ -748,13 +748,11 @@ module Out = struct
   end
 
   module Read = struct
-    (* TODO: respect size, offset *)
-    let create ~size ~data_fn req =
-      let pkt = Hdr.packet ~count:size req in
-      let body = CArray.start pkt in
-      let buf = bigarray_of_ptr array1 size Bigarray.char body in
-      let sz = data_fn buf in
-      Hdr.set_size pkt sz
+    let allocate ~size req =
+      Hdr.packet ~count:size req
+
+    let finalize ~size pkt _req =
+      Hdr.set_size pkt size
 
     let describe carray = string_of_int (CArray.length carray)
   end

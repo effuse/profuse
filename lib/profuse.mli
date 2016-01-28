@@ -924,11 +924,12 @@ module Out : sig
   end
 
   module Read : sig
-    val create :
-      size:int ->
-      data_fn:((char, Bigarray.int8_unsigned_elt, Bigarray.c_layout)
-                 Bigarray.Array1.t -> int) ->
-      'a request -> char Ctypes.CArray.t
+    val allocate : size:int -> 'a request -> char Ctypes.CArray.t
+
+    val finalize :
+      size:int -> char Ctypes.CArray.t -> 'a request -> char Ctypes.CArray.t
+
+    val describe : char Ctypes.CArray.t -> string
   end
 
   module Write : sig
