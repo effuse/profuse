@@ -288,9 +288,7 @@ module In = struct
     let packet ~opcode ~unique ~nodeid ~uid ~gid ~pid ~count =
       let bodysz = count in
       let count = hdrsz + bodysz in
-      let pkt = allocate_n char ~count in
-      (* TODO: FIXME this should be a memzero *)
-      for i = 0 to count - 1 do (pkt +@ i) <-@ '\000' done;
+      let pkt = allocate_n ~zero:true char ~count in
       let hdr = !@ (coerce (ptr char) (ptr T.t) pkt) in
       setf hdr T.len    (UInt32.of_int count);
       setf hdr T.opcode opcode;
@@ -314,9 +312,7 @@ module In = struct
     let packet_from_hdr hdr ~count =
       let bodysz = count in
       let count = hdrsz + bodysz in
-      let pkt = allocate_n char ~count in
-      (* TODO: FIXME this should be a memzero *)
-      for i = 0 to count - 1 do (pkt +@ i) <-@ '\000' done;
+      let pkt = allocate_n ~zero:true char ~count in
       let dest = to_voidp pkt in
       memcpy ~dest ~src:(to_voidp (addr hdr)) hdrsz;
       setf hdr T.len (UInt32.of_int count);
@@ -674,9 +670,7 @@ module Out = struct
     let packet ?(nerrno=0l) ~count req =
       let bodysz = count in
       let count = hdrsz + bodysz in
-      let pkt = allocate_n char ~count in
-      (* TODO: FIXME this should be a memzero *)
-      for i = 0 to count - 1 do (pkt +@ i) <-@ '\000' done;
+      let pkt = allocate_n ~zero:true char ~count in
       let hdr = !@ (coerce (ptr char) (ptr T.t) pkt) in
       setf hdr T.len    (UInt32.of_int count);
       setf hdr T.error  nerrno;
