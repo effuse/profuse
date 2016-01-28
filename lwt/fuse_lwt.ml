@@ -70,12 +70,6 @@ module IO : IO_LWT = struct
   module In = struct
     include In
 
-    (* TODO: ugggh this shouldn't be needed/used! REMOVE *)
-    let memcpy_b2p ~dest ~src n =
-      for i = 0 to n - 1 do
-        (dest +@ i) <-@ Bytes.get src i
-      done
-
     let remaining = ref None
     let parse chan n mem =
       let hdr_ptr = coerce (ptr uint8_t) (ptr Hdr.T.t) mem in
@@ -102,22 +96,12 @@ module IO : IO_LWT = struct
       let count = chan.max_write + approx_page_size in
       let buf = allocate_n uint8_t ~count in (* TODO: pool? *)
       fun () ->
-        (* TODO: stop copying! *)
         catch (fun () ->
           match !remaining with
           | None ->
             let socket = get_socket chan.Profuse.id in
             socket.read buf count
             >>= fun n ->
-            (*let fd = Unix.(
-              openfile ("read_packet_"^(string_of_int !pnum))
-              [O_WRONLY;O_CREAT] 0o600
-              ) in
-              let logn = Unix.write fd buf 0 n in
-              assert (logn = n);
-              let () = Unix.close fd in
-              incr pnum;
-            *)
             parse chan n buf
           | Some (n, mem) ->
             remaining := None;
