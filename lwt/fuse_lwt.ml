@@ -17,13 +17,13 @@ end
 
 type socket = {
   id    : int;
-  read  : uint8 Ctypes.ptr -> int -> int Lwt.t;
+  read  : int -> uint8 Ctypes.CArray.t Lwt.t;
   write : uint8 Ctypes.ptr -> int -> int Lwt.t;
 }
 
 let null_socket = {
   id = -1;
-  read  = (fun _ _ -> Lwt.return 0);
+  read  = (fun _ -> Lwt.return (Ctypes.CArray.make uint8_t 0));
   write = (fun _ _ -> Lwt.return 0);
 }
 
@@ -94,15 +94,16 @@ module IO : IO_LWT = struct
     let read chan =
       let approx_page_size = 4096 in
       let count = chan.max_write + approx_page_size in
-      let buf = allocate_n uint8_t ~count in (* TODO: pool? *)
       fun () ->
         catch (fun () ->
           match !remaining with
           | None ->
             let socket = get_socket chan.Profuse.id in
-            socket.read buf count
-            >>= fun n ->
-            parse chan n buf
+            socket.read count
+            >>= fun carray ->
+            let ptr = Ctypes.CArray.start carray in
+            let len = Ctypes.CArray.length carray in
+            parse chan len ptr
           | Some (n, mem) ->
             remaining := None;
             parse chan n mem

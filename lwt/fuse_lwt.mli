@@ -29,7 +29,7 @@ module Server(M : MOUNT_LWT)(F : FS_LWT)(IO : IO_LWT)
 type socket
 
 val new_socket :
-  read:(Unsigned.uint8 Ctypes.ptr -> int -> int Lwt.t) ->
+  read:(int -> Unsigned.uint8 Ctypes.CArray.t Lwt.t) ->
   write:(Unsigned.uint8 Ctypes.ptr -> int -> int Lwt.t) ->
   socket
 
