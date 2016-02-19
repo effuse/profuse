@@ -46,6 +46,24 @@ let socket_id { id } = id
 let get_socket k =
   (!socket_table).(k)
 
+let set_socket k ?read ?write () =
+  let table = !socket_table in
+  if k >= Array.length table
+  then raise (Invalid_argument "bad socket table index")
+  else
+    let socket = table.(k) in
+    table.(k) <- {
+      socket with
+      read = (match read with
+          | None -> socket.read
+          | Some read -> read
+        );
+      write = (match write with
+          | None -> socket.write
+          | Some write -> write
+        );
+    }
+
 let write_reply_raw req sz ptr =
   let socket = get_socket req.chan.id in
   socket.write (coerce (Ctypes.ptr char) (Ctypes.ptr uint8_t) ptr) sz

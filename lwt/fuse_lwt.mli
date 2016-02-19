@@ -34,3 +34,9 @@ val new_socket :
   socket
 
 val socket_id : socket -> int
+
+val set_socket :
+  int ->
+  ?read:(int -> Unsigned.uint8 Ctypes.CArray.t Lwt.t) ->
+  ?write:(Unsigned.uint8 Ctypes.ptr -> int -> int Lwt.t) ->
+  unit -> unit
