@@ -12,6 +12,8 @@ OCAMLBUILD=CTYPES_LIB_DIR=$(CTYPES_LIB_DIR) OCAML_LIB_DIR=$(OCAML_LIB_DIR) \
 
 WITH_LWT=$(shell ocamlfind query lwt > /dev/null 2>&1 ; echo $$?)
 
+WITH_CMDLINER=$(shell ocamlfind query cmdliner > /dev/null 2>&1 ; echo $$?)
+
 TARGETS=.cma .cmxa
 
 PRODUCTS=$(addprefix $(MOD_NAME),$(TARGETS)) \
@@ -21,6 +23,10 @@ PRODUCTS=$(addprefix $(MOD_NAME),$(TARGETS)) \
 
 ifeq ($(WITH_LWT), 0)
 PRODUCTS+=$(addprefix $(MOD_NAME)_lwt,$(TARGETS))
+endif
+
+ifeq ($(WITH_CMDLINER), 0)
+PRODUCTS+=fusedump.native
 endif
 
 TYPES=.mli .cmi .cmti
