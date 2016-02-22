@@ -46,6 +46,10 @@ let socket_id { id } = id
 let get_socket k =
   (!socket_table).(k)
 
+let read_socket { read } = read
+
+let write_socket { write } = write
+
 let set_socket k ?read ?write () =
   let table = !socket_table in
   if k >= Array.length table
@@ -185,123 +189,6 @@ module Trace(F : FS_LWT) : FS_LWT with type t = F.t = struct
 
   let string_of_nodeid = F.string_of_nodeid
 
-  let string_of_mode req mode =
-    let sys_stat = Fuse.(req.chan.host).Profuse.Host.sys_stat in
-    let host = sys_stat.Sys_stat.Host.mode in
-    let open Sys_stat.Mode in
-    Printf.sprintf "%s (%x)"
-      (to_string ~host (of_code_exn ~host mode))
-      mode
-
-  let string_of_perms req perms =
-    let sys_stat = Fuse.(req.chan.host).Profuse.Host.sys_stat in
-    let host = sys_stat.Sys_stat.Host.file_perm in
-    let open Sys_stat.File_perm in
-    to_string ~host (full_of_code ~host perms)
-
-  let string_of_request string_of_nodeid req t =
-    let module Hdr = Profuse.In.Hdr.T in
-    Printf.sprintf "%s.p%ld.u%ld.g%ld.%Ld (%s) %s"
-      (Profuse.In.Opcode.to_string (getf req.hdr Hdr.opcode))
-      (UInt32.to_int32 (getf req.hdr Hdr.pid))
-      (UInt32.to_int32 (getf req.hdr Hdr.uid))
-      (UInt32.to_int32 (getf req.hdr Hdr.gid))
-      (UInt64.to_int64 (getf req.hdr Hdr.unique))
-      (string_of_nodeid (getf req.hdr Hdr.nodeid) t)
-      Profuse.In.(Message.(match req.pkt with
-        | Init i ->
-          Printf.sprintf "version=%d.%d max_readahead=%d flags=0x%lX"
-            (UInt32.to_int (getf i Init.T.major))
-            (UInt32.to_int (getf i Init.T.minor))
-            (UInt32.to_int (getf i Init.T.max_readahead))
-            (Unsigned.UInt32.to_int32 (getf i Init.T.flags))
-        | Getattr | Readlink | Destroy -> ""
-        | Symlink (name,target) -> name ^ " -> " ^ target
-        | Forget f ->
-          Int64.to_string (UInt64.to_int64 (getf f Forget.T.nlookup))
-        | Lookup name -> name
-        | Mkdir (m,name) ->
-          Printf.sprintf "mode=%s %s"
-            (string_of_perms req (UInt32.to_int (getf m Mkdir.T.mode))) name
-        | Mknod (m,name) ->
-          Printf.sprintf "mode=%s rdev=%ld %s"
-            (string_of_mode req (UInt32.to_int (getf m Mknod.T.mode)))
-            (Unsigned.UInt32.to_int32 (getf m Mknod.T.rdev))
-            name
-        | Create (c,name) ->
-          let host = req.chan.host.Host.fcntl.Fcntl.Host.oflags in
-          let flags_code = UInt32.to_int (getf c Create.T.flags) in
-          let flags = Fcntl.Oflags.of_code ~host flags_code in
-          let flags_s =
-            String.concat " " (List.map Fcntl.Oflags.to_string flags)
-          in
-          Printf.sprintf "flags=[%s] mode=%s %s"
-            flags_s
-            (string_of_mode req (UInt32.to_int (getf c Create.T.mode))) name
-        | Open o ->
-          let host = req.chan.host.Host.fcntl.Fcntl.Host.oflags in
-          let flags_code = UInt32.to_int (getf o Open.T.flags) in
-          let flags = Fcntl.Oflags.of_code ~host flags_code in
-          let flags_s =
-            String.concat " " (List.map Fcntl.Oflags.to_string flags)
-          in
-          Printf.sprintf "flags=[%s]" flags_s
-        | Setattr s ->
-          let attrs = Setattr.Valid.of_uint32 (getf s Setattr.T.valid) in
-          Printf.sprintf "0x%lX[%s]"
-            (UInt32.to_int32 (getf s Setattr.T.valid))
-            (String.concat " " (Setattr.Valid.to_string_list attrs))
-        | Access a ->
-          let code = getf a Access.T.mask in
-          (*let phost = Fuse.(req.chan.host.unistd.Unix_unistd.access) in
-            let perms = Unix_unistd.Access.(of_code ~host:phost code) in
-            (List.fold_left Unix.(fun s -> function
-               | R_OK -> s^"R" | W_OK -> s^"W" | X_OK -> s^"X" | F_OK -> s^"F"
-             ) "" perms)
-          *)
-          (* TODO: fix symbolic host map *)
-          let perms = string_of_int (UInt32.to_int code) in
-          let uid = getf req.hdr Hdr.T.uid in
-          let gid = getf req.hdr Hdr.T.gid in
-          Printf.sprintf "uid:%ld gid:%ld (%s)"
-            (UInt32.to_int32 uid)
-            (UInt32.to_int32 gid)
-            perms
-        | Unlink name | Rmdir name -> name
-        | Rename (_r,src,dest) -> src ^ " -> " ^ dest
-        | Read r ->
-          let fh = getf r Read.T.fh in
-          let offset = getf r Read.T.offset in
-          let size = getf r Read.T.size in
-          Printf.sprintf "fh=%Ld offset=%Ld size=%ld"
-            (UInt64.to_int64 fh)
-            (UInt64.to_int64 offset)
-            (UInt32.to_int32 size)
-        | Interrupt i ->
-          let unique = UInt64.to_int64 (getf i Interrupt.T.unique) in
-          Printf.sprintf "request %Ld" unique
-        | Getxattr _
-        | Setxattr _
-        | Listxattr _
-        | Removexattr _
-        | Getlk _
-        | Setlk _
-        | Setlkw _
-        | Link (_,_)
-        | Write (_,_)
-        | Flush _
-        | Release _
-        | Opendir _
-        | Readdir _
-        | Releasedir _
-        | Fsyncdir _
-        | Fsync _
-        | Statfs
-        | Bmap _ -> "FIX ME"
-        | Other opcode -> "OTHER "^(Opcode.to_string opcode)
-        | Unknown i -> "UNKNOWN "^(Int32.to_string i)
-      ))
-
   module Calls(IO : IO_LWT) : FS_IO_LWT with type t = t = struct
     module Trace_IO = struct
       type 'a t = 'a Lwt.t
@@ -318,7 +205,7 @@ module Trace(F : FS_LWT) : FS_LWT with type t = F.t = struct
           let sz  = CArray.length arr + Profuse.Out.Hdr.sz in
           let ptr = CArray.start arr -@ Profuse.Out.Hdr.sz in
           Printf.eprintf "    returning %s from %Ld\n%!"
-            Out.Message.(describe_reply (deserialize req sz ptr))
+            Out.Message.(describe (deserialize req sz ptr))
             (UInt64.to_int64 (getf req.hdr Profuse.In.Hdr.T.unique));
           write_reply_raw req sz ptr
 
@@ -345,8 +232,7 @@ module Trace(F : FS_LWT) : FS_LWT with type t = F.t = struct
     let negotiate_mount = Fs.negotiate_mount
 
     let dispatch req t =
-      Printf.eprintf "    %s\n%!"
-        (string_of_request string_of_nodeid req t);
+      Printf.eprintf "    %s\n%!" (Profuse.In.Message.describe req);
       Fs.dispatch req t
       >>= fun t ->
       Printf.eprintf "    %s\n%!" (F.string_of_state req t);

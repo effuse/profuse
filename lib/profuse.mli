@@ -883,6 +883,8 @@ module In : sig
     val parse :
       chan -> Hdr.T.t Ctypes.structure -> int -> unit Ctypes.ptr
       -> (Hdr.T.t, t) packet
+
+    val describe : (Hdr.T.t, t) packet -> string
   end
 end
 
@@ -1061,6 +1063,6 @@ module Out : sig
       (In.Hdr.T.t, 'a) packet -> int -> char Ctypes.ptr
       -> (Hdr.T.t, t) packet
 
-    val describe_reply : ('a,t) packet -> string
+    val describe : ('a,t) packet -> string
   end
 end
