@@ -748,6 +748,16 @@ module In = struct
              (UInt64.to_int64 fh)
              (UInt64.to_int64 offset)
              (UInt32.to_int32 size)
+         | Write (w,_) ->
+           let fh = getf w Write.T.fh in
+           let offset = getf w Write.T.offset in
+           let size = getf w Write.T.size in
+           let flags = getf w Write.T.write_flags in
+           Printf.sprintf "fh=%Ld offset=%Ld size=%ld flags=0x%lx"
+             (UInt64.to_int64 fh)
+             (UInt64.to_int64 offset)
+             (UInt32.to_int32 size)
+             (UInt32.to_int32 flags)
          | Interrupt i ->
            let unique = UInt64.to_int64 (getf i Interrupt.T.unique) in
            Printf.sprintf "request %Ld" unique
@@ -759,7 +769,6 @@ module In = struct
          | Setlk _
          | Setlkw _
          | Link (_,_)
-         | Write (_,_)
          | Flush _
          | Release _
          | Opendir _
@@ -876,6 +885,10 @@ module Out = struct
       let pkt = Hdr.make req T.t in
       setf pkt T.size    size;
       CArray.from_ptr (coerce (ptr T.t) (ptr char) (addr pkt)) (sizeof T.t)
+
+    let describe pkt =
+      let size = getf pkt T.size in
+      Printf.sprintf "size=%ld" (UInt32.to_int32 size)
   end
 
   module Open = struct
@@ -1128,7 +1141,7 @@ module Out = struct
       | Readlink r -> r
       | Open o -> Open.describe o
       | Read r -> Read.describe r
-      | Write w -> "WRITE FIXME" (* TODO: more *)
+      | Write w -> Write.describe w
       | Statfs s -> "STATFS FIXME" (* TODO: more *)
       | Flush -> "FLUSH"
       | Release -> "RELEASE"
