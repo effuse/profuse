@@ -44,7 +44,9 @@ end
 module Path : NODE with type t = string list = struct
   type t = string list
 
-  let to_string path = String.concat Filename.dir_sep (List.rev path)
+  let to_string = function
+    | [] | [""] -> Filename.dir_sep
+    | path -> String.concat Filename.dir_sep (List.rev path)
   let child node name = name::node.data
 end
 
