@@ -302,6 +302,11 @@ module Dispatch(F : FS_LWT) : FS_LWT with type t = F.t = struct
               >>= fun () ->
               return t
              )
+        | Errno.Error { Errno.errno = errno :: _ } ->
+          IO.(Out.write_error req errno
+              >>= fun () ->
+              return t
+             )
         | (Destroy k) as exn -> IO.fail exn
         | exn -> IO.(Out.write_error req Errno.EIO >>= fun () -> fail exn)
       )
