@@ -168,11 +168,19 @@ module Support : functor(IO : IO) -> sig
   val enosys : request -> 'a -> 'a IO.t
 
   val store_entry :
+    ?entry_valid:Unsigned.uint64 ->
+    ?entry_valid_nsec:Unsigned.uint32 ->
+    ?attr_valid:Unsigned.uint64 ->
+    ?attr_valid_nsec:Unsigned.uint32 ->
     ('a Nodes.node -> (Profuse.Struct.Attr.T.t structure -> unit) IO.t)
     -> 'a Nodes.node
     -> (Profuse.Out.Entry.T.t structure -> request -> unit) IO.t
 
   val respond_with_entry :
+    ?entry_valid:Unsigned.uint64 ->
+    ?entry_valid_nsec:Unsigned.uint32 ->
+    ?attr_valid:Unsigned.uint64 ->
+    ?attr_valid_nsec:Unsigned.uint32 ->
     ('a Nodes.node -> (Profuse.Struct.Attr.T.t structure -> unit) IO.t)
     -> 'a Nodes.node -> request -> unit IO.t
 end

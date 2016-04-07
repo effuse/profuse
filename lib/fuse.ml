@@ -263,30 +263,32 @@ module Support(IO : IO) = struct
         return st
        )
 
-  let store_entry store_attr_of_node node = IO.(
+  let store_entry
+    ?(entry_valid=Unsigned.UInt64.zero)
+    ?(entry_valid_nsec=Unsigned.UInt32.zero)
+    ?(attr_valid=Unsigned.UInt64.zero)
+    ?(attr_valid_nsec=Unsigned.UInt32.zero)
+    store_attr_of_node node = IO.(
     store_attr_of_node node (* can raise ENOENT *)
     >>= fun store_attr ->
     let nodeid = Unsigned.UInt64.of_int64 node.Nodes.id in
     let generation = Unsigned.UInt64.of_int64 node.Nodes.gen in
-    let entry_valid = Unsigned.UInt64.zero in
-    let entry_valid_nsec = Unsigned.UInt32.zero in
-    let attr_valid = Unsigned.UInt64.zero in
-    let attr_valid_nsec = Unsigned.UInt32.zero in
     return (Profuse.Out.Entry.store ~nodeid ~generation
               ~entry_valid ~entry_valid_nsec
               ~attr_valid ~attr_valid_nsec
               ~store_attr)
   )
 
-  let respond_with_entry store_attr_of_node node req = IO.(
+  let respond_with_entry
+    ?(entry_valid=Unsigned.UInt64.zero)
+    ?(entry_valid_nsec=Unsigned.UInt32.zero)
+    ?(attr_valid=Unsigned.UInt64.zero)
+    ?(attr_valid_nsec=Unsigned.UInt32.zero)
+    store_attr_of_node node req = IO.(
     store_attr_of_node node (* can raise ENOENT *)
     >>= fun store_attr ->
     let nodeid = Unsigned.UInt64.of_int64 node.Nodes.id in
     let generation = Unsigned.UInt64.of_int64 node.Nodes.gen in
-    let entry_valid = Unsigned.UInt64.zero in
-    let entry_valid_nsec = Unsigned.UInt32.zero in
-    let attr_valid = Unsigned.UInt64.zero in
-    let attr_valid_nsec = Unsigned.UInt32.zero in
     IO.Out.write_reply req
       (Profuse.Out.Entry.create ~nodeid ~generation
          ~entry_valid ~entry_valid_nsec
