@@ -3,10 +3,7 @@ sudo: required
 install: wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-opam.sh
 script: bash -ex .travis-opam.sh
 env:
-  matrix:
-    - OCAML_VERSION=4.02
-  env:
-    - EXTRA_REMOTES="https://github.com/ocamllabs/opam-repo-dev.git"
-    - TESTS=false
-  global:
-    - PINS="unix-fcntl:https://github.com/dsheets/ocaml-unix-fcntl.git#0.3.0-gamma unix-unistd:https://github.com/dsheets/ocaml-unix-unistd.git#0.3.0-beta unix-dirent:https://github.com/dsheets/ocaml-unix-dirent.git#0.3.0-beta unix-sys-stat:https://github.com/dsheets/ocaml-unix-sys-stat.git#0.3.0-gamma"
+  - OCAML_VERSION=4.02
+    TESTS=false
+    EXTRA_REMOTES="https://github.com/ocamllabs/opam-repo-dev.git"
+    PINS="unix-fcntl:https://github.com/dsheets/ocaml-unix-fcntl.git#0.3.0-gamma unix-unistd:https://github.com/dsheets/ocaml-unix-unistd.git#0.3.0-beta unix-dirent:https://github.com/dsheets/ocaml-unix-dirent.git#0.3.0-beta unix-sys-stat:https://github.com/dsheets/ocaml-unix-sys-stat.git#0.3.0-gamma"
