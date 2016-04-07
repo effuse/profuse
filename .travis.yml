@@ -8,3 +8,5 @@ env:
     - OCAML_VERSION=4.02
   env:
     - EXTRA_REMOTES="https://github.com/ocamllabs/opam-repo-dev.git"
+  global:
+    - PINS="unix-fcntl:https://github.com/dsheets/ocaml-unix-fcntl.git#0.3.0-gamma unix-unistd:https://github.com/dsheets/ocaml-unix-unistd.git#0.3.0-beta unix-dirent:https://github.com/dsheets/ocaml-unix-dirent.git#0.3.0-beta unix-sys-stat:https://github.com/dsheets/ocaml-unix-sys-stat.git#0.3.0-gamma"
