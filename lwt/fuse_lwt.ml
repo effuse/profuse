@@ -10,6 +10,8 @@ module type FS_IO_LWT = Fuse.FS_IO with type 'a IO.t = 'a Lwt.t
 module type FS_LWT = sig
   include Fuse.STATE
 
+  val log_error : string -> unit
+
   module Calls :
     functor(IO : IO_LWT) ->
       FS_IO_LWT with type 'a IO.t = 'a IO.t and type t = t
@@ -168,12 +170,15 @@ module IO : IO_LWT = struct
 
     let write_ack req = write_reply req (Out.Hdr.packet ~count:0)
 
-    let write_error req err =
+    let write_error log_error req err =
       let host = req.chan.host.Host.errno in
       let nerrno = match Errno.to_code ~host err with
         | Some errno -> Int32.of_int (-errno)
         | None -> match Errno.to_code ~host Errno.EIO with
-          | Some errno -> Int32.of_int (-errno)
+          | Some errno ->
+            let errno_string = Errno.to_string err in
+            log_error ("Couldn't find host error code for "^errno_string);
+            Int32.of_int (-errno)
           | None ->
             let errstr = Errno.to_string err in
             failwith (Printf.sprintf "errno for %s and EIO unknown" errstr)
@@ -188,6 +193,8 @@ module Trace(F : FS_LWT) : FS_LWT with type t = F.t = struct
   let string_of_state = F.string_of_state
 
   let string_of_nodeid = F.string_of_nodeid
+
+  let log_error = F.log_error
 
   module Calls(IO : IO_LWT) : FS_IO_LWT with type t = t = struct
     module Trace_IO = struct
@@ -214,11 +221,11 @@ module Trace(F : FS_LWT) : FS_LWT with type t = F.t = struct
             (Unsigned.UInt64.to_int64 (getf req.hdr Profuse.In.Hdr.T.unique));
           IO.Out.write_ack req
 
-        let write_error req err =
+        let write_error log_error req err =
           Printf.eprintf "    returning err %s from %Ld\n%!"
             (Errno.to_string err)
             (UInt64.to_int64 (getf req.hdr In.Hdr.T.unique));
-          IO.Out.write_error req err
+          IO.Out.write_error log_error req err
       end
 
       module In = IO.In
@@ -246,6 +253,8 @@ module Dispatch(F : FS_LWT) : FS_LWT with type t = F.t = struct
 
   let string_of_state = F.string_of_state
   let string_of_nodeid = F.string_of_nodeid
+
+  let log_error = F.log_error
 
   module Calls(IO : IO_LWT) : FS_IO_LWT with type t = t = struct
     module Calls = F.Calls(IO)
@@ -290,25 +299,32 @@ module Dispatch(F : FS_LWT) : FS_LWT with type t = F.t = struct
         | Destroy -> destroy req t
         | Setattr s -> setattr s req t
         | Other _ | Unknown _ ->
-          IO.(Out.write_error req Errno.ENOSYS >>= fun () -> return t)
+          IO.(Out.write_error log_error req Errno.ENOSYS
+              >>= fun () -> return t)
       ) (function
-        | Unix.Unix_error(e, _, _) ->
+        | Unix.Unix_error(e, _, _) as exn ->
           let host = req.chan.host.Host.errno in
           let errno = match Errno_unix.of_unix ~host e with
-            | [] -> Errno.EIO
+            | [] ->
+              let error_string = Printexc.to_string exn in
+              log_error ("Couldn't find host errno for "^error_string);
+              Errno.EIO
             | errno::_ -> errno
           in
-          IO.(Out.write_error req errno
+          IO.(Out.write_error log_error req errno
               >>= fun () ->
               return t
              )
         | Errno.Error { Errno.errno = errno :: _ } ->
-          IO.(Out.write_error req errno
+          IO.(Out.write_error log_error req errno
               >>= fun () ->
               return t
              )
         | (Destroy k) as exn -> IO.fail exn
-        | exn -> IO.(Out.write_error req Errno.EIO >>= fun () -> fail exn)
+        | exn ->
+          log_error ("Unknown exception caught: "^(Printexc.to_string exn));
+          IO.(Out.write_error log_error req Errno.EIO
+              >>= fun () -> fail exn)
       )
   end
 end

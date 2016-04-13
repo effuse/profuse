@@ -42,7 +42,7 @@ module type IO = sig
       'a Profuse.request -> ('a Profuse.request -> char Ctypes.CArray.t)
       -> unit t
     val write_ack : request -> unit t
-    val write_error : request -> Errno.t -> unit t
+    val write_error : (string -> unit) -> request -> Errno.t -> unit t
   end
 end
 
@@ -152,7 +152,9 @@ module Zero(State : STATE)(IO : IO)
   type t = State.t
 
   let enosys req st =
-    IO.(Out.write_error req Errno.ENOSYS >>= fun () -> return st)
+    (* Throw away error messages during the write. *)
+    let log_error _msg = () in
+    IO.(Out.write_error log_error req Errno.ENOSYS >>= fun () -> return st)
 
   let getattr      = enosys
   let opendir _    = enosys
@@ -258,7 +260,9 @@ module Support(IO : IO) = struct
   let nodeid req = In.(Ctypes.getf req.hdr In.Hdr.T.nodeid)
 
   let enosys req st =
-    IO.(Out.write_error req Errno.ENOSYS
+    (* Throw away error messages during the write. *)
+    let log_error _msg = () in
+    IO.(Out.write_error log_error req Errno.ENOSYS
         >>= fun () ->
         return st
        )
