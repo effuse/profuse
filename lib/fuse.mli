@@ -26,7 +26,7 @@ module type IO = sig
 
     val write_ack : request -> unit t
 
-    val write_error : request -> Errno.t -> unit t
+    val write_error : (string -> unit) -> request -> Errno.t -> unit t
   end
 end
 

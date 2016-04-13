@@ -6,6 +6,8 @@ module type FS_IO_LWT = Fuse.FS_IO with type 'a IO.t = 'a Lwt.t
 module type FS_LWT = sig
   include Fuse.STATE
 
+  val log_error : string -> unit
+
   module Calls :
     functor(IO : IO_LWT) ->
       FS_IO_LWT with type 'a IO.t = 'a IO.t and type t = t
