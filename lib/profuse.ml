@@ -825,8 +825,7 @@ module Out = struct
     let struct_size = hdrsz
     let size name = hdrsz + 8 * (((String.length name) + 7) / 8)
 
-    (* TODO: respect size *)
-    let of_list ~host listing offset req =
+    let of_list ~host listing offset read_size req =
       let phost = host.Host.dirent.Dirent.Host.file_kind in
       let emit = ref false in
       let count = ref 0 in
@@ -835,7 +834,14 @@ module Out = struct
           if off = offset
           then (emit := true; acc)
           else acc
-        else (count := !count + (size name); ent::acc)
+        else
+          let next_total = !count + (size name) in
+          if next_total > read_size
+          then acc
+          else begin
+            count := next_total;
+            ent::acc
+          end
       ) [] listing in
       let count = !count in
       let pkt = Hdr.packet ~count req in
@@ -852,7 +858,7 @@ module Out = struct
         (* TODO: better copy *)
         String.iter (fun c -> !sp <-@ c; sp := !sp +@ 1) name;
         (* Printf.eprintf "dirent serialized %s\n%!" name; *)
-        p +@ sz (* TODO: zero-write padding? *)
+        p +@ sz
       ) buf (List.rev listing) in
       assert (ptr_diff buf ep = count);
       pkt

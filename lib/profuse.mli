@@ -917,7 +917,7 @@ module Out : sig
     val of_list :
       host:Host.t ->
       (int * int64 * string * Dirent.File_kind.t) list ->
-      int -> 'a request -> char Ctypes.CArray.t
+      int -> int -> 'a request -> char Ctypes.CArray.t
   end
 
   module Readlink : sig
