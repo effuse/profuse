@@ -102,6 +102,13 @@ module C(F: Cstubs.Types.TYPE) = struct
     end
 
     module Open = struct
+      module Flags =
+      struct
+        let t = uint32_t
+        let fopen_direct_io = constant "FOPEN_DIRECT_IO" t
+        let fopen_keep_cache = constant "FOPEN_KEEP_CACHE" t
+      end
+
       type t
       let t : t structure typ = structure "fuse_open_out"
       let ( -:* ) s x = field t s x
