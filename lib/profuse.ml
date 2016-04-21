@@ -761,6 +761,14 @@ module In = struct
          | Interrupt i ->
            let unique = UInt64.to_int64 (getf i Interrupt.T.unique) in
            Printf.sprintf "request %Ld" unique
+         | Readdir r ->
+           let fh = getf r Read.T.fh in
+           let offset = getf r Read.T.offset in
+           let size = getf r Read.T.size in
+           Printf.sprintf "fh=%Ld offset=%Ld size=%ld"
+             (UInt64.to_int64 fh)
+             (UInt64.to_int64 offset)
+             (UInt32.to_int32 size)
          | Getxattr _
          | Setxattr _
          | Listxattr _
@@ -772,7 +780,6 @@ module In = struct
          | Flush _
          | Release _
          | Opendir _
-         | Readdir _
          | Releasedir _
          | Fsyncdir _
          | Fsync _
@@ -825,8 +832,7 @@ module Out = struct
     let struct_size = hdrsz
     let size name = hdrsz + 8 * (((String.length name) + 7) / 8)
 
-    (* TODO: respect size *)
-    let of_list ~host listing offset req =
+    let of_list ~host listing offset read_size req =
       let phost = host.Host.dirent.Dirent.Host.file_kind in
       let emit = ref false in
       let count = ref 0 in
@@ -835,7 +841,14 @@ module Out = struct
           if off = offset
           then (emit := true; acc)
           else acc
-        else (count := !count + (size name); ent::acc)
+        else
+          let next_total = !count + (size name) in
+          if next_total > read_size
+          then acc
+          else begin
+            count := next_total;
+            ent::acc
+          end
       ) [] listing in
       let count = !count in
       let pkt = Hdr.packet ~count req in
@@ -852,10 +865,35 @@ module Out = struct
         (* TODO: better copy *)
         String.iter (fun c -> !sp <-@ c; sp := !sp +@ 1) name;
         (* Printf.eprintf "dirent serialized %s\n%!" name; *)
-        p +@ sz (* TODO: zero-write padding? *)
+        p +@ sz
       ) buf (List.rev listing) in
       assert (ptr_diff buf ep = count);
       pkt
+
+    let to_string ~host dirent =
+      let phost = host.Host.dirent.Dirent.Host.file_kind in
+      let ino = UInt64.to_string (getf dirent T.ino) in
+      let off = UInt64.to_string (getf dirent T.off) in
+      let typ_i = char_of_int (UInt32.to_int (getf dirent T.typ)) in
+      let typ = Dirent.File_kind.(to_string (of_code_exn ~host:phost typ_i)) in
+      let length = UInt32.to_int (getf dirent T.namelen) in
+      let name = string_from_ptr (CArray.start (getf dirent T.name)) ~length in
+      Printf.sprintf "{ ino=%s; off=%s; typ=%s; name=\"%s\" }" ino off typ name
+
+    let describe ~host p =
+      let size = CArray.length p in
+      let rec collect_dirents dirents p off =
+        let dirent = !@ (coerce (ptr char) (ptr T.t) p) in
+        let namelen = UInt32.to_int (getf dirent T.namelen) in
+        if off = size
+        then List.rev dirents
+        else
+          let length = hdrsz + 8 * ((namelen + 7) / 8) in
+          collect_dirents (dirent::dirents) (p +@ length) (off + length)
+      in
+      let dirents = collect_dirents [] (CArray.start p) 0 in
+      Printf.sprintf "%d:[ %s ]"
+        size (String.concat "; " (List.map (to_string ~host) dirents))
   end
 
   module Readlink = struct
@@ -1127,7 +1165,7 @@ module Out = struct
       | Getattr a -> "GETATTR FIXME" (* TODO: more *)
       | Lookup e -> Entry.describe ~host e
       | Opendir o -> "OPENDIR FIXME" (* TODO: more *)
-      | Readdir r -> "READDIR FIXME" (* TODO: more *)
+      | Readdir r -> Dirent.describe ~host r
       | Releasedir -> "RELEASEDIR"
       | Fsyncdir -> "FSYNCDIR"
       | Rmdir -> "RMDIR"
