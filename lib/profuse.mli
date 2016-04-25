@@ -1049,7 +1049,7 @@ module Out : sig
       | Setattr  of Attr.T.t  structure
       | Link     of Entry.T.t structure
       | Symlink  of Entry.T.t structure
-      | Rename   of Entry.T.t structure
+      | Rename
       | Getlk (* TODO: do *)
       | Setlk (* TODO: do *)
       | Setlkw (* TODO: do *)

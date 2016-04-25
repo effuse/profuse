@@ -1064,7 +1064,7 @@ module Out = struct
       | Setattr  of Attr.T.t  structure
       | Link     of Entry.T.t structure
       | Symlink  of Entry.T.t structure
-      | Rename   of Entry.T.t structure
+      | Rename
       | Getlk (* TODO: do *)
       | Setlk (* TODO: do *)
       | Setlkw (* TODO: do *)
@@ -1115,7 +1115,7 @@ module Out = struct
          | FUSE_SETATTR     -> Setattr    (!@ (from_voidp Attr.T.t buf))
          | FUSE_LINK        -> Link       (!@ (from_voidp Entry.T.t buf))
          | FUSE_SYMLINK     -> Symlink    (!@ (from_voidp Entry.T.t buf))
-         | FUSE_RENAME      -> Rename     (!@ (from_voidp Entry.T.t buf))
+         | FUSE_RENAME      -> Rename
          | FUSE_GETLK       -> Getlk
          | FUSE_SETLK       -> Setlk
          | FUSE_SETLKW      -> Setlkw
@@ -1192,7 +1192,7 @@ module Out = struct
       | Setattr a -> "SETATTR FIXME" (* TODO: more *)
       | Link e -> Entry.describe ~host e
       | Symlink e -> Entry.describe ~host e
-      | Rename e -> Entry.describe ~host e
+      | Rename -> "RENAME"
       | Getlk -> "GETLK"
       | Setlk -> "SETLK"
       | Setlkw -> "SETLKW"
