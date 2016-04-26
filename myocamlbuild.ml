@@ -9,34 +9,38 @@ dispatch begin
   | After_rules ->
 
     rule "cstubs: lib_gen/x_types_detect.c -> x_types_detect"
-      ~prods:["lib_gen/%_types_detect"]
-      ~deps:["lib_gen/%_types_detect.c"; "lib_gen/fuse_kernel.h"]
+      ~prods:["lib_gen/%_types_detect_%(version).exe"]
+      ~deps:["lib_gen/%_types_detect_%(version).c"; "lib_gen/fuse_kernel.h.%(version)"]
       (fun env build ->
          Cmd (S[A"cc";
                 A("-I"); A ctypes_libdir;
                 A("-I"); A ocaml_libdir;
                 A"-o";
-                A(env "lib_gen/%_types_detect");
-                A(env "lib_gen/%_types_detect.c");
+                A(env "lib_gen/%_types_detect_%(version).exe");
+                A(env "lib_gen/%_types_detect_%(version).c");
                ]));
 
     rule "cstubs: lib_gen/x_types_detect -> lib/x_types_detected.ml"
-      ~prods:["lib/%_types_detected.ml"]
-      ~deps:["lib_gen/%_types_detect"]
+      ~prods:["lib/%_types_detected_%(version).ml"]
+      ~deps:["lib_gen/%_types_detect_%(version).exe"]
       (fun env build ->
-         Cmd (S[A(env "lib_gen/%_types_detect");
+         Cmd (S[A(env "lib_gen/%_types_detect_%(version).exe");
                 Sh">";
-                A(env "lib/%_types_detected.ml");
+                A(env "lib/%_types_detected_%(version).ml");
                ]));
 
     rule "cstubs: lib_gen/x_types.ml -> x_types_detect.c"
-      ~prods:["lib_gen/%_types_detect.c"]
+      ~prods:["lib_gen/%_types_detect_%(version).c"]
       ~deps: ["lib_gen/%_typegen.byte"]
       (fun env build ->
-         Cmd (A(env "lib_gen/%_typegen.byte")));
+         Cmd (S[A(env "lib_gen/%_typegen.byte");
+                A"--fuse-version";
+                A(env "%(version)");
+                A"--output-file";
+                A(env "lib_gen/profuse_types_detect_%(version).c")]));
 
     copy_rule "cstubs: lib_gen/x_types.ml -> lib/x_types.ml"
-      "lib_gen/%_types.ml" "lib/%_types.ml";
+      "lib_gen/%_types_%(version).ml" "lib/%_types_%(version).ml";
 
     rule "cstubs: lib/x_bindings.ml -> x_stubs.c, x_generated.ml"
       ~prods:["lib/%_stubs.c"; "lib/%_generated.ml"]

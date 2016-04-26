@@ -17,7 +17,7 @@
 
 open Ctypes
 open Unsigned
-module Types = Profuse_types.C(Profuse_types_detected)
+module Types = Profuse_types_7_8.C(Profuse_types_detected_7_8)
 
 type 'a structure = 'a Types.structure
 
