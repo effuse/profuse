@@ -15,13 +15,13 @@
  *
  *)
 
-module C(F: Cstubs.Types.TYPE) = struct
+(* Forwards-compatible type and constant bindings. *)
+module C_compatible(F: Cstubs.Types.TYPE) = struct
   open F
-
   type 'a structure = 'a Ctypes_static.structure
 
   (* Build the types for FUSE 7.8, but don't seal the structs *)
-  module Version_7_8 = Profuse_types_7_8.C
+  module Version_7_8 = Profuse_types_7_8.C_compatible
       (struct
         include F
         let seal _ = ()
@@ -59,12 +59,10 @@ module C(F: Cstubs.Types.TYPE) = struct
     module Opcode = V_7_8.Opcode
     module Hdr       = struct include V_7_8.Hdr       let () = seal t end
     module Init      = struct include V_7_8.Init      let () = seal t end
-    module Open      = struct include V_7_8.Open      let () = seal t end
     module Release   = struct include V_7_8.Release   let () = seal t end
     module Access    = struct include V_7_8.Access    let () = seal t end
     module Forget    = struct include V_7_8.Forget    let () = seal t end
     module Flush     = struct include V_7_8.Flush     let () = seal t end
-    module Create    = struct include V_7_8.Create                    end
     module Mknod     = struct include V_7_8.Mknod     let () = seal t end
     module Mkdir     = struct include V_7_8.Mkdir     let () = seal t end
     module Rename    = struct include V_7_8.Rename    let () = seal t end
@@ -108,3 +106,27 @@ module C(F: Cstubs.Types.TYPE) = struct
   end
 end
 
+(* Forwards-incompatible type and constant bindings *)
+module C_incompatible(F: Cstubs.Types.TYPE) = struct
+  (* Build the types for FUSE 7.8, but don't seal the structs *)
+  module Version_7_8 = Profuse_types_7_8.C_incompatible
+      (struct
+        include F
+        let seal _ = ()
+      end)
+
+  include Version_7_8
+end
+
+module C(F: Cstubs.Types.TYPE) = struct
+  type 'a structure = 'a Ctypes_static.structure
+  module Compatible = C_compatible(F)
+  module Incompatible = C_incompatible(F)
+  module Struct = Compatible.Struct
+  module Out = Compatible.Out
+  module In =
+  struct
+    include Compatible.In
+    include Incompatible.In
+  end
+end

@@ -16,4 +16,4 @@
  *)
 
 (* There were no changes to struct definitions between FUSE 7.9 and 7.10 *)
-module C = Profuse_types_7_9.C
+include Profuse_types_7_9
