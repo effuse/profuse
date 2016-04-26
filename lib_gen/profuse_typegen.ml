@@ -29,6 +29,7 @@ let argspec : (Arg.key * Arg.spec * Arg.doc) list = [
 
 let fuse_versions : (string * (string * (module Cstubs.Types.BINDINGS))) list = [
   "7_8", ("fuse_kernel.h.7_8", (module Profuse_types_7_8.C));
+  "7_9", ("fuse_kernel.h.7_9", (module Profuse_types_7_9.C));
 ]
 
 let resolve_version : string -> (string * (module Cstubs.Types.BINDINGS)) =
