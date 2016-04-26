@@ -1010,7 +1010,6 @@ module Out = struct
       let pkt = Hdr.make req T.t in
       setf pkt T.attr_valid      attr_valid;
       setf pkt T.attr_valid_nsec attr_valid_nsec;
-      setf pkt T.dummy           UInt32.zero;
       store_attr (getf pkt T.attr);
       CArray.from_ptr (coerce (ptr T.t) (ptr char) (addr pkt)) (sizeof T.t)
   end

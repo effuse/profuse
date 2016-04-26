@@ -152,7 +152,6 @@ module C(F: Cstubs.Types.TYPE) = struct
       let ( -:* ) s x = field t s x
       let attr_valid      = "attr_valid"      -:* uint64_t
       let attr_valid_nsec = "attr_valid_nsec" -:* uint32_t
-      let dummy           = "dummy"           -:* uint32_t
       let attr            = "attr"            -:* Struct.Attr.t
       let () = seal t
     end
