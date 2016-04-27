@@ -346,6 +346,12 @@ module C_compatible(F: Cstubs.Types.TYPE) = struct
     end
 
     module Init = struct
+      module Flags =
+      struct
+        let t = uint32_t
+        let async_read = constant "FUSE_ASYNC_READ" t
+        let posix_locks = constant "FUSE_POSIX_LOCKS" t
+      end
       type t
       let t : t structure typ = structure "fuse_init_in"
       let ( -:* ) s x = field t s x
