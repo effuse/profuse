@@ -15,9 +15,9 @@
  *
  *)
 
-module C(F: Cstubs.Types.TYPE) = struct
+(* Forwards-compatible type and constant bindings. *)
+module C_compatible(F: Cstubs.Types.TYPE) = struct
   open F
-
   type 'a structure = 'a Ctypes_static.structure
 
   module Struct = struct
@@ -152,7 +152,6 @@ module C(F: Cstubs.Types.TYPE) = struct
       let ( -:* ) s x = field t s x
       let attr_valid      = "attr_valid"      -:* uint64_t
       let attr_valid_nsec = "attr_valid_nsec" -:* uint32_t
-      let dummy           = "dummy"           -:* uint32_t
       let attr            = "attr"            -:* Struct.Attr.t
       let () = seal t
     end
@@ -357,15 +356,6 @@ module C(F: Cstubs.Types.TYPE) = struct
       let () = seal t
     end
 
-    module Open = struct
-      type t
-      let t : t structure typ = structure "fuse_open_in"
-      let ( -:* ) s x = field t s x
-      let flags = "flags" -:* uint32_t
-      let mode  = "mode"  -:* uint32_t
-      let () = seal t
-    end
-
     module Read = struct
       type t
       let t : t structure typ = structure "fuse_read_in"
@@ -410,19 +400,6 @@ module C(F: Cstubs.Types.TYPE) = struct
       let fh         = "fh"         -:* uint64_t
       let lock_owner = "lock_owner" -:* uint64_t
       let () = seal t
-    end
-
-    module Create = struct
-      type t = Open.t
-      let t = Open.t
-      let flags = Open.flags
-      let mode = Open.mode
-        (*
-      let t : t structure typ = structure "fuse_open_in" (*"fuse_create_in"*)
-      let ( -:* ) s x = field t s x
-      let flags = "flags" -:* uint32_t
-      let mode  = "mode"  -:* uint32_t
-      let () = seal t*)
     end
 
     module Mknod = struct
@@ -554,5 +531,48 @@ module C(F: Cstubs.Types.TYPE) = struct
       let flags = "flags" -:* uint32_t
       let () = seal t
     end
+  end
+end
+
+(* Forwards-incompatible type and constant bindings *)
+module C_incompatible(F: Cstubs.Types.TYPE) = struct
+  open F
+  type 'a structure = 'a Ctypes_static.structure
+
+  module In = struct
+    module Open = struct
+      type t
+      let t : t structure typ = structure "fuse_open_in"
+      let ( -:* ) s x = field t s x
+      let flags = "flags" -:* uint32_t
+      let mode  = "mode"  -:* uint32_t
+      let () = seal t
+    end
+
+    module Create = struct
+      type t = Open.t
+      let t = Open.t
+      let flags = Open.flags
+      let mode = Open.mode
+        (*
+      let t : t structure typ = structure "fuse_open_in" (*"fuse_create_in"*)
+      let ( -:* ) s x = field t s x
+      let flags = "flags" -:* uint32_t
+      let mode  = "mode"  -:* uint32_t
+      let () = seal t*)
+    end
+  end
+end
+
+module C(F: Cstubs.Types.TYPE) = struct
+  type 'a structure = 'a Ctypes_static.structure
+  module Compatible = C_compatible(F)
+  module Incompatible = C_incompatible(F)
+  module Struct = Compatible.Struct
+  module Out = Compatible.Out
+  module In =
+  struct
+    include Compatible.In
+    include Incompatible.In
   end
 end
