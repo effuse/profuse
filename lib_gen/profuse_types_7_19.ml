@@ -63,7 +63,6 @@ module C(F: Cstubs.Types.TYPE) = struct
 
   module In = struct
     module V_7_18 = Version_7_18.In
-    module Opcode = V_7_18.Opcode
     module Hdr             = struct include V_7_18.Hdr             let () = seal t end
     module Init            = struct include V_7_18.Init            let () = seal t end
     module Open            = struct include V_7_18.Open            let () = seal t end
@@ -91,6 +90,23 @@ module C(F: Cstubs.Types.TYPE) = struct
     module Cuse_init       = struct include V_7_18.Cuse_init       let () = seal t end
     module Notify_retrieve = struct include V_7_18.Notify_retrieve let () = seal t end
     module Batch_forget    = struct include V_7_18.Batch_forget    let () = seal t end
+
+    module Opcode =
+    struct
+      include (V_7_18.Opcode
+               : module type of V_7_18.Opcode
+               with type t := V_7_18.Opcode.t)
+
+      let fuse_fallocate = constant "FUSE_FALLOCATE" uint32_t
+
+      type t = [ V_7_18.Opcode.t
+               | `FUSE_FALLOCATE ]
+
+      let enum_values =
+        (`FUSE_FALLOCATE, fuse_fallocate) ::
+        (V_7_18.Opcode.enum_values :> (t * _) list)
+    end
+
     module Fallocate       = struct
       type t
       let t : t structure typ = structure "fuse_fallocate_in"
