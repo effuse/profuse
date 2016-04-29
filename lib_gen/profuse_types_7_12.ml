@@ -37,7 +37,6 @@ module C(F: Cstubs.Types.TYPE) = struct
 
   module Out = struct
     module V_7_11 = Version_7_11.Out
-    module Hdr                = struct include V_7_11.Hdr                let () = seal t end
     module Write              = struct include V_7_11.Write              let () = seal t end
     module Open               = struct include V_7_11.Open               let () = seal t end
     module Init               = struct include V_7_11.Init               let () = seal t end
@@ -50,6 +49,16 @@ module C(F: Cstubs.Types.TYPE) = struct
     module Ioctl              = struct include V_7_11.Ioctl              let () = seal t end
     module Poll               = struct include V_7_11.Poll               let () = seal t end
     module Notify_poll_wakeup = struct include V_7_11.Notify_poll_wakeup let () = seal t end
+    module Hdr                = struct
+      module Notify_code = struct
+        include V_7_11.Hdr.Notify_code
+        let fuse_notify_inval_inode = constant "FUSE_NOTIFY_INVAL_INODE" t
+        let fuse_notify_inval_entry = constant "FUSE_NOTIFY_INVAL_ENTRY" t
+      end
+      include (V_7_11.Hdr
+                 : module type of V_7_11.Hdr with module Notify_code := Notify_code)
+      let () = seal t
+    end
     module Cuse_init          = struct
       type t
       let t : t structure typ = structure "cuse_init_out"
@@ -88,7 +97,6 @@ module C(F: Cstubs.Types.TYPE) = struct
     module V_7_11 = Version_7_11.In
     module Opcode = V_7_11.Opcode
     module Hdr       = struct include V_7_11.Hdr       let () = seal t end
-    module Init      = struct include V_7_11.Init      let () = seal t end
     module Release   = struct include V_7_11.Release   let () = seal t end
     module Access    = struct include V_7_11.Access    let () = seal t end
     module Forget    = struct include V_7_11.Forget    let () = seal t end
@@ -107,6 +115,15 @@ module C(F: Cstubs.Types.TYPE) = struct
     module Getattr   = struct include V_7_11.Getattr   let () = seal t end
     module Ioctl     = struct include V_7_11.Ioctl     let () = seal t end
     module Poll      = struct include V_7_11.Poll      let () = seal t end
+    module Init      = struct
+      module Flags = struct
+        include V_7_11.Init.Flags
+        let fuse_dont_mask = constant "FUSE_DONT_MASK" t
+      end
+      include (V_7_11.Init
+               : module type of V_7_11.Init with module Flags := Flags)
+      let () = seal t
+    end
     module Mknod     = struct
       include V_7_11.Mknod
       let umask     = "umask"     -:* uint32_t

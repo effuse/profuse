@@ -479,9 +479,6 @@ module C_compatible(F: Cstubs.Types.TYPE) = struct
         let fattr_atime = constant "FATTR_ATIME" t
         let fattr_mtime = constant "FATTR_MTIME" t
         let fattr_fh = constant "FATTR_FH" t
-        (*let fattr_atime_now = constant "FATTR_ATIME_NOW" t
-        let fattr_mtime_now = constant "FATTR_MTIME_NOW" t
-          let fattr_lockowner = constant "FATTR_LOCKOWNER" t*)
       end
 
       type t

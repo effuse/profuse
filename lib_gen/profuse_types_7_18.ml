@@ -40,7 +40,6 @@ module C(F: Cstubs.Types.TYPE) = struct
 
   module Out = struct
     module V_7_17 = Version_7_17.Out
-    module Hdr                = struct include V_7_17.Hdr                let () = seal t end
     module Write              = struct include V_7_17.Write              let () = seal t end
     module Open               = struct include V_7_17.Open               let () = seal t end
     module Init               = struct include V_7_17.Init               let () = seal t end
@@ -58,6 +57,17 @@ module C(F: Cstubs.Types.TYPE) = struct
     module Notify_inval_entry = struct include V_7_17.Notify_inval_entry let () = seal t end
     module Notify_store       = struct include V_7_17.Notify_store       let () = seal t end
     module Notify_retrieve    = struct include V_7_17.Notify_retrieve    let () = seal t end
+    module Hdr                = struct
+      module Notify_code = struct
+        include V_7_17.Hdr.Notify_code
+        let fuse_notify_delete = constant "FUSE_NOTIFY_DELETE" t
+      end
+      include (V_7_17.Hdr
+               : module type of V_7_17.Hdr with module Notify_code := Notify_code)
+                 
+      let () = seal t
+    end
+
     module Notify_delete      = struct
       type t
       let t : t structure typ = structure "fuse_notify_delete_out"
@@ -94,10 +104,19 @@ module C(F: Cstubs.Types.TYPE) = struct
     module Lk              = struct include V_7_17.Lk              let () = seal t end
     module Setattr         = struct include V_7_17.Setattr         let () = seal t end
     module Getattr         = struct include V_7_17.Getattr         let () = seal t end
-    module Ioctl           = struct include V_7_17.Ioctl           let () = seal t end
     module Poll            = struct include V_7_17.Poll            let () = seal t end
     module Cuse_init       = struct include V_7_17.Cuse_init       let () = seal t end
     module Notify_retrieve = struct include V_7_17.Notify_retrieve let () = seal t end
     module Batch_forget    = struct include V_7_17.Batch_forget    let () = seal t end
+    module Ioctl           = struct
+      module Flags =
+      struct
+        include V_7_17.Ioctl.Flags
+        let fuse_ioctl_dir = constant "FUSE_IOCTL_DIR" t
+      end
+      include (V_7_17.Ioctl
+               : module type of V_7_17.Ioctl with module Flags := Flags)
+
+      let () = seal t end
   end
 end

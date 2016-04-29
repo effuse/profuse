@@ -53,9 +53,7 @@ module C(F: Cstubs.Types.TYPE) = struct
 
   module In = struct
     module V_7_20 = Version_7_20.In
-    module Opcode = V_7_20.Opcode
     module Hdr             = struct include V_7_20.Hdr             let () = seal t end
-    module Init            = struct include V_7_20.Init            let () = seal t end
     module Open            = struct include V_7_20.Open            let () = seal t end
     module Release         = struct include V_7_20.Release         let () = seal t end
     module Access          = struct include V_7_20.Access          let () = seal t end
@@ -81,6 +79,31 @@ module C(F: Cstubs.Types.TYPE) = struct
     module Notify_retrieve = struct include V_7_20.Notify_retrieve let () = seal t end
     module Batch_forget    = struct include V_7_20.Batch_forget    let () = seal t end
     module Fallocate       = struct include V_7_20.Fallocate       let () = seal t end
+    module Opcode =
+    struct
+      include (V_7_20.Opcode
+               : module type of V_7_20.Opcode
+               with type t := V_7_20.Opcode.t)
+      let fuse_readdirplus = constant "FUSE_READDIRPLUS" uint32_t
+
+      type t = [ V_7_20.Opcode.t
+               | `FUSE_READDIRPLUS ]
+
+      let enum_values =
+        (`FUSE_READDIRPLUS, fuse_readdirplus) ::
+        (V_7_20.Opcode.enum_values :> (t * _) list)
+    end
+
+    module Init      = struct
+      module Flags = struct
+        include V_7_20.Init.Flags
+        let fuse_do_readdirplus = constant "FUSE_DO_READDIRPLUS" t
+        let fuse_readdirplus_auto = constant "FUSE_READDIRPLUS_AUTO" t
+      end
+      include (V_7_20.Init
+               : module type of V_7_20.Init with module Flags := Flags)
+      let () = seal t
+    end
     module Poll            = struct
       include V_7_20.Poll
       let events = "events" -:* uint32_t
