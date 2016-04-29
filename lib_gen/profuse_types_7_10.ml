@@ -16,4 +16,61 @@
  *)
 
 (* There were no changes to struct definitions between FUSE 7.9 and 7.10 *)
-include Profuse_types_7_9
+module C_compatible(F: Cstubs.Types.TYPE) = struct
+  open F
+
+  module Version_7_9 = Profuse_types_7_9.C_compatible(F)
+
+  module Struct = Version_7_9.Struct
+
+  module Out =
+  struct
+    module Open =
+    struct
+      module Flags =
+      struct
+        include Version_7_9.Out.Open.Flags
+        let fopen_nonseekable = constant "FOPEN_NONSEEKABLE" t
+      end
+      include (Version_7_9.Out.Open
+               : module type of Version_7_9.Out.Open
+               with module Flags := Flags)
+    end
+    include (Version_7_9.Out
+             : module type of Version_7_9.Out
+             with module Open := Open)
+  end
+
+  module In =
+  struct
+    module Init =
+    struct
+      module Flags =
+      struct
+        include Version_7_9.In.Init.Flags
+        let fuse_export_support = constant "FUSE_EXPORT_SUPPORT" t
+      end
+      include (Version_7_9.In.Init
+               : module type of Version_7_9.In.Init
+               with module Flags := Flags)
+    end
+    include (Version_7_9.In
+             : module type of Version_7_9.In
+             with module Init := Version_7_9.In.Init)
+  end
+end
+
+module C_incompatible = Profuse_types_7_9.C_incompatible
+
+module C(F: Cstubs.Types.TYPE) = struct
+  type 'a structure = 'a Ctypes_static.structure
+  module Compatible = C_compatible(F)
+  module Incompatible = C_incompatible(F)
+  module Struct = Compatible.Struct
+  module Out = Compatible.Out
+  module In =
+  struct
+    include Compatible.In
+    include Incompatible.In
+  end
+end

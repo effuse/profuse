@@ -154,113 +154,47 @@ module In = struct
   module Opcode = struct
     module T = T.Opcode
 
-    type t = T.t =
-      (* ro *)
-      | FUSE_LOOKUP (* = 1 *)
-      | FUSE_FORGET (* no reply *)
-      | FUSE_GETATTR
-      (* end ro *)
-
-      | FUSE_SETATTR
-      | FUSE_READLINK
-      | FUSE_SYMLINK
-
-      | FUSE_MKNOD (* = 8 *)
-      | FUSE_MKDIR
-      | FUSE_UNLINK
-      | FUSE_RMDIR
-      | FUSE_RENAME
-      | FUSE_LINK
-
-      (* ro *)
-      | FUSE_OPEN (* = 14 *)
-      | FUSE_READ
-      (* end ro *)
-
-      | FUSE_WRITE
-      | FUSE_STATFS
-
-      (* ro *)
-      | FUSE_RELEASE (* = 18 *) (* 0 reply? *)
-      (* end ro *)
-
-      | FUSE_FSYNC (* = 20 *)
-      | FUSE_SETXATTR
-      | FUSE_GETXATTR
-      | FUSE_LISTXATTR
-      | FUSE_REMOVEXATTR
-      | FUSE_FLUSH (* 0 reply *)
-
-      (* ro *)
-      | FUSE_INIT (* = 26 *)
-      | FUSE_OPENDIR
-      | FUSE_READDIR
-      | FUSE_RELEASEDIR (* 0 reply *)
-      (* end ro *)
-
-      | FUSE_FSYNCDIR (* = 30 *)
-      | FUSE_GETLK
-      | FUSE_SETLK
-      | FUSE_SETLKW
-      | FUSE_ACCESS
-      | FUSE_CREATE
-      | FUSE_INTERRUPT
-      | FUSE_BMAP
-
-      (* ro *)
-      | FUSE_DESTROY (* = 38 *) (* no reply *)
-      (* end ro *)
-
-      (* > 7.8 *)
-      (*| FUSE_IOCTL
-      | FUSE_POLL
-      | FUSE_NOTIFY_REPLY
-      | FUSE_BATCH_FORGET
-      | FUSE_FALLOCATE
-
-      | CUSE_INIT
-      *)
-      | Unknown of int32
+    type t = T.t
 
     let to_string = function
-      | FUSE_LOOKUP -> "FUSE_LOOKUP"
-      | FUSE_FORGET -> "FUSE_FORGET"
-      | FUSE_GETATTR -> "FUSE_GETATTR"
-      | FUSE_SETATTR -> "FUSE_SETATTR"
-      | FUSE_READLINK -> "FUSE_READLINK"
-      | FUSE_SYMLINK -> "FUSE_SYMLINK"
+      | `FUSE_LOOKUP -> "FUSE_LOOKUP"
+      | `FUSE_FORGET -> "FUSE_FORGET"
+      | `FUSE_GETATTR -> "FUSE_GETATTR"
+      | `FUSE_SETATTR -> "FUSE_SETATTR"
+      | `FUSE_READLINK -> "FUSE_READLINK"
+      | `FUSE_SYMLINK -> "FUSE_SYMLINK"
 
-      | FUSE_MKNOD -> "FUSE_MKNOD"
-      | FUSE_MKDIR -> "FUSE_MKDIR"
-      | FUSE_UNLINK -> "FUSE_UNLINK"
-      | FUSE_RMDIR -> "FUSE_RMDIR"
-      | FUSE_RENAME -> "FUSE_RENAME"
-      | FUSE_LINK -> "FUSE_LINK"
-      | FUSE_OPEN -> "FUSE_OPEN"
-      | FUSE_READ -> "FUSE_READ"
-      | FUSE_WRITE -> "FUSE_WRITE"
-      | FUSE_STATFS -> "FUSE_STATFS"
-      | FUSE_RELEASE -> "FUSE_RELEASE"
+      | `FUSE_MKNOD -> "FUSE_MKNOD"
+      | `FUSE_MKDIR -> "FUSE_MKDIR"
+      | `FUSE_UNLINK -> "FUSE_UNLINK"
+      | `FUSE_RMDIR -> "FUSE_RMDIR"
+      | `FUSE_RENAME -> "FUSE_RENAME"
+      | `FUSE_LINK -> "FUSE_LINK"
+      | `FUSE_OPEN -> "FUSE_OPEN"
+      | `FUSE_READ -> "FUSE_READ"
+      | `FUSE_WRITE -> "FUSE_WRITE"
+      | `FUSE_STATFS -> "FUSE_STATFS"
+      | `FUSE_RELEASE -> "FUSE_RELEASE"
 
-      | FUSE_FSYNC -> "FUSE_FSYNC"
-      | FUSE_SETXATTR -> "FUSE_SETXATTR"
-      | FUSE_GETXATTR -> "FUSE_GETXATTR"
-      | FUSE_LISTXATTR -> "FUSE_LISTXATTR"
-      | FUSE_REMOVEXATTR -> "FUSE_REMOVEXATTR"
-      | FUSE_FLUSH -> "FUSE_FLUSH"
-      | FUSE_INIT -> "FUSE_INIT"
-      | FUSE_OPENDIR -> "FUSE_OPENDIR"
-      | FUSE_READDIR -> "FUSE_READDIR"
-      | FUSE_RELEASEDIR -> "FUSE_RELEASEDIR"
-      | FUSE_FSYNCDIR -> "FUSE_FSYNCDIR"
-      | FUSE_GETLK -> "FUSE_GETLK"
-      | FUSE_SETLK -> "FUSE_SETLK"
-      | FUSE_SETLKW -> "FUSE_SETLKW"
-      | FUSE_ACCESS -> "FUSE_ACCESS"
-      | FUSE_CREATE -> "FUSE_CREATE"
-      | FUSE_INTERRUPT -> "FUSE_INTERRUPT"
-      | FUSE_BMAP -> "FUSE_BMAP"
-      | FUSE_DESTROY -> "FUSE_DESTROY"
+      | `FUSE_FSYNC -> "FUSE_FSYNC"
+      | `FUSE_SETXATTR -> "FUSE_SETXATTR"
+      | `FUSE_GETXATTR -> "FUSE_GETXATTR"
+      | `FUSE_LISTXATTR -> "FUSE_LISTXATTR"
+      | `FUSE_REMOVEXATTR -> "FUSE_REMOVEXATTR"
+      | `FUSE_FLUSH -> "FUSE_FLUSH"
+      | `FUSE_INIT -> "FUSE_INIT"
+      | `FUSE_OPENDIR -> "FUSE_OPENDIR"
+      | `FUSE_READDIR -> "FUSE_READDIR"
+      | `FUSE_RELEASEDIR -> "FUSE_RELEASEDIR"
+      | `FUSE_FSYNCDIR -> "FUSE_FSYNCDIR"
+      | `FUSE_GETLK -> "FUSE_GETLK"
+      | `FUSE_SETLK -> "FUSE_SETLK"
+      | `FUSE_SETLKW -> "FUSE_SETLKW"
+      | `FUSE_ACCESS -> "FUSE_ACCESS"
+      | `FUSE_CREATE -> "FUSE_CREATE"
+      | `FUSE_INTERRUPT -> "FUSE_INTERRUPT"
+      | `FUSE_BMAP -> "FUSE_BMAP"
+      | `FUSE_DESTROY -> "FUSE_DESTROY"
 
       (*| FUSE_IOCTL -> "FUSE_IOCTL"
       | FUSE_POLL -> "FUSE_POLL"
@@ -270,12 +204,19 @@ module In = struct
 
       | CUSE_INIT -> "CUSE_INIT"
       *)
-      | Unknown i -> "UnknownOpcode("^(Int32.to_string i)^")"
+      | `Unknown i -> "UnknownOpcode("^(Int32.to_string i)^")"
 
     let returns = function
-      | FUSE_FORGET | FUSE_DESTROY -> false
+      | `FUSE_FORGET | `FUSE_DESTROY -> false
       | _ -> true
 
+    let opcode_of_uint32 : Unsigned.UInt32.t -> Types.In.Opcode.t =
+      let l = List.map (fun (k, v) -> (v, k)) Types.In.Opcode.enum_values in
+      fun i ->
+        try ListLabels.assoc i l
+        with Not_found -> `Unknown (Unsigned.UInt32.to_int32 i)
+
+    and uint32_of_opcode v = ListLabels.assoc v Types.In.Opcode.enum_values
   end
 
   module Hdr = struct
@@ -286,6 +227,7 @@ module In = struct
 
     (* Create a headed packet with count buffer sequentially after header *)
     let packet ~opcode ~unique ~nodeid ~uid ~gid ~pid ~count =
+      let opcode = Opcode.uint32_of_opcode opcode in
       let bodysz = count in
       let count = hdrsz + bodysz in
       let pkt = allocate_n char ~count in
@@ -585,74 +527,74 @@ module In = struct
     let unknown i = Unknown i
 
     let parse chan hdr len buf =
-      let opcode = Hdr.(getf hdr T.opcode) in
+      let opcode =  Opcode.opcode_of_uint32 Hdr.(getf hdr T.opcode) in
       {chan; hdr; pkt=Opcode.(match opcode with
-         | FUSE_INIT        -> Init       (!@ (from_voidp Init.T.t buf))
-         | FUSE_GETATTR     -> Getattr
-         | FUSE_LOOKUP      -> Lookup     (coerce (ptr void) string buf)
-         | FUSE_OPENDIR     -> Opendir    (!@ (from_voidp Open.T.t buf))
-         | FUSE_READDIR     -> Readdir    (!@ (from_voidp Read.T.t buf))
-         | FUSE_RELEASEDIR  -> Releasedir (!@ (from_voidp Release.T.t buf))
-         | FUSE_FSYNCDIR    -> Fsyncdir   (!@ (from_voidp Fsync.T.t buf))
-         | FUSE_RMDIR       -> Rmdir      (coerce (ptr void) string buf)
-         | FUSE_MKDIR       ->
+         | `FUSE_INIT        -> Init       (!@ (from_voidp Init.T.t buf))
+         | `FUSE_GETATTR     -> Getattr
+         | `FUSE_LOOKUP      -> Lookup     (coerce (ptr void) string buf)
+         | `FUSE_OPENDIR     -> Opendir    (!@ (from_voidp Open.T.t buf))
+         | `FUSE_READDIR     -> Readdir    (!@ (from_voidp Read.T.t buf))
+         | `FUSE_RELEASEDIR  -> Releasedir (!@ (from_voidp Release.T.t buf))
+         | `FUSE_FSYNCDIR    -> Fsyncdir   (!@ (from_voidp Fsync.T.t buf))
+         | `FUSE_RMDIR       -> Rmdir      (coerce (ptr void) string buf)
+         | `FUSE_MKDIR       ->
            let name = Mkdir.name buf in
            let s = !@ (from_voidp Mkdir.T.t buf) in
            Mkdir (s, name)
-         | FUSE_GETXATTR    -> Getxattr   (!@ (from_voidp Getxattr.T.t buf))
-         | FUSE_SETXATTR    -> Setxattr   (!@ (from_voidp Setxattr.T.t buf))
-         | FUSE_LISTXATTR   -> Listxattr  (!@ (from_voidp Getxattr.T.t buf))
-         | FUSE_REMOVEXATTR -> Removexattr (coerce (ptr void) string buf)
-         | FUSE_ACCESS      -> Access     (!@ (from_voidp Access.T.t buf))
-         | FUSE_FORGET      -> Forget     (!@ (from_voidp Forget.T.t buf))
-         | FUSE_READLINK    -> Readlink
-         | FUSE_OPEN        -> Open       (!@ (from_voidp Open.T.t buf))
-         | FUSE_READ        -> Read       (!@ (from_voidp Read.T.t buf))
-         | FUSE_WRITE       ->
+         | `FUSE_GETXATTR    -> Getxattr   (!@ (from_voidp Getxattr.T.t buf))
+         | `FUSE_SETXATTR    -> Setxattr   (!@ (from_voidp Setxattr.T.t buf))
+         | `FUSE_LISTXATTR   -> Listxattr  (!@ (from_voidp Getxattr.T.t buf))
+         | `FUSE_REMOVEXATTR -> Removexattr (coerce (ptr void) string buf)
+         | `FUSE_ACCESS      -> Access     (!@ (from_voidp Access.T.t buf))
+         | `FUSE_FORGET      -> Forget     (!@ (from_voidp Forget.T.t buf))
+         | `FUSE_READLINK    -> Readlink
+         | `FUSE_OPEN        -> Open       (!@ (from_voidp Open.T.t buf))
+         | `FUSE_READ        -> Read       (!@ (from_voidp Read.T.t buf))
+         | `FUSE_WRITE       ->
            let data = Write.data buf in
            Write (!@ (from_voidp Write.T.t buf), data)
-         | FUSE_STATFS      -> Statfs
-         | FUSE_FLUSH       -> Flush      (!@ (from_voidp Flush.T.t buf))
-         | FUSE_RELEASE     -> Release    (!@ (from_voidp Release.T.t buf))
-         | FUSE_FSYNC       -> Fsync      (!@ (from_voidp Fsync.T.t buf))
-         | FUSE_UNLINK      -> Unlink     (coerce (ptr void) string buf)
-         | FUSE_CREATE      ->
+         | `FUSE_STATFS      -> Statfs
+         | `FUSE_FLUSH       -> Flush      (!@ (from_voidp Flush.T.t buf))
+         | `FUSE_RELEASE     -> Release    (!@ (from_voidp Release.T.t buf))
+         | `FUSE_FSYNC       -> Fsync      (!@ (from_voidp Fsync.T.t buf))
+         | `FUSE_UNLINK      -> Unlink     (coerce (ptr void) string buf)
+         | `FUSE_CREATE      ->
            let name = Create.name buf in
            let s = !@ (from_voidp Create.T.t buf) in
            Create (s, name)
-         | FUSE_MKNOD       ->
+         | `FUSE_MKNOD       ->
            let name = Mknod.name buf in
            let s = !@ (from_voidp Mknod.T.t buf) in
            Mknod (s, name)
-         | FUSE_SETATTR     -> Setattr    (!@ (from_voidp Setattr.T.t buf))
-         | FUSE_LINK        ->
+         | `FUSE_SETATTR     -> Setattr    (!@ (from_voidp Setattr.T.t buf))
+         | `FUSE_LINK        ->
            let name = Link.name buf in
            let s = !@ (from_voidp Link.T.t buf) in
            Link (s, name)
-         | FUSE_SYMLINK     ->
+         | `FUSE_SYMLINK     ->
            let name = coerce (ptr void) string buf in
            let buf =
              to_voidp ((from_voidp char buf) +@ (String.length name + 1))
            in
            let target = coerce (ptr void) string buf in
            Symlink (name,target)
-         | FUSE_RENAME      ->
+         | `FUSE_RENAME      ->
            let (src, dest) = Rename.source_destination buf in
            let s = !@ (from_voidp Rename.T.t buf) in
            Rename (s,src,dest)
-         | FUSE_GETLK       -> Getlk      (!@ (from_voidp Lk.T.t buf))
-         | FUSE_SETLK       -> Setlk      (!@ (from_voidp Lk.T.t buf))
-         | FUSE_SETLKW      -> Setlkw     (!@ (from_voidp Lk.T.t buf))
-         | FUSE_INTERRUPT   -> Interrupt  (!@ (from_voidp Interrupt.T.t buf))
-         | FUSE_BMAP        -> Bmap       (!@ (from_voidp Bmap.T.t buf))
-         | FUSE_DESTROY     -> Destroy
+         | `FUSE_GETLK       -> Getlk      (!@ (from_voidp Lk.T.t buf))
+         | `FUSE_SETLK       -> Setlk      (!@ (from_voidp Lk.T.t buf))
+         | `FUSE_SETLKW      -> Setlkw     (!@ (from_voidp Lk.T.t buf))
+         | `FUSE_INTERRUPT   -> Interrupt  (!@ (from_voidp Interrupt.T.t buf))
+         | `FUSE_BMAP        -> Bmap       (!@ (from_voidp Bmap.T.t buf))
+         | `FUSE_DESTROY     -> Destroy
          (*| FUSE_IOCTL
          | FUSE_POLL
          | FUSE_NOTIFY_REPLY
          | FUSE_BATCH_FORGET
          | FUSE_FALLOCATE
          | CUSE_INIT        -> Other opcode*)
-         | Unknown i        -> unknown i
+         | `Unknown i        -> unknown i
        )}
 
     let string_of_mode req mode =
@@ -674,7 +616,7 @@ module In = struct
       Printf.sprintf "%Ld (%Ld) %s.p%ld.u%ld.g%ld %s"
         (UInt64.to_int64 (getf req.hdr Hdr.unique))
         (UInt64.to_int64 (getf req.hdr Hdr.nodeid))
-        (Opcode.to_string (getf req.hdr Hdr.opcode))
+        (Opcode.to_string (Opcode.opcode_of_uint32 (getf req.hdr Hdr.opcode)))
         (UInt32.to_int32 (getf req.hdr Hdr.pid))
         (UInt32.to_int32 (getf req.hdr Hdr.uid))
         (UInt32.to_int32 (getf req.hdr Hdr.gid))
@@ -1076,58 +1018,58 @@ module Out = struct
     let unknown opcode len buf = Unknown (opcode, len, buf)
 
     let parse ({ chan } as req) hdr len buf =
-      let opcode = In.Hdr.(getf req.hdr T.opcode) in
+      let opcode = In.Opcode.opcode_of_uint32 In.Hdr.(getf req.hdr T.opcode) in
       {chan; hdr; pkt=In.Opcode.(match opcode with
-         | FUSE_INIT        -> Init       (!@ (from_voidp Init.T.t buf))
-         | FUSE_GETATTR     -> Getattr    (!@ (from_voidp Attr.T.t buf))
-         | FUSE_LOOKUP      -> Lookup     (!@ (from_voidp Entry.T.t buf))
-         | FUSE_OPENDIR     -> Opendir    (!@ (from_voidp Open.T.t buf))
-         | FUSE_READDIR     ->
+         | `FUSE_INIT        -> Init       (!@ (from_voidp Init.T.t buf))
+         | `FUSE_GETATTR     -> Getattr    (!@ (from_voidp Attr.T.t buf))
+         | `FUSE_LOOKUP      -> Lookup     (!@ (from_voidp Entry.T.t buf))
+         | `FUSE_OPENDIR     -> Opendir    (!@ (from_voidp Open.T.t buf))
+         | `FUSE_READDIR     ->
            Readdir (CArray.from_ptr (from_voidp char buf) len)
-         | FUSE_RELEASEDIR  -> Releasedir
-         | FUSE_FSYNCDIR    -> Fsyncdir
-         | FUSE_RMDIR       -> Rmdir
-         | FUSE_MKDIR       -> Mkdir      (!@ (from_voidp Entry.T.t buf))
-         | FUSE_GETXATTR    -> Getxattr
-         | FUSE_SETXATTR    -> Setxattr
-         | FUSE_LISTXATTR   -> Listxattr
-         | FUSE_REMOVEXATTR -> Removexattr
-         | FUSE_ACCESS      -> Access
-         | FUSE_FORGET      -> Forget
-         | FUSE_READLINK    -> Readlink   (coerce (ptr void) string buf)
-         | FUSE_OPEN        -> Open       (!@ (from_voidp Open.T.t buf))
-         | FUSE_READ        ->
+         | `FUSE_RELEASEDIR  -> Releasedir
+         | `FUSE_FSYNCDIR    -> Fsyncdir
+         | `FUSE_RMDIR       -> Rmdir
+         | `FUSE_MKDIR       -> Mkdir      (!@ (from_voidp Entry.T.t buf))
+         | `FUSE_GETXATTR    -> Getxattr
+         | `FUSE_SETXATTR    -> Setxattr
+         | `FUSE_LISTXATTR   -> Listxattr
+         | `FUSE_REMOVEXATTR -> Removexattr
+         | `FUSE_ACCESS      -> Access
+         | `FUSE_FORGET      -> Forget
+         | `FUSE_READLINK    -> Readlink   (coerce (ptr void) string buf)
+         | `FUSE_OPEN        -> Open       (!@ (from_voidp Open.T.t buf))
+         | `FUSE_READ        ->
            Read (CArray.from_ptr (from_voidp char buf) len)
-         | FUSE_WRITE       -> Write      (!@ (from_voidp Write.T.t buf))
-         | FUSE_STATFS      ->
+         | `FUSE_WRITE       -> Write      (!@ (from_voidp Write.T.t buf))
+         | `FUSE_STATFS      ->
            Statfs (!@ (from_voidp Struct.Kstatfs.T.t buf))
-         | FUSE_FLUSH       -> Flush
-         | FUSE_RELEASE     -> Release
-         | FUSE_FSYNC       -> Fsync
-         | FUSE_UNLINK      -> Unlink
-         | FUSE_CREATE      ->
+         | `FUSE_FLUSH       -> Flush
+         | `FUSE_RELEASE     -> Release
+         | `FUSE_FSYNC       -> Fsync
+         | `FUSE_UNLINK      -> Unlink
+         | `FUSE_CREATE      ->
            let entry = !@ (from_voidp Entry.T.t buf) in
            let ptr = (coerce (ptr void) (ptr char) buf) +@ Entry.sz in
            let open_ = !@ (from_voidp Open.T.t (to_voidp ptr)) in
            Create (entry, open_)
-         | FUSE_MKNOD       -> Mknod      (!@ (from_voidp Entry.T.t buf))
-         | FUSE_SETATTR     -> Setattr    (!@ (from_voidp Attr.T.t buf))
-         | FUSE_LINK        -> Link       (!@ (from_voidp Entry.T.t buf))
-         | FUSE_SYMLINK     -> Symlink    (!@ (from_voidp Entry.T.t buf))
-         | FUSE_RENAME      -> Rename
-         | FUSE_GETLK       -> Getlk
-         | FUSE_SETLK       -> Setlk
-         | FUSE_SETLKW      -> Setlkw
-         | FUSE_INTERRUPT   -> Interrupt
-         | FUSE_BMAP        -> Bmap
-         | FUSE_DESTROY     -> Destroy
+         | `FUSE_MKNOD       -> Mknod      (!@ (from_voidp Entry.T.t buf))
+         | `FUSE_SETATTR     -> Setattr    (!@ (from_voidp Attr.T.t buf))
+         | `FUSE_LINK        -> Link       (!@ (from_voidp Entry.T.t buf))
+         | `FUSE_SYMLINK     -> Symlink    (!@ (from_voidp Entry.T.t buf))
+         | `FUSE_RENAME      -> Rename
+         | `FUSE_GETLK       -> Getlk
+         | `FUSE_SETLK       -> Setlk
+         | `FUSE_SETLKW      -> Setlkw
+         | `FUSE_INTERRUPT   -> Interrupt
+         | `FUSE_BMAP        -> Bmap
+         | `FUSE_DESTROY     -> Destroy
          (*| FUSE_IOCTL
          | FUSE_POLL
          | FUSE_NOTIFY_REPLY
          | FUSE_BATCH_FORGET
          | FUSE_FALLOCATE
          | CUSE_INIT        -> Other opcode*)
-         | Unknown opcode   -> unknown opcode len buf
+         | `Unknown opcode   -> unknown opcode len buf
        )}
 
     let pnum = ref 0

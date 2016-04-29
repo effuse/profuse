@@ -76,7 +76,28 @@ module C_compatible(F: Cstubs.Types.TYPE) = struct
 
   module In = struct
     module V_7_10 = Version_7_10.In
-    module Opcode = V_7_10.Opcode
+    module Opcode =
+    struct
+      include (V_7_10.Opcode
+               : module type of V_7_10.Opcode
+               with type t := V_7_10.Opcode.t)
+
+      let fuse_ioctl = constant "FUSE_IOCTL" uint32_t
+      let fuse_poll = constant "FUSE_POLL" uint32_t
+      let cuse_init = constant "CUSE_INIT" uint32_t
+
+      type t = [ V_7_10.Opcode.t
+               | `FUSE_IOCTL
+               | `FUSE_POLL
+               | `CUSE_INIT ]
+
+      let enum_values =
+        (`FUSE_IOCTL, fuse_ioctl) ::
+        (`FUSE_POLL, fuse_poll) ::
+        (`CUSE_INIT, cuse_init) ::
+        (V_7_10.Opcode.enum_values :> (t * _) list)
+    end
+
     module Hdr       = struct include V_7_10.Hdr       let () = seal t end
     module Init      = struct include V_7_10.Init      let () = seal t end
     module Release   = struct include V_7_10.Release   let () = seal t end
@@ -98,6 +119,13 @@ module C_compatible(F: Cstubs.Types.TYPE) = struct
     module Setattr   = struct include V_7_10.Setattr   let () = seal t end
     module Getattr   = struct include V_7_10.Getattr   let () = seal t end
     module Ioctl     = struct
+      module Flags =
+      struct
+        let t = uint32_t
+        let fuse_ioctl_compat = constant "FUSE_IOCTL_COMPAT" t
+        let fuse_ioctl_unrestricted = constant "FUSE_IOCTL_UNRESTRICTED" t
+        let fuse_ioctl_retry = constant "FUSE_IOCTL_RETRY" t
+      end
       type t
       let t : t structure typ = structure "fuse_ioctl_in"
       let ( -:* ) s x = field t s x
@@ -110,6 +138,11 @@ module C_compatible(F: Cstubs.Types.TYPE) = struct
       let () = seal t
     end
     module Poll      = struct
+      module Flags =
+      struct
+        let t = uint32_t
+        let fuse_poll_schedule_notify = constant "FUSE_POLL_SCHEDULE_NOTIFY" t
+      end
       type t
       let t : t structure typ = structure "fuse_poll_in"
       let ( -:* ) s x = field t s x
