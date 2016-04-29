@@ -215,94 +215,94 @@ module Types : sig
 
   module In : sig
     module Opcode : sig
-      type t =
-        | FUSE_LOOKUP
-        | FUSE_FORGET
-        | FUSE_GETATTR
-        | FUSE_SETATTR
-        | FUSE_READLINK
-        | FUSE_SYMLINK
-        | FUSE_MKNOD
-        | FUSE_MKDIR
-        | FUSE_UNLINK
-        | FUSE_RMDIR
-        | FUSE_RENAME
-        | FUSE_LINK
-        | FUSE_OPEN
-        | FUSE_READ
-        | FUSE_WRITE
-        | FUSE_STATFS
-        | FUSE_RELEASE
-        | FUSE_FSYNC
-        | FUSE_SETXATTR
-        | FUSE_GETXATTR
-        | FUSE_LISTXATTR
-        | FUSE_REMOVEXATTR
-        | FUSE_FLUSH
-        | FUSE_INIT
-        | FUSE_OPENDIR
-        | FUSE_READDIR
-        | FUSE_RELEASEDIR
-        | FUSE_FSYNCDIR
-        | FUSE_GETLK
-        | FUSE_SETLK
-        | FUSE_SETLKW
-        | FUSE_ACCESS
-        | FUSE_CREATE
-        | FUSE_INTERRUPT
-        | FUSE_BMAP
-        | FUSE_DESTROY
+      type t = [
+        | `FUSE_LOOKUP
+        | `FUSE_FORGET
+        | `FUSE_GETATTR
+        | `FUSE_SETATTR
+        | `FUSE_READLINK
+        | `FUSE_SYMLINK
+        | `FUSE_MKNOD
+        | `FUSE_MKDIR
+        | `FUSE_UNLINK
+        | `FUSE_RMDIR
+        | `FUSE_RENAME
+        | `FUSE_LINK
+        | `FUSE_OPEN
+        | `FUSE_READ
+        | `FUSE_WRITE
+        | `FUSE_STATFS
+        | `FUSE_RELEASE
+        | `FUSE_FSYNC
+        | `FUSE_SETXATTR
+        | `FUSE_GETXATTR
+        | `FUSE_LISTXATTR
+        | `FUSE_REMOVEXATTR
+        | `FUSE_FLUSH
+        | `FUSE_INIT
+        | `FUSE_OPENDIR
+        | `FUSE_READDIR
+        | `FUSE_RELEASEDIR
+        | `FUSE_FSYNCDIR
+        | `FUSE_GETLK
+        | `FUSE_SETLK
+        | `FUSE_SETLKW
+        | `FUSE_ACCESS
+        | `FUSE_CREATE
+        | `FUSE_INTERRUPT
+        | `FUSE_BMAP
+        | `FUSE_DESTROY
         (*| FUSE_IOCTL
         | FUSE_POLL
         | FUSE_NOTIFY_REPLY
         | FUSE_BATCH_FORGET
         | FUSE_FALLOCATE
         | CUSE_INIT*)
-        | Unknown of int32
+        | `Unknown of int32
+      ]
 
-      val fuse_lookup : int64
-      val fuse_forget : int64
-      val fuse_getattr : int64
-      val fuse_setattr : int64
-      val fuse_readlink : int64
-      val fuse_symlink : int64
-      val fuse_mknod : int64
-      val fuse_mkdir : int64
-      val fuse_unlink : int64
-      val fuse_rmdir : int64
-      val fuse_rename : int64
-      val fuse_link : int64
-      val fuse_open : int64
-      val fuse_read : int64
-      val fuse_write : int64
-      val fuse_statfs : int64
-      val fuse_release : int64
-      val fuse_fsync : int64
-      val fuse_setxattr : int64
-      val fuse_getxattr : int64
-      val fuse_listxattr : int64
-      val fuse_removexattr : int64
-      val fuse_flush : int64
-      val fuse_init : int64
-      val fuse_opendir : int64
-      val fuse_readdir : int64
-      val fuse_releasedir : int64
-      val fuse_fsyncdir : int64
-      val fuse_getlk : int64
-      val fuse_setlk : int64
-      val fuse_setlkw : int64
-      val fuse_access : int64
-      val fuse_create : int64
-      val fuse_interrupt : int64
-      val fuse_bmap : int64
-      val fuse_destroy : int64
-      (*val fuse_ioctl : int64
-      val fuse_poll : int64
-      val fuse_notify_reply : int64
-      val fuse_batch_forget : int64
-      val fuse_fallocate : int64
-      val cuse_init : int64*)
-      val t : t Ctypes.typ
+      val fuse_lookup : Unsigned.uint32
+      val fuse_forget : Unsigned.uint32
+      val fuse_getattr : Unsigned.uint32
+      val fuse_setattr : Unsigned.uint32
+      val fuse_readlink : Unsigned.uint32
+      val fuse_symlink : Unsigned.uint32
+      val fuse_mknod : Unsigned.uint32
+      val fuse_mkdir : Unsigned.uint32
+      val fuse_unlink : Unsigned.uint32
+      val fuse_rmdir : Unsigned.uint32
+      val fuse_rename : Unsigned.uint32
+      val fuse_link : Unsigned.uint32
+      val fuse_open : Unsigned.uint32
+      val fuse_read : Unsigned.uint32
+      val fuse_write : Unsigned.uint32
+      val fuse_statfs : Unsigned.uint32
+      val fuse_release : Unsigned.uint32
+      val fuse_fsync : Unsigned.uint32
+      val fuse_setxattr : Unsigned.uint32
+      val fuse_getxattr : Unsigned.uint32
+      val fuse_listxattr : Unsigned.uint32
+      val fuse_removexattr : Unsigned.uint32
+      val fuse_flush : Unsigned.uint32
+      val fuse_init : Unsigned.uint32
+      val fuse_opendir : Unsigned.uint32
+      val fuse_readdir : Unsigned.uint32
+      val fuse_releasedir : Unsigned.uint32
+      val fuse_fsyncdir : Unsigned.uint32
+      val fuse_getlk : Unsigned.uint32
+      val fuse_setlk : Unsigned.uint32
+      val fuse_setlkw : Unsigned.uint32
+      val fuse_access : Unsigned.uint32
+      val fuse_create : Unsigned.uint32
+      val fuse_interrupt : Unsigned.uint32
+      val fuse_bmap : Unsigned.uint32
+      val fuse_destroy : Unsigned.uint32
+      (*val fuse_ioctl : Unsigned.uint32
+      val fuse_poll : Unsigned.uint32
+      val fuse_notify_reply : Unsigned.uint32
+      val fuse_batch_forget : Unsigned.uint32
+      val fuse_fallocate : Unsigned.uint32
+      val cuse_init : Unsigned.uint32*)
     end
 
     module Hdr : sig
@@ -310,7 +310,7 @@ module Types : sig
       val t : t structure Ctypes.typ
 
       val len : (Unsigned.uint32, t structure) Ctypes.field
-      val opcode : (Opcode.t, t structure) Ctypes.field
+      val opcode : (Unsigned.uint32, t structure) Ctypes.field
       val unique : (Unsigned.uint64, t structure) Ctypes.field
       val nodeid : (Unsigned.uint64, t structure) Ctypes.field
       val uid : (Unsigned.uint32, t structure) Ctypes.field
@@ -599,73 +599,7 @@ module In : sig
   module Opcode : sig
     module T = T.Opcode
 
-    type t = T.t =
-      (* ro *)
-      | FUSE_LOOKUP (* = 1 *)
-      | FUSE_FORGET (* no reply *)
-      | FUSE_GETATTR
-      (* end ro *)
-
-      | FUSE_SETATTR
-      | FUSE_READLINK
-      | FUSE_SYMLINK
-
-      | FUSE_MKNOD (* = 8 *)
-      | FUSE_MKDIR
-      | FUSE_UNLINK
-      | FUSE_RMDIR
-      | FUSE_RENAME
-      | FUSE_LINK
-
-      (* ro *)
-      | FUSE_OPEN (* = 14 *)
-      | FUSE_READ
-      (* end ro *)
-
-      | FUSE_WRITE
-      | FUSE_STATFS
-
-      (* ro *)
-      | FUSE_RELEASE (* = 18 *) (* 0 reply? *)
-      (* end ro *)
-
-      | FUSE_FSYNC (* = 20 *)
-      | FUSE_SETXATTR
-      | FUSE_GETXATTR
-      | FUSE_LISTXATTR
-      | FUSE_REMOVEXATTR
-      | FUSE_FLUSH (* 0 reply *)
-
-      (* ro *)
-      | FUSE_INIT (* = 26 *)
-      | FUSE_OPENDIR
-      | FUSE_READDIR
-      | FUSE_RELEASEDIR (* 0 reply *)
-      (* end ro *)
-
-      | FUSE_FSYNCDIR (* = 30 *)
-      | FUSE_GETLK
-      | FUSE_SETLK
-      | FUSE_SETLKW
-      | FUSE_ACCESS
-      | FUSE_CREATE
-      | FUSE_INTERRUPT
-      | FUSE_BMAP
-
-      (* ro *)
-      | FUSE_DESTROY (* = 38 *) (* no reply *)
-      (* end ro *)
-
-      (* > 7.8 *)
-      (*| FUSE_IOCTL
-      | FUSE_POLL
-      | FUSE_NOTIFY_REPLY
-      | FUSE_BATCH_FORGET
-      | FUSE_FALLOCATE
-
-      | CUSE_INIT*)
-
-      | Unknown of int32
+    type t = T.t
 
     val to_string : t -> string
 

@@ -144,7 +144,7 @@ module IO : IO_LWT = struct
             (* assumes sequentially increasing packet ids *)
             let unique = UInt64.succ chan.Profuse.unique in
             chan.Profuse.unique <- unique;
-            let pkt = Hdr.packet ~opcode:Opcode.FUSE_DESTROY ~unique
+            let pkt = Hdr.packet ~opcode:`FUSE_DESTROY ~unique
                 ~nodeid ~uid ~gid ~pid ~count:0
             in
             let hdr = !@ (coerce (ptr char) (ptr Hdr.T.t)

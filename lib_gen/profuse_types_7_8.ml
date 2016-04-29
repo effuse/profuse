@@ -193,51 +193,45 @@ module C_compatible(F: Cstubs.Types.TYPE) = struct
 
     module Opcode = struct
       type t =
-        | FUSE_LOOKUP
-        | FUSE_FORGET
-        | FUSE_GETATTR
-        | FUSE_SETATTR
-        | FUSE_READLINK
-        | FUSE_SYMLINK
-        | FUSE_MKNOD
-        | FUSE_MKDIR
-        | FUSE_UNLINK
-        | FUSE_RMDIR
-        | FUSE_RENAME
-        | FUSE_LINK
-        | FUSE_OPEN
-        | FUSE_READ
-        | FUSE_WRITE
-        | FUSE_STATFS
-        | FUSE_RELEASE
-        | FUSE_FSYNC
-        | FUSE_SETXATTR
-        | FUSE_GETXATTR
-        | FUSE_LISTXATTR
-        | FUSE_REMOVEXATTR
-        | FUSE_FLUSH
-        | FUSE_INIT
-        | FUSE_OPENDIR
-        | FUSE_READDIR
-        | FUSE_RELEASEDIR
-        | FUSE_FSYNCDIR
-        | FUSE_GETLK
-        | FUSE_SETLK
-        | FUSE_SETLKW
-        | FUSE_ACCESS
-        | FUSE_CREATE
-        | FUSE_INTERRUPT
-        | FUSE_BMAP
-        | FUSE_DESTROY
-        (*| FUSE_IOCTL (* not 7.8 *)
-        | FUSE_POLL
-        | FUSE_NOTIFY_REPLY
-        | FUSE_BATCH_FORGET
-        | FUSE_FALLOCATE
-          | CUSE_INIT*)
-        | Unknown of int32
+        [ `FUSE_LOOKUP
+        | `FUSE_FORGET
+        | `FUSE_GETATTR
+        | `FUSE_SETATTR
+        | `FUSE_READLINK
+        | `FUSE_SYMLINK
+        | `FUSE_MKNOD
+        | `FUSE_MKDIR
+        | `FUSE_UNLINK
+        | `FUSE_RMDIR
+        | `FUSE_RENAME
+        | `FUSE_LINK
+        | `FUSE_OPEN
+        | `FUSE_READ
+        | `FUSE_WRITE
+        | `FUSE_STATFS
+        | `FUSE_RELEASE
+        | `FUSE_FSYNC
+        | `FUSE_SETXATTR
+        | `FUSE_GETXATTR
+        | `FUSE_LISTXATTR
+        | `FUSE_REMOVEXATTR
+        | `FUSE_FLUSH
+        | `FUSE_INIT
+        | `FUSE_OPENDIR
+        | `FUSE_READDIR
+        | `FUSE_RELEASEDIR
+        | `FUSE_FSYNCDIR
+        | `FUSE_GETLK
+        | `FUSE_SETLK
+        | `FUSE_SETLKW
+        | `FUSE_ACCESS
+        | `FUSE_CREATE
+        | `FUSE_INTERRUPT
+        | `FUSE_BMAP
+        | `FUSE_DESTROY
+        | `Unknown of int32 ]
 
-      let t = int64_t
+      let t = uint32_t
 
       let fuse_lookup = constant "FUSE_LOOKUP" t
       let fuse_forget = constant "FUSE_FORGET" t
@@ -275,60 +269,45 @@ module C_compatible(F: Cstubs.Types.TYPE) = struct
       let fuse_interrupt = constant "FUSE_INTERRUPT" t
       let fuse_bmap = constant "FUSE_BMAP" t
       let fuse_destroy = constant "FUSE_DESTROY" t
-      (*let fuse_ioctl = constant "FUSE_IOCTL" t
-      let fuse_poll = constant "FUSE_POLL" t
-      let fuse_notify_reply = constant "FUSE_NOTIFY_REPLY" t
-      let fuse_batch_forget = constant "FUSE_BATCH_FORGET" t
-      let fuse_fallocate = constant "FUSE_FALLOCATE" t
-        let cuse_init = constant "CUSE_INIT" t*)
 
-      let t =
-        enum "fuse_opcode"
-          ~unexpected:(fun code -> Unknown (Int64.to_int32 code))
-          [
-            FUSE_LOOKUP, fuse_lookup;
-            FUSE_FORGET, fuse_forget;
-            FUSE_GETATTR, fuse_getattr;
-            FUSE_SETATTR, fuse_setattr;
-            FUSE_READLINK, fuse_readlink;
-            FUSE_SYMLINK, fuse_symlink;
-            FUSE_MKNOD, fuse_mknod;
-            FUSE_MKDIR, fuse_mkdir;
-            FUSE_UNLINK, fuse_unlink;
-            FUSE_RMDIR, fuse_rmdir;
-            FUSE_RENAME, fuse_rename;
-            FUSE_LINK, fuse_link;
-            FUSE_OPEN, fuse_open;
-            FUSE_READ, fuse_read;
-            FUSE_WRITE, fuse_write;
-            FUSE_STATFS, fuse_statfs;
-            FUSE_RELEASE, fuse_release;
-            FUSE_FSYNC, fuse_fsync;
-            FUSE_SETXATTR, fuse_setxattr;
-            FUSE_GETXATTR, fuse_getxattr;
-            FUSE_LISTXATTR, fuse_listxattr;
-            FUSE_REMOVEXATTR, fuse_removexattr;
-            FUSE_FLUSH, fuse_flush;
-            FUSE_INIT, fuse_init;
-            FUSE_OPENDIR, fuse_opendir;
-            FUSE_READDIR, fuse_readdir;
-            FUSE_RELEASEDIR, fuse_releasedir;
-            FUSE_FSYNCDIR, fuse_fsyncdir;
-            FUSE_GETLK, fuse_getlk;
-            FUSE_SETLK, fuse_setlk;
-            FUSE_SETLKW, fuse_setlkw;
-            FUSE_ACCESS, fuse_access;
-            FUSE_CREATE, fuse_create;
-            FUSE_INTERRUPT, fuse_interrupt;
-            FUSE_BMAP, fuse_bmap;
-            FUSE_DESTROY, fuse_destroy;
-            (*FUSE_IOCTL, fuse_ioctl;
-            FUSE_POLL, fuse_poll;
-            FUSE_NOTIFY_REPLY, fuse_notify_reply;
-            FUSE_BATCH_FORGET, fuse_batch_forget;
-            FUSE_FALLOCATE, fuse_fallocate;
-              CUSE_INIT, cuse_init;*)
-          ]
+      let enum_values : (t * _) list = 
+        [ `FUSE_LOOKUP, fuse_lookup;
+          `FUSE_FORGET, fuse_forget;
+          `FUSE_GETATTR, fuse_getattr;
+          `FUSE_SETATTR, fuse_setattr;
+          `FUSE_READLINK, fuse_readlink;
+          `FUSE_SYMLINK, fuse_symlink;
+          `FUSE_MKNOD, fuse_mknod;
+          `FUSE_MKDIR, fuse_mkdir;
+          `FUSE_UNLINK, fuse_unlink;
+          `FUSE_RMDIR, fuse_rmdir;
+          `FUSE_RENAME, fuse_rename;
+          `FUSE_LINK, fuse_link;
+          `FUSE_OPEN, fuse_open;
+          `FUSE_READ, fuse_read;
+          `FUSE_WRITE, fuse_write;
+          `FUSE_STATFS, fuse_statfs;
+          `FUSE_RELEASE, fuse_release;
+          `FUSE_FSYNC, fuse_fsync;
+          `FUSE_SETXATTR, fuse_setxattr;
+          `FUSE_GETXATTR, fuse_getxattr;
+          `FUSE_LISTXATTR, fuse_listxattr;
+          `FUSE_REMOVEXATTR, fuse_removexattr;
+          `FUSE_FLUSH, fuse_flush;
+          `FUSE_INIT, fuse_init;
+          `FUSE_OPENDIR, fuse_opendir;
+          `FUSE_READDIR, fuse_readdir;
+          `FUSE_RELEASEDIR, fuse_releasedir;
+          `FUSE_FSYNCDIR, fuse_fsyncdir;
+          `FUSE_GETLK, fuse_getlk;
+          `FUSE_SETLK, fuse_setlk;
+          `FUSE_SETLKW, fuse_setlkw;
+          `FUSE_ACCESS, fuse_access;
+          `FUSE_CREATE, fuse_create;
+          `FUSE_INTERRUPT, fuse_interrupt;
+          `FUSE_BMAP, fuse_bmap;
+          `FUSE_DESTROY, fuse_destroy;
+        ]
     end
 
     module Hdr = struct
@@ -336,7 +315,7 @@ module C_compatible(F: Cstubs.Types.TYPE) = struct
       let t : t structure typ = structure "fuse_in_header"
       let ( -:* ) s x = field t s x
       let len     = "len"     -:* uint32_t
-      let opcode  = "opcode"  -:* Opcode.t
+      let opcode  = "opcode"  -:* uint32_t
       let unique  = "unique"  -:* uint64_t
       let nodeid  = "nodeid"  -:* uint64_t
       let uid     = "uid"     -:* uint32_t
