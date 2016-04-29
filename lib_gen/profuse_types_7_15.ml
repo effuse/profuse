@@ -38,7 +38,6 @@ module C(F: Cstubs.Types.TYPE) = struct
 
   module Out = struct
     module V_7_14 = Version_7_14.Out
-    module Hdr                = struct include V_7_14.Hdr                let () = seal t end
     module Write              = struct include V_7_14.Write              let () = seal t end
     module Open               = struct include V_7_14.Open               let () = seal t end
     module Entry              = struct include V_7_14.Entry              let () = seal t end
@@ -54,6 +53,16 @@ module C(F: Cstubs.Types.TYPE) = struct
     module Cuse_init          = struct include V_7_14.Cuse_init          let () = seal t end
     module Notify_inval_inode = struct include V_7_14.Notify_inval_inode let () = seal t end
     module Notify_inval_entry = struct include V_7_14.Notify_inval_entry let () = seal t end
+    module Hdr                = struct
+      module Notify_code = struct
+        include V_7_14.Hdr.Notify_code
+        let fuse_notify_store = constant "FUSE_NOTIFY_STORE" t
+        let fuse_notify_retrieve = constant "FUSE_NOTIFY_RETRIEVE" t
+      end
+      include (V_7_14.Hdr
+                 : module type of V_7_14.Hdr with module Notify_code := Notify_code)
+      let () = seal t
+    end
     module Notify_store       = struct
       type t
       let t : t structure typ = structure "fuse_notify_store_out"
@@ -80,7 +89,6 @@ module C(F: Cstubs.Types.TYPE) = struct
 
   module In = struct
     module V_7_14 = Version_7_14.In
-    module Opcode = V_7_14.Opcode
     module Hdr       = struct include V_7_14.Hdr       let () = seal t end
     module Init      = struct include V_7_14.Init      let () = seal t end
     module Open      = struct include V_7_14.Open      let () = seal t end
@@ -106,6 +114,21 @@ module C(F: Cstubs.Types.TYPE) = struct
     module Ioctl     = struct include V_7_14.Ioctl     let () = seal t end
     module Poll      = struct include V_7_14.Poll      let () = seal t end
     module Cuse_init = struct include V_7_14.Cuse_init let () = seal t end
+    module Opcode =
+    struct
+      include (V_7_14.Opcode
+               : module type of V_7_14.Opcode
+               with type t := V_7_14.Opcode.t)
+
+      let fuse_notify_reply = constant "FUSE_NOTIFY_REPLY" uint32_t
+
+      type t = [ V_7_14.Opcode.t
+               | `FUSE_NOTIFY_REPLY ]
+
+      let enum_values =
+        (`FUSE_NOTIFY_REPLY, fuse_notify_reply) ::
+        (V_7_14.Opcode.enum_values :> (t * _) list)
+    end
     module Notify_retrieve = struct
       type t
       let t : t structure typ = structure "fuse_notify_retrieve_in"
@@ -116,4 +139,3 @@ module C(F: Cstubs.Types.TYPE) = struct
     end
   end
 end
-
