@@ -76,7 +76,6 @@ module C(F: Cstubs.Types.TYPE) = struct
 
   module In = struct
     module V_7_15 = Version_7_15.In
-    module Opcode = V_7_15.Opcode
     module Hdr             = struct include V_7_15.Hdr             let () = seal t end
     module Init            = struct include V_7_15.Init            let () = seal t end
     module Open            = struct include V_7_15.Open            let () = seal t end
@@ -99,10 +98,35 @@ module C(F: Cstubs.Types.TYPE) = struct
     module Lk              = struct include V_7_15.Lk              let () = seal t end
     module Setattr         = struct include V_7_15.Setattr         let () = seal t end
     module Getattr         = struct include V_7_15.Getattr         let () = seal t end
-    module Ioctl           = struct include V_7_15.Ioctl           let () = seal t end
     module Poll            = struct include V_7_15.Poll            let () = seal t end
     module Cuse_init       = struct include V_7_15.Cuse_init       let () = seal t end
     module Notify_retrieve = struct include V_7_15.Notify_retrieve let () = seal t end
+    module Opcode =
+    struct
+      include (V_7_15.Opcode
+               : module type of V_7_15.Opcode
+               with type t := V_7_15.Opcode.t)
+
+      let fuse_batch_forget = constant "FUSE_BATCH_FORGET" uint32_t
+
+      type t = [ V_7_15.Opcode.t
+               | `FUSE_BATCH_FORGET ]
+
+      let enum_values =
+        (`FUSE_BATCH_FORGET, fuse_batch_forget) ::
+        (V_7_15.Opcode.enum_values :> (t * _) list)
+    end
+
+    module Ioctl     = struct
+      module Flags =
+      struct
+        include V_7_15.Ioctl.Flags
+        let fuse_ioctl_32bit = constant "FUSE_IOCTL_32BIT" t
+      end
+      include (V_7_15.Ioctl
+               : module type of V_7_15.Ioctl with module Flags := Flags)
+    end
+
     module Batch_forget    = struct
       type t
       let t : t structure typ = structure "fuse_batch_forget_in"
@@ -112,3 +136,5 @@ module C(F: Cstubs.Types.TYPE) = struct
     end
   end
 end
+
+
