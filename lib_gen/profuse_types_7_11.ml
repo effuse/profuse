@@ -38,7 +38,6 @@ module C_compatible(F: Cstubs.Types.TYPE) = struct
 
   module Out = struct
     module V_7_10 = Version_7_10.Out
-    module Hdr      = struct include V_7_10.Hdr      let () = seal t end
     module Write    = struct include V_7_10.Write    let () = seal t end
     module Open     = struct include V_7_10.Open     let () = seal t end
     module Init     = struct include V_7_10.Init     let () = seal t end
@@ -48,6 +47,15 @@ module C_compatible(F: Cstubs.Types.TYPE) = struct
     module Getxattr = struct include V_7_10.Getxattr let () = seal t end
     module Lk       = struct include V_7_10.Lk       let () = seal t end
     module Bmap     = struct include V_7_10.Bmap     let () = seal t end
+    module Hdr      = struct
+      module Notify_code =
+      struct
+        let t = int32_t
+        let fuse_notify_poll = constant "FUSE_NOTIFY_POLL" t
+      end
+      include V_7_10.Hdr
+      let () = seal t
+    end
     module Ioctl    = struct
       type t
       let t : t structure typ = structure "fuse_ioctl_out"
