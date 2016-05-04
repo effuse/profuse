@@ -6,4 +6,4 @@ env:
   - OCAML_VERSION=4.02
     TESTS=false
     EXTRA_REMOTES="https://github.com/ocamllabs/opam-repo-dev.git"
-    PINS="unix-unistd:https://github.com/dsheets/ocaml-unix-unistd.git#0.3.0-beta"
+    PINS="unix-unistd:https://github.com/dsheets/ocaml-unix-unistd.git#0.3.0-gamma"

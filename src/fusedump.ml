@@ -56,7 +56,7 @@ let parse_query host size query_table fd =
     })
   in
   let mem = Ctypes.allocate_n Ctypes.uint8_t ~count:size in
-  let size_read = Unix_unistd.read fd (Ctypes.to_voidp mem) size in
+  let size_read = Unistd_unix.read fd (Ctypes.to_voidp mem) size in
   Unix.close fd;
   (if size_read <> size then failwith "couldn't read packet");
   let hdr_ptr = Ctypes.(coerce (ptr uint8_t) (ptr Profuse.In.Hdr.T.t)) mem in
@@ -85,7 +85,7 @@ let parse_query host size query_table fd =
 
 let read_reply size fd =
   let mem = Ctypes.allocate_n Ctypes.uint8_t ~count:size in
-  let size_read = Unix_unistd.read fd (Ctypes.to_voidp mem) size in
+  let size_read = Unistd_unix.read fd (Ctypes.to_voidp mem) size in
   Unix.close fd;
   (if size_read <> size then failwith "couldn't read packet");
   let hdr_ptr = Ctypes.(coerce (ptr uint8_t) (ptr Profuse.Out.Hdr.T.t)) mem in
