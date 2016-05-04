@@ -1,7 +1,7 @@
 ## profuse
 
 **profuse** is an OCaml implementation of the FUSE protocol versions
- 7.8 and 7.23. This protocol version is common to UNIX/GNU Linux, FreeBSD,
+ 7.8 and 7.23. The 7.8 protocol version is common to UNIX/GNU Linux, FreeBSD,
  and OS X. Presently, the library only provides the Linux implementation.
 
 ### Install
