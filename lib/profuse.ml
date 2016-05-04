@@ -210,13 +210,13 @@ module In = struct
       | `FUSE_FORGET | `FUSE_DESTROY -> false
       | _ -> true
 
-    let opcode_of_uint32 : Unsigned.UInt32.t -> Types.In.Opcode.t =
+    let of_uint32 : Unsigned.UInt32.t -> Types.In.Opcode.t =
       let l = List.map (fun (k, v) -> (v, k)) Types.In.Opcode.enum_values in
       fun i ->
         try ListLabels.assoc i l
         with Not_found -> `Unknown (Unsigned.UInt32.to_int32 i)
 
-    and uint32_of_opcode v = ListLabels.assoc v Types.In.Opcode.enum_values
+    let to_uint32 v = ListLabels.assoc v Types.In.Opcode.enum_values
   end
 
   module Hdr = struct
@@ -227,7 +227,7 @@ module In = struct
 
     (* Create a headed packet with count buffer sequentially after header *)
     let packet ~opcode ~unique ~nodeid ~uid ~gid ~pid ~count =
-      let opcode = Opcode.uint32_of_opcode opcode in
+      let opcode = Opcode.to_uint32 opcode in
       let bodysz = count in
       let count = hdrsz + bodysz in
       let pkt = allocate_n char ~count in
@@ -527,7 +527,7 @@ module In = struct
     let unknown i = Unknown i
 
     let parse chan hdr len buf =
-      let opcode =  Opcode.opcode_of_uint32 Hdr.(getf hdr T.opcode) in
+      let opcode =  Opcode.of_uint32 Hdr.(getf hdr T.opcode) in
       {chan; hdr; pkt=Opcode.(match opcode with
          | `FUSE_INIT        -> Init       (!@ (from_voidp Init.T.t buf))
          | `FUSE_GETATTR     -> Getattr
@@ -616,7 +616,7 @@ module In = struct
       Printf.sprintf "%Ld (%Ld) %s.p%ld.u%ld.g%ld %s"
         (UInt64.to_int64 (getf req.hdr Hdr.unique))
         (UInt64.to_int64 (getf req.hdr Hdr.nodeid))
-        (Opcode.to_string (Opcode.opcode_of_uint32 (getf req.hdr Hdr.opcode)))
+        (Opcode.to_string (Opcode.of_uint32 (getf req.hdr Hdr.opcode)))
         (UInt32.to_int32 (getf req.hdr Hdr.pid))
         (UInt32.to_int32 (getf req.hdr Hdr.uid))
         (UInt32.to_int32 (getf req.hdr Hdr.gid))
@@ -1018,7 +1018,7 @@ module Out = struct
     let unknown opcode len buf = Unknown (opcode, len, buf)
 
     let parse ({ chan } as req) hdr len buf =
-      let opcode = In.Opcode.opcode_of_uint32 In.Hdr.(getf req.hdr T.opcode) in
+      let opcode = In.Opcode.of_uint32 In.Hdr.(getf req.hdr T.opcode) in
       {chan; hdr; pkt=In.Opcode.(match opcode with
          | `FUSE_INIT        -> Init       (!@ (from_voidp Init.T.t buf))
          | `FUSE_GETATTR     -> Getattr    (!@ (from_voidp Attr.T.t buf))

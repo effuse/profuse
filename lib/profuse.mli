@@ -604,6 +604,10 @@ module In : sig
     val to_string : t -> string
 
     val returns : t -> bool
+
+    val of_uint32 : Unsigned.uint32 -> t
+
+    val to_uint32 : t -> Unsigned.uint32
   end
 
   module Hdr : sig
