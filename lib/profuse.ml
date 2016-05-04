@@ -33,15 +33,15 @@ module Host = struct
     errno    : Errno.Host.t;
     sys_stat : Sys_stat.Host.t;
     dirent   : Dirent.Host.t;
-    unistd   : Unix_unistd.host;
+    unistd   : Unistd.host;
   }
 
   let linux_4_0_5 = {
     fcntl    = Fcntl_host.Linux.V4_1_12.Musl.v1_1_12;
-    errno    = Errno_host.Linux.v4_0_5;
+    errno    = Errno_host.Linux.v4_4_6;
     sys_stat = Sys_stat_host.Linux.V4_1_12.Musl.v1_1_12;
     dirent   = Dirent_unix.host; (* TODO: FIXME *)
-    unistd   = Unix_unistd.host; (* TODO: FIXME *)
+    unistd   = Unistd_unix.host; (* TODO: FIXME *)
   }
 end
 

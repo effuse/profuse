@@ -11,7 +11,7 @@ module Host : sig
     errno : Errno.Host.t;
     sys_stat : Sys_stat.Host.t;
     dirent : Dirent.Host.t;
-    unistd : Unix_unistd.host;
+    unistd : Unistd.host;
   }
 
   val linux_4_0_5 : t
