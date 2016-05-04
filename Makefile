@@ -16,7 +16,7 @@ WITH_CMDLINER=$(shell ocamlfind query cmdliner > /dev/null 2>&1 ; echo $$?)
 
 TARGETS=.cma .cmxa
 
-PRODUCTS=$(addprefix $(MOD_NAME),$(TARGETS)) \
+PRODUCTS=$(addprefix $(MOD_NAME)_,$(TARGETS)) \
 
 #         $(addprefix $(MOD_NAME)_linux,$(TARGETS))
 #	lib$(MOD_NAME)_stubs.a dll$(MOD_NAME)_stubs.so
@@ -35,7 +35,7 @@ INSTALL:=$(addprefix $(MOD_NAME), $(TYPES)) \
          $(addprefix fuse, $(TYPES)) \
          $(addprefix handles, $(TYPES)) \
          $(addprefix nodes, $(TYPES)) \
-         $(addprefix $(MOD_NAME), $(TARGETS))
+         $(addprefix $(MOD_NAME)_, $(TARGETS))
 
 INSTALL:=$(addprefix _build/lib/,$(INSTALL))
 
@@ -48,7 +48,7 @@ INSTALL_LWT:=$(addprefix _build/lwt/,$(INSTALL_LWT))
 INSTALL+=$(INSTALL_LWT)
 endif
 
-ARCHIVES:=_build/lib/$(MOD_NAME).a
+ARCHIVES:=_build/lib/$(MOD_NAME)_.a
 
 ifeq ($(WITH_LWT), 0)
 ARCHIVES+=_build/lwt/$(MOD_NAME)_lwt.a
