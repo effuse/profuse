@@ -122,6 +122,12 @@ module Types : sig
     end
 
     module Open : sig
+      module Flags :
+      sig
+        val fopen_direct_io : Unsigned.uint32
+        val fopen_keep_cache : Unsigned.uint32
+      end
+
       type t
       val t : t structure Ctypes.typ
 
