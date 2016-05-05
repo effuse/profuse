@@ -339,6 +339,22 @@ module Types : sig
       sig
         val async_read : Unsigned.uint32
         val posix_locks : Unsigned.uint32
+        val fuse_file_ops : Unsigned.uint32
+        val fuse_atomic_o_trunc : Unsigned.uint32
+        val fuse_big_writes : Unsigned.uint32
+        val fuse_export_support : Unsigned.uint32
+        val fuse_dont_mask : Unsigned.uint32
+        val fuse_flock_locks : Unsigned.uint32
+        val fuse_splice_write : Unsigned.uint32
+        val fuse_splice_move : Unsigned.uint32
+        val fuse_splice_read : Unsigned.uint32
+        val fuse_has_ioctl_dir : Unsigned.uint32
+        val fuse_auto_inval_data : Unsigned.uint32
+        val fuse_do_readdirplus : Unsigned.uint32
+        val fuse_readdirplus_auto : Unsigned.uint32
+        val fuse_async_dio : Unsigned.uint32
+        val fuse_writeback_cache : Unsigned.uint32
+        val fuse_no_open_support : Unsigned.uint32
       end
 
       type t
