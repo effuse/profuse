@@ -17,7 +17,7 @@
 
 open Ctypes
 open Unsigned
-module Types = Profuse_types_7_8.C(Profuse_types_detected_7_8)
+module Types = Profuse_types_7_23.C(Profuse_types_detected_7_23)
 
 type 'a structure = 'a Types.structure
 
@@ -157,53 +157,50 @@ module In = struct
     type t = T.t
 
     let to_string = function
-      | `FUSE_LOOKUP -> "FUSE_LOOKUP"
-      | `FUSE_FORGET -> "FUSE_FORGET"
-      | `FUSE_GETATTR -> "FUSE_GETATTR"
-      | `FUSE_SETATTR -> "FUSE_SETATTR"
-      | `FUSE_READLINK -> "FUSE_READLINK"
-      | `FUSE_SYMLINK -> "FUSE_SYMLINK"
-
-      | `FUSE_MKNOD -> "FUSE_MKNOD"
-      | `FUSE_MKDIR -> "FUSE_MKDIR"
-      | `FUSE_UNLINK -> "FUSE_UNLINK"
-      | `FUSE_RMDIR -> "FUSE_RMDIR"
-      | `FUSE_RENAME -> "FUSE_RENAME"
-      | `FUSE_LINK -> "FUSE_LINK"
-      | `FUSE_OPEN -> "FUSE_OPEN"
-      | `FUSE_READ -> "FUSE_READ"
-      | `FUSE_WRITE -> "FUSE_WRITE"
-      | `FUSE_STATFS -> "FUSE_STATFS"
-      | `FUSE_RELEASE -> "FUSE_RELEASE"
-
-      | `FUSE_FSYNC -> "FUSE_FSYNC"
-      | `FUSE_SETXATTR -> "FUSE_SETXATTR"
-      | `FUSE_GETXATTR -> "FUSE_GETXATTR"
-      | `FUSE_LISTXATTR -> "FUSE_LISTXATTR"
-      | `FUSE_REMOVEXATTR -> "FUSE_REMOVEXATTR"
+      | `CUSE_INIT -> "CUSE_INIT"
+      | `FUSE_ACCESS -> "FUSE_ACCESS"
+      | `FUSE_BATCH_FORGET -> "FUSE_BATCH_FORGET"
+      | `FUSE_BMAP -> "FUSE_BMAP"
+      | `FUSE_CREATE -> "FUSE_CREATE"
+      | `FUSE_DESTROY -> "FUSE_DESTROY"
+      | `FUSE_FALLOCATE -> "FUSE_FALLOCATE"
       | `FUSE_FLUSH -> "FUSE_FLUSH"
-      | `FUSE_INIT -> "FUSE_INIT"
-      | `FUSE_OPENDIR -> "FUSE_OPENDIR"
-      | `FUSE_READDIR -> "FUSE_READDIR"
-      | `FUSE_RELEASEDIR -> "FUSE_RELEASEDIR"
+      | `FUSE_FORGET -> "FUSE_FORGET"
+      | `FUSE_FSYNC -> "FUSE_FSYNC"
       | `FUSE_FSYNCDIR -> "FUSE_FSYNCDIR"
+      | `FUSE_GETATTR -> "FUSE_GETATTR"
       | `FUSE_GETLK -> "FUSE_GETLK"
+      | `FUSE_GETXATTR -> "FUSE_GETXATTR"
+      | `FUSE_INIT -> "FUSE_INIT"
+      | `FUSE_INTERRUPT -> "FUSE_INTERRUPT"
+      | `FUSE_IOCTL -> "FUSE_IOCTL"
+      | `FUSE_LINK -> "FUSE_LINK"
+      | `FUSE_LISTXATTR -> "FUSE_LISTXATTR"
+      | `FUSE_LOOKUP -> "FUSE_LOOKUP"
+      | `FUSE_MKDIR -> "FUSE_MKDIR"
+      | `FUSE_MKNOD -> "FUSE_MKNOD"
+      | `FUSE_NOTIFY_REPLY -> "FUSE_NOTIFY_REPLY"
+      | `FUSE_OPEN -> "FUSE_OPEN"
+      | `FUSE_OPENDIR -> "FUSE_OPENDIR"
+      | `FUSE_POLL -> "FUSE_POLL"
+      | `FUSE_READ -> "FUSE_READ"
+      | `FUSE_READDIR -> "FUSE_READDIR"
+      | `FUSE_READDIRPLUS -> "FUSE_READDIRPLUS"
+      | `FUSE_READLINK -> "FUSE_READLINK"
+      | `FUSE_RELEASE -> "FUSE_RELEASE"
+      | `FUSE_RELEASEDIR -> "FUSE_RELEASEDIR"
+      | `FUSE_REMOVEXATTR -> "FUSE_REMOVEXATTR"
+      | `FUSE_RENAME -> "FUSE_RENAME"
+      | `FUSE_RENAME2 -> "FUSE_RENAME2"
+      | `FUSE_RMDIR -> "FUSE_RMDIR"
+      | `FUSE_SETATTR -> "FUSE_SETATTR"
       | `FUSE_SETLK -> "FUSE_SETLK"
       | `FUSE_SETLKW -> "FUSE_SETLKW"
-      | `FUSE_ACCESS -> "FUSE_ACCESS"
-      | `FUSE_CREATE -> "FUSE_CREATE"
-      | `FUSE_INTERRUPT -> "FUSE_INTERRUPT"
-      | `FUSE_BMAP -> "FUSE_BMAP"
-      | `FUSE_DESTROY -> "FUSE_DESTROY"
-
-      (*| FUSE_IOCTL -> "FUSE_IOCTL"
-      | FUSE_POLL -> "FUSE_POLL"
-      | FUSE_NOTIFY_REPLY -> "FUSE_NOTIFY_REPLY"
-      | FUSE_BATCH_FORGET -> "FUSE_BATCH_FORGET"
-      | FUSE_FALLOCATE -> "FUSE_FALLOCATE"
-
-      | CUSE_INIT -> "CUSE_INIT"
-      *)
+      | `FUSE_SETXATTR -> "FUSE_SETXATTR"
+      | `FUSE_STATFS -> "FUSE_STATFS"
+      | `FUSE_SYMLINK -> "FUSE_SYMLINK"
+      | `FUSE_UNLINK -> "FUSE_UNLINK"
+      | `FUSE_WRITE -> "FUSE_WRITE"
       | `Unknown i -> "UnknownOpcode("^(Int32.to_string i)^")"
 
     let returns = function
@@ -588,12 +585,16 @@ module In = struct
          | `FUSE_INTERRUPT   -> Interrupt  (!@ (from_voidp Interrupt.T.t buf))
          | `FUSE_BMAP        -> Bmap       (!@ (from_voidp Bmap.T.t buf))
          | `FUSE_DESTROY     -> Destroy
-         (*| FUSE_IOCTL
-         | FUSE_POLL
-         | FUSE_NOTIFY_REPLY
-         | FUSE_BATCH_FORGET
-         | FUSE_FALLOCATE
-         | CUSE_INIT        -> Other opcode*)
+
+         | `CUSE_INIT         -> Other opcode
+         | `FUSE_NOTIFY_REPLY -> Other opcode
+         | `FUSE_BATCH_FORGET -> Other opcode
+         | `FUSE_RENAME2      -> Other opcode
+         | `FUSE_READDIRPLUS  -> Other opcode
+         | `FUSE_FALLOCATE    -> Other opcode
+         | `FUSE_IOCTL        -> Other opcode
+         | `FUSE_POLL         -> Other opcode
+
          | `Unknown i        -> unknown i
        )}
 
@@ -1063,12 +1064,16 @@ module Out = struct
          | `FUSE_INTERRUPT   -> Interrupt
          | `FUSE_BMAP        -> Bmap
          | `FUSE_DESTROY     -> Destroy
-         (*| FUSE_IOCTL
-         | FUSE_POLL
-         | FUSE_NOTIFY_REPLY
-         | FUSE_BATCH_FORGET
-         | FUSE_FALLOCATE
-         | CUSE_INIT        -> Other opcode*)
+
+         | `CUSE_INIT         -> Other opcode
+         | `FUSE_NOTIFY_REPLY -> Other opcode
+         | `FUSE_BATCH_FORGET -> Other opcode
+         | `FUSE_RENAME2      -> Other opcode
+         | `FUSE_READDIRPLUS  -> Other opcode
+         | `FUSE_FALLOCATE    -> Other opcode
+         | `FUSE_IOCTL        -> Other opcode
+         | `FUSE_POLL         -> Other opcode
+
          | `Unknown opcode   -> unknown opcode len buf
        )}
 
