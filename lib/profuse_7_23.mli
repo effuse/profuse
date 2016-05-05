@@ -106,6 +106,13 @@ module Types : sig
   module Out : sig
 
     module Hdr : sig
+      module Notify_code :
+      sig
+        val fuse_notify_poll : int32
+        val fuse_notify_inval_inode : int32
+        val fuse_notify_inval_entry : int32
+      end
+
       type t
       val t : t structure Ctypes.typ
 
