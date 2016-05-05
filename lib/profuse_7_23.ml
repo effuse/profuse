@@ -637,12 +637,15 @@ module In = struct
            Int64.to_string (UInt64.to_int64 (getf f Forget.T.nlookup))
          | Lookup name -> name
          | Mkdir (m,name) ->
-           Printf.sprintf "mode=%s %s"
-             (string_of_perms req (UInt32.to_int (getf m Mkdir.T.mode))) name
+           Printf.sprintf "mode=%s umask=0o%o %s"
+             (string_of_perms req (UInt32.to_int (getf m Mkdir.T.mode)))
+             (UInt32.to_int (getf m Mkdir.T.umask))
+             name
          | Mknod (m,name) ->
-           Printf.sprintf "mode=%s rdev=%ld %s"
+           Printf.sprintf "mode=%s rdev=%ld umask=0o%o %s"
              (string_of_mode req (UInt32.to_int (getf m Mknod.T.mode)))
              (Unsigned.UInt32.to_int32 (getf m Mknod.T.rdev))
+             (UInt32.to_int (getf m Mknod.T.umask))
              name
          | Create (c,name) ->
            let host = req.chan.host.Host.fcntl.Fcntl.Host.oflags in

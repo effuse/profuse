@@ -434,6 +434,7 @@ module Types : sig
 
       val mode : (Unsigned.uint32, t structure) Ctypes.field
       val rdev : (Unsigned.uint32, t structure) Ctypes.field
+      val umask : (Unsigned.uint32, t structure) Ctypes.field
     end
 
     module Mkdir : sig
@@ -441,6 +442,7 @@ module Types : sig
       val t : t structure Ctypes.typ
 
       val mode : (Unsigned.uint32, t structure) Ctypes.field
+      val umask : (Unsigned.uint32, t structure) Ctypes.field
     end
 
     module Rename : sig
