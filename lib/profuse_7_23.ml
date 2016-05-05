@@ -378,22 +378,27 @@ module In = struct
         mtime : bool;
         fh : bool;
         unknown : int32;
-        (*atime_now : bool;
+        atime_now : bool;
         mtime_now : bool;
-          lockowner : bool;*)
+        lockowner : bool;
+        ctime : bool;
       }
 
       let (&&&) = UInt32.logand
       let (|||) = UInt32.logor
 
       let to_string_list valid =
-        let list = if valid.mode  then ["mode"]      else []   in
-        let list = if valid.uid   then "uid"  ::list else list in
-        let list = if valid.gid   then "gid"  ::list else list in
-        let list = if valid.size  then "size" ::list else list in
-        let list = if valid.atime then "atime"::list else list in
-        let list = if valid.mtime then "mtime"::list else list in
-        let list = if valid.fh    then "fh"   ::list else list in
+        let list = if valid.mode       then ["mode"]      else []   in
+        let list = if valid.uid        then "uid"       ::list else list in
+        let list = if valid.gid        then "gid"       ::list else list in
+        let list = if valid.size       then "size"      ::list else list in
+        let list = if valid.atime      then "atime"     ::list else list in
+        let list = if valid.mtime      then "mtime"     ::list else list in
+        let list = if valid.fh         then "fh"        ::list else list in
+        let list = if valid.atime_now  then "atime_now" ::list else list in
+        let list = if valid.mtime_now  then "mtime_now" ::list else list in
+        let list = if valid.lockowner  then "lockowner" ::list else list in
+        let list = if valid.ctime      then "ctime"     ::list else list in
         if valid.unknown = Int32.zero
         then list
         else (Printf.sprintf "unknown[0x%lx]" valid.unknown)::list
@@ -406,6 +411,11 @@ module In = struct
                 ||| T.fattr_atime
                 ||| T.fattr_mtime
                 ||| T.fattr_fh
+                ||| T.fattr_atime_now
+                ||| T.fattr_mtime_now
+                ||| T.fattr_lockowner
+                ||| T.fattr_ctime
+
 
       let of_uint32 i = {
         mode = UInt32.(compare zero (i &&& T.fattr_mode) <> 0);
@@ -416,9 +426,10 @@ module In = struct
         mtime = UInt32.(compare zero (i &&& T.fattr_mtime) <> 0);
         fh = UInt32.(compare zero (i &&& T.fattr_fh) <> 0);
         unknown = UInt32.(to_int32 (i &&& (lognot all)));
-        (*atime_now = UInt32.(compare zero (i &&& T.fattr_atime_now) <> 0);
+        atime_now = UInt32.(compare zero (i &&& T.fattr_atime_now) <> 0);
         mtime_now = UInt32.(compare zero (i &&& T.fattr_mtime_now) <> 0);
-          lockowner = UInt32.(compare zero (i &&& T.fattr_lockowner) <> 0);*)
+        lockowner = UInt32.(compare zero (i &&& T.fattr_lockowner) <> 0);
+        ctime = UInt32.(compare zero (i &&& T.fattr_ctime) <> 0);
       }
 
       let to_uint32 {
@@ -429,9 +440,10 @@ module In = struct
         atime;
         mtime;
         fh;
-        (*atime_now;
+        atime_now;
         mtime_now;
-        lockowner;*)
+        lockowner;
+        ctime;
       } =
         let open UInt32 in
         (if mode then T.fattr_mode else zero) |||
@@ -440,16 +452,19 @@ module In = struct
         (if size then T.fattr_size else zero) |||
         (if atime then T.fattr_atime else zero) |||
         (if mtime then T.fattr_mtime else zero) |||
-        (if fh then T.fattr_fh else zero) (*|||
+        (if fh then T.fattr_fh else zero) |||
         (if atime_now then T.fattr_atime_now else zero) |||
         (if mtime_now then T.fattr_mtime_now else zero) |||
-        (if lockowner then T.fattr_lockowner else zero)*)
+        (if lockowner then T.fattr_lockowner else zero) |||
+        (if ctime then T.fattr_ctime else zero)
     end
 
     let create_from_hdr
         ~valid ~fh ~size
         ~atime ~mtime ~atimensec ~mtimensec
-        ~mode ~uid ~gid hdr =
+        ~mode ~uid ~gid ~lockowner
+        ~ctime ~ctimensec
+        hdr =
       let pkt = Hdr.make_from_hdr hdr T.t in
       setf pkt T.valid      valid;
       setf pkt T.fh         fh;
@@ -461,6 +476,9 @@ module In = struct
       setf pkt T.mode       mode;
       setf pkt T.uid        uid;
       setf pkt T.gid        gid;
+      setf pkt T.lock_owner lockowner;
+      setf pkt T.ctime      ctime;
+      setf pkt T.ctimensec  ctimensec;
       CArray.from_ptr (coerce (ptr T.t) (ptr char) (addr pkt)) (sizeof T.t)
   end
 

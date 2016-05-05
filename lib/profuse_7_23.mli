@@ -519,9 +519,10 @@ module Types : sig
         val fattr_atime : Unsigned.uint32
         val fattr_mtime : Unsigned.uint32
         val fattr_fh : Unsigned.uint32
-        (*val fattr_atime_now : Unsigned.uint32
+        val fattr_atime_now : Unsigned.uint32
         val fattr_mtime_now : Unsigned.uint32
-        val fattr_lockowner : Unsigned.uint32*)
+        val fattr_lockowner : Unsigned.uint32
+        val fattr_ctime : Unsigned.uint32
       end
 
       type t
@@ -539,6 +540,7 @@ module Types : sig
       val mode : (Unsigned.uint32, t structure) Ctypes.field
       val uid : (Unsigned.uint32, t structure) Ctypes.field
       val gid : (Unsigned.uint32, t structure) Ctypes.field
+      val lock_owner : (Unsigned.uint64, t structure) Ctypes.field
     end
 
     module Getxattr : sig
@@ -777,9 +779,10 @@ module In : sig
         mtime : bool;
         fh : bool;
         unknown : int32;
-        (*atime_now : bool;
+        atime_now : bool;
         mtime_now : bool;
-          lockowner : bool;*)
+        lockowner : bool;
+        ctime : bool;
       }
 
       val to_string_list : t -> string list
@@ -800,6 +803,9 @@ module In : sig
       mode:Unsigned.uint32 ->
       uid:Unsigned.uint32 ->
       gid:Unsigned.uint32 ->
+      lockowner:Unsigned.uint64 ->
+      ctime:Unsigned.uint64 ->
+      ctimensec:Unsigned.uint32 ->
       Hdr.T.t structure -> char Ctypes.CArray.t
   end
 
