@@ -325,6 +325,12 @@ module Types : sig
     end
 
     module Init : sig
+      module Flags :
+      sig
+        val async_read : Unsigned.uint32
+        val posix_locks : Unsigned.uint32
+      end
+
       type t
       val t : t structure Ctypes.typ
 
