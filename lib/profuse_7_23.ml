@@ -100,7 +100,7 @@ module Struct = struct
 
     let store ~ino ~size ~blocks
         ~atime ~mtime ~ctime ~atimensec ~mtimensec ~ctimensec
-        ~mode ~nlink ~uid ~gid ~rdev mem =
+        ~mode ~nlink ~uid ~gid ~rdev ~blksize mem =
       setf mem T.ino       ino;
       setf mem T.size      size;
       setf mem T.blocks    blocks;
@@ -115,14 +115,16 @@ module Struct = struct
       setf mem T.uid       uid;
       setf mem T.gid       gid;
       setf mem T.rdev      rdev;
+      setf mem T.blksize   blksize;
       ()
 
     let create ~ino ~size ~blocks
         ~atime ~mtime ~ctime ~atimensec ~mtimensec ~ctimensec
-        ~mode ~nlink ~uid ~gid ~rdev () =
+        ~mode ~nlink ~uid ~gid ~rdev ~blksize () =
       let attr = make T.t in
       store ~ino ~size ~blocks ~atime ~mtime ~ctime
-        ~atimensec ~mtimensec ~ctimensec ~mode ~nlink ~uid ~gid ~rdev attr;
+        ~atimensec ~mtimensec ~ctimensec ~mode ~nlink ~uid ~gid ~rdev ~blksize
+        attr;
       attr
 
     let describe ~host pkt =
@@ -132,7 +134,7 @@ module Struct = struct
       let mode = UInt32.to_int (getf pkt T.mode) in
       (* TODO: nsec times? *)
       Printf.sprintf
-        "ino=%Ld size=%Ld blocks=%Ld atime=%Ld mtime=%Ld ctime=%Ld mode=%s (0x%x) nlink=%ld uid=%ld gid=%ld rdev=%ld"
+        "ino=%Ld size=%Ld blocks=%Ld atime=%Ld mtime=%Ld ctime=%Ld mode=%s (0x%x) nlink=%ld uid=%ld gid=%ld rdev=%ld blksize=%ld"
         (i64 (getf pkt T.ino))
         (i64 (getf pkt T.size))
         (i64 (getf pkt T.blocks))
@@ -145,6 +147,7 @@ module Struct = struct
         (i32 (getf pkt T.uid))
         (i32 (getf pkt T.gid))
         (i32 (getf pkt T.rdev))
+        (i32 (getf pkt T.blksize))
   end
 end
 

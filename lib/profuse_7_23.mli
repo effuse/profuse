@@ -87,6 +87,7 @@ module Types : sig
       val uid : (Unsigned.uint32, t structure) Ctypes.field
       val gid : (Unsigned.uint32, t structure) Ctypes.field
       val rdev : (Unsigned.uint32, t structure) Ctypes.field
+      val blksize : (Unsigned.uint32, t structure) Ctypes.field
     end
 
     module Dirent : sig
@@ -607,6 +608,7 @@ module Struct : sig
       uid:Unsigned.uint32 ->
       gid:Unsigned.uint32 ->
       rdev:Unsigned.uint32 ->
+      blksize:Unsigned.uint32 ->
       T.t structure -> unit
 
     val create :
@@ -624,6 +626,7 @@ module Struct : sig
       uid:Unsigned.uint32 ->
       gid:Unsigned.uint32 ->
       rdev:Unsigned.uint32 ->
+      blksize:Unsigned.uint32 ->
       unit -> T.t structure
 
     val describe : host:Host.t -> T.t structure -> string
