@@ -133,6 +133,7 @@ module Types : sig
       sig
         val fopen_direct_io : Unsigned.uint32
         val fopen_keep_cache : Unsigned.uint32
+        val fopen_nonseekable : Unsigned.uint32
       end
 
       type t
