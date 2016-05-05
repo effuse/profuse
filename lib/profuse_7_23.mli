@@ -311,12 +311,14 @@ module Types : sig
       val fuse_interrupt : Unsigned.uint32
       val fuse_bmap : Unsigned.uint32
       val fuse_destroy : Unsigned.uint32
-      (*val fuse_ioctl : Unsigned.uint32
+      val fuse_ioctl : Unsigned.uint32
       val fuse_poll : Unsigned.uint32
+      val cuse_init : Unsigned.uint32
       val fuse_notify_reply : Unsigned.uint32
       val fuse_batch_forget : Unsigned.uint32
       val fuse_fallocate : Unsigned.uint32
-      val cuse_init : Unsigned.uint32*)
+      val fuse_readdirplus : Unsigned.uint32
+      val fuse_rename2 : Unsigned.uint32
     end
 
     module Hdr : sig
