@@ -59,11 +59,19 @@ module C(F: Cstubs.Types.TYPE) = struct
     module Notify_retrieve    = struct include V_7_17.Notify_retrieve    let () = seal t end
     module Hdr                = struct
       module Notify_code = struct
-        include V_7_17.Hdr.Notify_code
+        type t = [ `FUSE_NOTIFY_DELETE
+                 | V_7_17.Hdr.Notify_code.t ]
+        include (V_7_17.Hdr.Notify_code
+                 : module type of V_7_17.Hdr.Notify_code
+                 with type t := V_7_17.Hdr.Notify_code.t)
         let fuse_notify_delete = constant "FUSE_NOTIFY_DELETE" t
+         let enum_values : (t * _) list =
+          (`FUSE_NOTIFY_DELETE, fuse_notify_delete) ::
+          (V_7_17.Hdr.Notify_code.enum_values :> (t * _) list)
       end
       include (V_7_17.Hdr
-               : module type of V_7_17.Hdr with module Notify_code := Notify_code)
+               : module type of V_7_17.Hdr
+               with module Notify_code := V_7_17.Hdr.Notify_code)
                  
       let () = seal t
     end

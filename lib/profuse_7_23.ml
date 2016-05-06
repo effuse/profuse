@@ -765,6 +765,27 @@ module Out = struct
   module Hdr = struct
     module T = T.Hdr
 
+    module Notify_code =
+    struct
+      module T = T.Notify_code
+
+      type t = T.t
+
+      let to_string = function
+        | `FUSE_NOTIFY_DELETE -> "FUSE_NOTIFY_DELETE"
+        | `FUSE_NOTIFY_INVAL_ENTRY -> "FUSE_NOTIFY_INVAL_ENTRY"
+        | `FUSE_NOTIFY_INVAL_INODE -> "FUSE_NOTIFY_INVAL_INODE"
+        | `FUSE_NOTIFY_POLL -> "FUSE_NOTIFY_POLL"
+        | `FUSE_NOTIFY_RETRIEVE -> "FUSE_NOTIFY_RETRIEVE"
+        | `FUSE_NOTIFY_STORE -> "FUSE_NOTIFY_STORE"
+
+      let of_int32 =
+        let l = List.map (fun (k, v) -> (v, k)) T.enum_values in
+        fun i -> ListLabels.assoc i l
+            
+      let to_int32 v = ListLabels.assoc v T.enum_values
+    end
+
     let hdrsz = sizeof T.t
     let sz = hdrsz
 

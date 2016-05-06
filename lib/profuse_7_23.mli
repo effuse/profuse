@@ -109,9 +109,13 @@ module Types : sig
     module Hdr : sig
       module Notify_code :
       sig
-        val fuse_notify_poll : int32
-        val fuse_notify_inval_inode : int32
-        val fuse_notify_inval_entry : int32
+        type t =
+          [ `FUSE_NOTIFY_DELETE
+          | `FUSE_NOTIFY_INVAL_ENTRY
+          | `FUSE_NOTIFY_INVAL_INODE
+          | `FUSE_NOTIFY_POLL
+          | `FUSE_NOTIFY_RETRIEVE
+          | `FUSE_NOTIFY_STORE ]
       end
 
       type t
@@ -882,6 +886,16 @@ module Out : sig
 
   module Hdr : sig
     module T = T.Hdr
+
+    module Notify_code : sig
+      module T = T.Notify_code
+                   
+      type t = T.t
+
+      val of_int32 : int32 -> t
+      val to_int32 : t -> int32
+      val to_string : t -> string
+    end
 
     val sz : int
 
