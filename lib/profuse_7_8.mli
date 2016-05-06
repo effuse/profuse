@@ -124,8 +124,9 @@ module Types : sig
     module Open : sig
       module Flags :
       sig
-        val fopen_direct_io : Unsigned.uint32
-        val fopen_keep_cache : Unsigned.uint32
+        type t = 
+          [ `FOPEN_DIRECT_IO
+          | `FOPEN_KEEP_CACHE ]
       end
 
       type t
@@ -893,14 +894,24 @@ module Out : sig
   module Open : sig
     module T = T.Open
 
+    module Flags : sig
+      module T = T.Flags
+
+      type t = T.t
+
+      val of_uint32 : Unsigned.uint32 -> t
+      val to_uint32 : t -> Unsigned.uint32
+      val to_string : t -> string
+    end
+
     val store :
       fh:Unsigned.uint64 ->
-      open_flags:Unsigned.uint32 ->
+      open_flags:Flags.t ->
       T.t structure -> 'a -> unit
 
     val create :
       fh:Unsigned.uint64 ->
-      open_flags:Unsigned.uint32 ->
+      open_flags:Flags.t ->
       'a request -> char Ctypes.CArray.t
   end
 

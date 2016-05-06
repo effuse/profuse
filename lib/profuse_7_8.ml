@@ -874,9 +874,23 @@ module Out = struct
   module Open = struct
     module T = T.Open
 
+    module Flags = struct
+      module T = T.Flags
+      type t = T.t
+      let to_string = function
+        | `FOPEN_DIRECT_IO -> "FOPEN_DIRECT_IO"
+        | `FOPEN_KEEP_CACHE -> "FOPEN_KEEP_CACHE"
+
+      let to_uint32 v = ListLabels.assoc v Types.Out.Open.Flags.enum_values
+          
+      let of_uint32 : Unsigned.UInt32.t -> Types.Out.Open.Flags.t =
+        let l = List.map (fun (k, v) -> (v, k)) Types.Out.Open.Flags.enum_values in
+        fun i -> ListLabels.assoc i l
+    end
+
     let store ~fh ~open_flags mem req =
       setf mem T.fh         fh;
-      setf mem T.open_flags open_flags;
+      setf mem T.open_flags (Flags.to_uint32 open_flags);
       ()
 
     let create ~fh ~open_flags req =

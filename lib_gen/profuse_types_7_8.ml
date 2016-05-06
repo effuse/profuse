@@ -104,9 +104,14 @@ module C_compatible(F: Cstubs.Types.TYPE) = struct
     module Open = struct
       module Flags =
       struct
+        type t = [ `FOPEN_DIRECT_IO
+                 | `FOPEN_KEEP_CACHE ]
         let t = uint32_t
         let fopen_direct_io = constant "FOPEN_DIRECT_IO" t
         let fopen_keep_cache = constant "FOPEN_KEEP_CACHE" t
+        let enum_values : (t * _) list =
+          [ `FOPEN_DIRECT_IO, fopen_direct_io;
+            `FOPEN_KEEP_CACHE, fopen_keep_cache ]
       end
 
       type t
