@@ -17,6 +17,8 @@
 
 let version = "0.5.0"
 
+module Profuse = Profuse_7_23
+
 type packet =
   | Query of Profuse.In.Message.t Profuse.request
   | Reply of (int64 * Unsigned.UInt8.t Ctypes.ptr * int)
@@ -131,9 +133,9 @@ let parse_packet query_table filename =
              ("only FUSE major version 7 supported (not "^
               string_of_int major^")")
         );
-        (if minor <> 8
+        (if minor <> 23
          then failwith
-             ("only FUSE version 7.8 supported (not 7."^
+             ("only FUSE version 7.23 supported (not 7."^
               string_of_int minor^")")
         );
         let host = match Bytes.get header 5 with
