@@ -1,6 +1,7 @@
 open Lwt
 open Ctypes
 open Unsigned
+module Profuse = Profuse_7_23
 open Profuse
 
 module type IO_LWT = Fuse.IO with type 'a t = 'a Lwt.t
