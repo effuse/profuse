@@ -934,21 +934,20 @@ module Out = struct
         Printf.sprintf "{ direct_io = %b; keep_cache = %b; nonseekable = %b }"
           direct_io keep_cache nonseekable
 
-      let to_uint32 { direct_io; keep_cache; nonseekable } = Unsigned.UInt32.(
-        logor
-          (logor
-             (if direct_io  then T.fopen_direct_io else zero)
-             (if keep_cache then T.fopen_keep_cache else zero)
-          )
-          (if nonseekable then T.fopen_nonseekable else zero)
-      )
-          
+      let to_uint32 { direct_io; keep_cache; nonseekable } =
+        let open Unsigned.UInt32 in
+        let open Infix in
+        (if direct_io  then T.fopen_direct_io else zero) lor
+        (if keep_cache then T.fopen_keep_cache else zero) lor
+        (if nonseekable then T.fopen_nonseekable else zero)
+
       let of_uint32 i =
         let open Unsigned in
-        let (&&&) = UInt32.logand in {
-          direct_io   = UInt32.(compare zero (i &&& T.fopen_direct_io)) = 0;
-          keep_cache  = UInt32.(compare zero (i &&& T.fopen_keep_cache)) = 0;
-          nonseekable = UInt32.(compare zero (i &&& T.fopen_nonseekable)) = 0;
+        let open UInt32.Infix in
+        {
+          direct_io   = UInt32.(compare zero (i land T.fopen_direct_io)) = 0;
+          keep_cache  = UInt32.(compare zero (i land T.fopen_keep_cache)) = 0;
+          nonseekable = UInt32.(compare zero (i land T.fopen_nonseekable)) = 0;
         }
     end
 

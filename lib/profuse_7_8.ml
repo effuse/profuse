@@ -894,9 +894,10 @@ module Out = struct
           
       let of_uint32 i =
         let open Unsigned in
-        let (&&&) = UInt32.logand in {
-          direct_io  = UInt32.(compare zero (i &&& T.fopen_direct_io)) = 0;
-          keep_cache = UInt32.(compare zero (i &&& T.fopen_keep_cache)) = 0;
+        let open UInt32.Infix in
+        {
+          direct_io  = UInt32.(compare zero (i land T.fopen_direct_io)) = 0;
+          keep_cache = UInt32.(compare zero (i land T.fopen_keep_cache)) = 0;
         }
     end
 
