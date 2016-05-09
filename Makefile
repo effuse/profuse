@@ -33,7 +33,8 @@ TYPES=.mli .cmi .cmti
 
 VERSIONS=_7_8 _7_23
 
-INSTALL:=$(addprefix $(MOD_NAME), $(TYPES)) \
+INSTALL:=$(addprefix profuse_7_8, $(TYPES)) \
+         $(addprefix profuse_7_23, $(TYPES)) \
          $(foreach versioned,$(addprefix $(MOD_NAME), $(VERSIONS)),\
              $(addprefix $(versioned), $(TYPES)))\
          $(addprefix fuse, $(TYPES)) \
