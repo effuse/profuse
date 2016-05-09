@@ -122,11 +122,9 @@ module Types : sig
     end
 
     module Open : sig
-      module Flags :
-      sig
-        type t = 
-          [ `FOPEN_DIRECT_IO
-          | `FOPEN_KEEP_CACHE ]
+      module Flags : sig
+        val fopen_direct_io   : Unsigned.uint32
+        val fopen_keep_cache  : Unsigned.uint32
       end
 
       type t
@@ -897,7 +895,12 @@ module Out : sig
     module Flags : sig
       module T = T.Flags
 
-      type t = T.t
+      type t = {
+        direct_io  : bool;
+        keep_cache : bool;
+      }
+
+      val zero : t
 
       val of_uint32 : Unsigned.uint32 -> t
       val to_uint32 : t -> Unsigned.uint32
