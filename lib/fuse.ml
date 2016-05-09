@@ -15,6 +15,8 @@
  *
  *)
 
+module Profuse = Profuse_7_23
+
 module Nodes = Nodes
 
 module In = Profuse.In
