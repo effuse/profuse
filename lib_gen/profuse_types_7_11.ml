@@ -50,8 +50,11 @@ module C_compatible(F: Cstubs.Types.TYPE) = struct
     module Hdr      = struct
       module Notify_code =
       struct
+        type t = [`FUSE_NOTIFY_POLL]
         let t = int32_t
         let fuse_notify_poll = constant "FUSE_NOTIFY_POLL" t
+        let enum_values : (t * _) list =
+          [`FUSE_NOTIFY_POLL, fuse_notify_poll]
       end
       include V_7_10.Hdr
       let () = seal t

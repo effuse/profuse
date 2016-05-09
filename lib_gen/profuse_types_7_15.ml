@@ -55,12 +55,22 @@ module C(F: Cstubs.Types.TYPE) = struct
     module Notify_inval_entry = struct include V_7_14.Notify_inval_entry let () = seal t end
     module Hdr                = struct
       module Notify_code = struct
-        include V_7_14.Hdr.Notify_code
+        type t = [ `FUSE_NOTIFY_STORE
+                 | `FUSE_NOTIFY_RETRIEVE
+                 | V_7_14.Hdr.Notify_code.t ]
+        include (V_7_14.Hdr.Notify_code
+                 : module type of V_7_14.Hdr.Notify_code
+                 with type t := V_7_14.Hdr.Notify_code.t)
         let fuse_notify_store = constant "FUSE_NOTIFY_STORE" t
         let fuse_notify_retrieve = constant "FUSE_NOTIFY_RETRIEVE" t
+        let enum_values : (t * _) list =
+          (`FUSE_NOTIFY_STORE, fuse_notify_store) ::
+          (`FUSE_NOTIFY_RETRIEVE, fuse_notify_retrieve) ::
+          (V_7_14.Hdr.Notify_code.enum_values :> (t * _) list)
       end
       include (V_7_14.Hdr
-                 : module type of V_7_14.Hdr with module Notify_code := Notify_code)
+               : module type of V_7_14.Hdr
+               with module Notify_code := V_7_14.Hdr.Notify_code)
       let () = seal t
     end
     module Notify_store       = struct

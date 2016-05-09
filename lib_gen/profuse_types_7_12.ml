@@ -51,12 +51,21 @@ module C(F: Cstubs.Types.TYPE) = struct
     module Notify_poll_wakeup = struct include V_7_11.Notify_poll_wakeup let () = seal t end
     module Hdr                = struct
       module Notify_code = struct
-        include V_7_11.Hdr.Notify_code
+        type t = [ `FUSE_NOTIFY_INVAL_INODE
+                 | `FUSE_NOTIFY_INVAL_ENTRY
+                 | V_7_11.Hdr.Notify_code.t ]
+        include (V_7_11.Hdr.Notify_code
+                 : module type of V_7_11.Hdr.Notify_code 
+                 with type t := V_7_11.Hdr.Notify_code.t)
         let fuse_notify_inval_inode = constant "FUSE_NOTIFY_INVAL_INODE" t
         let fuse_notify_inval_entry = constant "FUSE_NOTIFY_INVAL_ENTRY" t
+        let enum_values : (t * _) list =
+          (`FUSE_NOTIFY_INVAL_INODE, fuse_notify_inval_inode) ::
+          (`FUSE_NOTIFY_INVAL_ENTRY, fuse_notify_inval_entry) ::
+          (V_7_11.Hdr.Notify_code.enum_values :> (t * _) list)
       end
       include (V_7_11.Hdr
-                 : module type of V_7_11.Hdr with module Notify_code := Notify_code)
+                 : module type of V_7_11.Hdr with module Notify_code := V_7_11.Hdr.Notify_code)
       let () = seal t
     end
     module Cuse_init          = struct
