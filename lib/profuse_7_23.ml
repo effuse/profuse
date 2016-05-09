@@ -922,18 +922,32 @@ module Out = struct
 
     module Flags = struct
       module T = T.Flags
-      type t = T.t
+      type t = {
+        direct_io   : bool;
+        keep_cache  : bool;
+        nonseekable : bool;
+      }
 
-      let to_string = function
-        | `FOPEN_DIRECT_IO -> "FOPEN_DIRECT_IO"
-        | `FOPEN_KEEP_CACHE -> "FOPEN_KEEP_CACHE"
-        | `FOPEN_NONSEEKABLE -> "FOPEN_NONSEEKABLE"
+      let to_string { direct_io; keep_cache; nonseekable } =
+        Printf.sprintf "{ direct_io = %b; keep_cache = %b; nonseekable = %b }"
+          direct_io keep_cache nonseekable
 
-      let to_uint32 v = ListLabels.assoc v Types.Out.Open.Flags.enum_values
+      let to_uint32 { direct_io; keep_cache; nonseekable } = Unsigned.UInt32.(
+        logor
+          (logor
+             (if direct_io  then T.fopen_direct_io else zero)
+             (if keep_cache then T.fopen_keep_cache else zero)
+          )
+          (if nonseekable then T.fopen_nonseekable else zero)
+      )
           
-      let of_uint32 : Unsigned.UInt32.t -> Types.Out.Open.Flags.t =
-        let l = List.map (fun (k, v) -> (v, k)) Types.Out.Open.Flags.enum_values in
-        fun i -> ListLabels.assoc i l
+      let of_uint32 i =
+        let open Unsigned in
+        let (&&&) = UInt32.logand in {
+          direct_io   = UInt32.(compare zero (i &&& T.fopen_direct_io)) = 0;
+          keep_cache  = UInt32.(compare zero (i &&& T.fopen_keep_cache)) = 0;
+          nonseekable = UInt32.(compare zero (i &&& T.fopen_nonseekable)) = 0;
+        }
     end
 
     let store ~fh ~open_flags mem req =

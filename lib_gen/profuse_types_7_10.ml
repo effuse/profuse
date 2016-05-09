@@ -29,15 +29,9 @@ module C_compatible(F: Cstubs.Types.TYPE) = struct
     struct
       module Flags =
       struct
-        type t = [ `FOPEN_NONSEEKABLE
-                 | Version_7_9.Out.Open.Flags.t ]
         include (Version_7_9.Out.Open.Flags
-                 : module type of Version_7_9.Out.Open.Flags
-                 with type t := Version_7_9.Out.Open.Flags.t)
+                 : module type of Version_7_9.Out.Open.Flags)
         let fopen_nonseekable = constant "FOPEN_NONSEEKABLE" t
-        let enum_values : (t * _) list =
-          (`FOPEN_NONSEEKABLE, fopen_nonseekable) ::
-          (Version_7_9.Out.Open.Flags.enum_values :> (t * _) list)
       end
       include (Version_7_9.Out.Open
                : module type of Version_7_9.Out.Open
