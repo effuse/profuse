@@ -881,6 +881,8 @@ module Out = struct
         keep_cache : bool;
       }
 
+      let zero = { direct_io = false; keep_cache = false }
+
       let to_string { direct_io; keep_cache } =
         Printf.sprintf "{ direct_io = %b; keep_cache = %b }"
           direct_io keep_cache

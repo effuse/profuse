@@ -928,6 +928,8 @@ module Out = struct
         nonseekable : bool;
       }
 
+      let zero = { direct_io = false; keep_cache = false; nonseekable = false }
+
       let to_string { direct_io; keep_cache; nonseekable } =
         Printf.sprintf "{ direct_io = %b; keep_cache = %b; nonseekable = %b }"
           direct_io keep_cache nonseekable

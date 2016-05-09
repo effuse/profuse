@@ -900,6 +900,8 @@ module Out : sig
         keep_cache : bool;
       }
 
+      val zero : t
+
       val of_uint32 : Unsigned.uint32 -> t
       val to_uint32 : t -> Unsigned.uint32
       val to_string : t -> string
