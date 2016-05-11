@@ -56,7 +56,10 @@ let parse_query host size query_table fd =
     })
   in
   let mem = Ctypes.allocate_n Ctypes.uint8_t ~count:size in
-  let size_read = Unistd_unix.read fd (Ctypes.to_voidp mem) size in
+  let size_read =
+    try Unistd_unix.read fd (Ctypes.to_voidp mem) size
+    with exn -> Unix.close fd; raise exn
+  in
   Unix.close fd;
   (if size_read <> size then failwith "couldn't read packet");
   let hdr_ptr = Ctypes.(coerce (ptr uint8_t) (ptr Profuse.In.Hdr.T.t)) mem in
@@ -85,7 +88,10 @@ let parse_query host size query_table fd =
 
 let read_reply size fd =
   let mem = Ctypes.allocate_n Ctypes.uint8_t ~count:size in
-  let size_read = Unistd_unix.read fd (Ctypes.to_voidp mem) size in
+  let size_read =
+    try Unistd_unix.read fd (Ctypes.to_voidp mem) size
+    with exn -> Unix.close fd; raise exn
+  in
   Unix.close fd;
   (if size_read <> size then failwith "couldn't read packet");
   let hdr_ptr = Ctypes.(coerce (ptr uint8_t) (ptr Profuse.Out.Hdr.T.t)) mem in
@@ -109,33 +115,43 @@ let read_reply size fd =
   (unique, mem, size)
 
 let parse_packet query_table filename =
-  let fd = Unix.(openfile filename [O_RDONLY] 0) in
   let header_len = 4 + 1 + 1 + 2 + 8 in
   let header = Bytes.create header_len in
-  let header_read = Unix.read fd header 0 header_len in
-  (if header_read <> header_len then failwith "couldn't read header");
-  (if Bytes.sub header 0 4 <> Bytes.of_string "FUSE"
-   then failwith "not a FUSE packet");
-  let major = int_of_char (Bytes.get header 6) in
-  let minor = int_of_char (Bytes.get header 7) in
-  (if major <> 7
-   then failwith
-       ("only FUSE major version 7 supported (not "^string_of_int major^")")
-  );
-  (if minor <> 8
-   then failwith
-       ("only FUSE version 7.8 supported (not 7."^string_of_int minor^")")
-  );
-  let host = match Bytes.get header 5 with
-    | 'L' -> Profuse.Host.linux_4_0_5
-    | c -> failwith ("unknown host type '"^(String.make 1 c)^"'")
+  let fd = Unix.(openfile filename [O_RDONLY] 0) in
+  let (host, time, size) =
+    begin try
+        let header_read = Unix.read fd header 0 header_len in
+        (if header_read <> header_len then failwith "couldn't read header");
+        (if Bytes.sub header 0 4 <> Bytes.of_string "FUSE"
+         then failwith "not a FUSE packet");
+        let major = int_of_char (Bytes.get header 6) in
+        let minor = int_of_char (Bytes.get header 7) in
+        (if major <> 7
+         then failwith
+             ("only FUSE major version 7 supported (not "^
+              string_of_int major^")")
+        );
+        (if minor <> 8
+         then failwith
+             ("only FUSE version 7.8 supported (not 7."^
+              string_of_int minor^")")
+        );
+        let host = match Bytes.get header 5 with
+          | 'L' -> Profuse.Host.linux_4_0_5
+          | c -> failwith ("unknown host type '"^(String.make 1 c)^"'")
+        in
+        let time = int64_of_le_bytes (Bytes.sub header 8 8) in
+        let size = Unix.((fstat fd).st_size) - header_len in
+        (host, time, size)
+      with exn ->
+        Unix.close fd;
+        raise exn
+    end
   in
-  let time = int64_of_le_bytes (Bytes.sub header 8 8) in
-  let size = Unix.((stat filename).st_size) - header_len in
   (time, match Bytes.get header 4 with
-    | 'Q' -> Query (parse_query host size query_table fd)
-    | 'R' -> Reply (read_reply size fd)
-    | _ -> failwith "unknown FUSE packet type"
+   | 'Q' -> Query (parse_query host size query_table fd)
+   | 'R' -> Reply (read_reply size fd)
+   | _ -> failwith "unknown FUSE packet type"
   )
 
 let pretty_string_of_query q = Profuse.In.Message.describe q
