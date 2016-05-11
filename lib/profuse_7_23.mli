@@ -926,7 +926,21 @@ module Out : sig
         Unsigned.UInt64.t -> string -> 'a request -> char Ctypes.CArray.t
     end
 
+    type t =
+      | Delete (* TODO: do *)
+      | Inval_entry of string * Inval_entry.T.t structure
+      | Inval_inode (* TODO: do *)
+      | Poll (* TODO: do *)
+      | Retrieve (* TODO: do *)
+      | Store (* TODO: do *)
+
     val packet : code:int32 -> count:int -> char Ctypes.CArray.t
+
+    val parse :
+      chan -> Hdr.T.t Ctypes.structure -> int -> unit Ctypes.ptr
+      -> (Hdr.T.t, t) packet
+
+    val describe : ('a, t) packet -> string
   end
 
   module Dirent : sig
