@@ -842,7 +842,48 @@ module Out = struct
         (* TODO: better copy *)
         String.iter (fun c -> !sp <-@ c; sp := !sp +@ 1) filename;
         pkt
+
+      let name p =
+        (* TODO: check namelen valid? *)
+        coerce (ptr char) string ((from_voidp char p) +@ struct_size)
+
+      let describe pkt =
+        Printf.sprintf "under %Ld" (UInt64.to_int64 (getf pkt T.parent))
     end
+
+    type t =
+      | Delete (* TODO: do *)
+      | Inval_entry of string * Inval_entry.T.t structure
+      | Inval_inode (* TODO: do *)
+      | Poll (* TODO: do *)
+      | Retrieve (* TODO: do *)
+      | Store (* TODO: do *)
+
+    let parse chan hdr len p =
+      let unique = UInt64.to_int64 (getf hdr Hdr.T.unique) in
+      assert (unique = 0_L); (* TODO: really?? *)
+      let code = Hdr.Notify_code.of_int32 (getf hdr Hdr.T.error) in
+      { chan; hdr; pkt=(match code with
+          | `FUSE_NOTIFY_DELETE -> Delete
+          | `FUSE_NOTIFY_INVAL_INODE -> Inval_inode
+          | `FUSE_NOTIFY_POLL -> Poll
+          | `FUSE_NOTIFY_RETRIEVE -> Retrieve
+          | `FUSE_NOTIFY_STORE -> Store
+          | `FUSE_NOTIFY_INVAL_ENTRY ->
+            let name = Inval_entry.name p in
+            let s = !@ (from_voidp Inval_entry.T.t p) in
+            Inval_entry (name, s)
+        )}
+
+    let describe ({ chan; pkt }) =
+      match pkt with
+      | Delete -> "DELETE FIXME" (* TODO: more *)
+      | Inval_entry (name, i) ->
+        Printf.sprintf "INVAL_ENTRY %s %s" name (Inval_entry.describe i)
+      | Inval_inode -> "INVAL_INODE FIXME" (* TODO: more *)
+      | Poll -> "POLL FIXME" (* TODO: more *)
+      | Retrieve -> "RETRIEVE FIXME" (* TODO: more *)
+      | Store -> "STORE FIXME" (* TODO: more *)
   end
 
   module Dirent = struct
