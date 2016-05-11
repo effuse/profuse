@@ -813,6 +813,38 @@ module Out = struct
       CArray.from_ptr (CArray.start pkt) sz
   end
 
+  module Notify = struct
+    let packet ~code ~count =
+      let bodysz = count in
+      let count = Hdr.sz + bodysz in
+      let pkt = allocate_n char ~count in
+      let hdr = !@ (coerce (ptr char) (ptr Hdr.T.t) pkt) in
+      setf hdr Hdr.T.len    (UInt32.of_int count);
+      setf hdr Hdr.T.error  code;
+      setf hdr Hdr.T.unique UInt64.zero;
+      CArray.from_ptr (pkt +@ Hdr.sz) bodysz
+
+    module Inval_entry = struct
+      module T = T.Notify_inval_entry
+
+      let hdrsz = sizeof T.t
+      let struct_size = hdrsz
+      let size name = hdrsz + (String.length name) + 1
+
+      let create parent filename _req =
+        let code = Hdr.T.Notify_code.fuse_notify_inval_entry in
+        let pkt = packet ~code ~count:(size filename) in
+        let p = CArray.start pkt in
+        let s = !@ (coerce (ptr char) (ptr T.t) p) in
+        setf s T.parent  parent;
+        setf s T.namelen (UInt32.of_int (String.length filename));
+        let sp = ref (p +@ hdrsz) in
+        (* TODO: better copy *)
+        String.iter (fun c -> !sp <-@ c; sp := !sp +@ 1) filename;
+        pkt
+    end
+  end
+
   module Dirent = struct
     module T = Struct.T.Dirent
 

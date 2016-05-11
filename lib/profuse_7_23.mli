@@ -126,6 +126,14 @@ module Types : sig
       val unique : (Unsigned.uint64, t structure) Ctypes.field
     end
 
+    module Notify_inval_entry : sig
+      type t
+      val t : t structure Ctypes.typ
+
+      val parent  : (Unsigned.UInt64.t, t structure) Ctypes.field
+      val namelen : (Unsigned.UInt32.t, t structure) Ctypes.field
+    end
+
     module Write : sig
       type t
       val t : t structure Ctypes.typ
@@ -905,6 +913,20 @@ module Out : sig
     val make : 'a request -> 'b Ctypes.typ -> 'b
 
     val set_size : char Ctypes.CArray.t -> int -> char Ctypes.CArray.t
+  end
+
+  module Notify : sig
+    module Inval_entry : sig
+      module T = T.Notify_inval_entry
+
+      val struct_size : int
+      val size : string -> int
+
+      val create :
+        Unsigned.UInt64.t -> string -> 'a request -> char Ctypes.CArray.t
+    end
+
+    val packet : code:int32 -> count:int -> char Ctypes.CArray.t
   end
 
   module Dirent : sig
