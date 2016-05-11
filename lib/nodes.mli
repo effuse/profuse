@@ -33,6 +33,7 @@ module type NODE = sig
 
   val to_string : t -> string
   val child : t node -> string -> t
+  val rename : t node -> t node -> string -> t node
 end
 
 module Path : NODE with type t = string list
@@ -46,5 +47,6 @@ module Make(N : NODE) : sig
   val to_string    : t -> string
 
   val lookup : N.t node -> string -> N.t node
+  val rename : N.t node -> string -> N.t node -> string -> unit
   val forget : N.t node -> int -> unit
 end
