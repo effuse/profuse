@@ -39,6 +39,7 @@ module type NODE = sig
 
   val to_string : t -> string
   val child : t node -> string -> t
+  val rename : t node -> t node -> string -> t node
 end
 
 module Path : NODE with type t = string list = struct
@@ -48,6 +49,9 @@ module Path : NODE with type t = string list = struct
     | [] | [""] -> Filename.dir_sep
     | path -> String.concat Filename.dir_sep (List.rev path)
   let child node name = name::node.data
+  let rename parent node name = {
+    node with name; data = child parent name;
+  }
 end
 
 module Make(N : NODE) = struct
@@ -126,6 +130,27 @@ module Make(N : NODE) = struct
       Hashtbl.replace parent.children name id;
       Hashtbl.replace table id node;
       node
+
+  let rename srcpn src destpn dest =
+    let { space } = srcpn in
+    let { table } = space in
+    let id =
+      try Hashtbl.find srcpn.children src
+      with Not_found ->
+        failwith
+          (Printf.sprintf "rename: source child %s / %s missing"
+             (string_of_id space srcpn.id) src)
+    in
+    let srcn =
+      try Hashtbl.find table id
+      with Not_found ->
+        failwith
+          (Printf.sprintf "rename: source node %s / %s (%Ld) missing"
+             (string_of_id space srcpn.id) src id)
+    in
+    Hashtbl.remove srcpn.children src;
+    Hashtbl.replace table id (N.rename destpn srcn dest);
+    Hashtbl.replace destpn.children dest id
 
   let forget node n =
     let { space } = node in
