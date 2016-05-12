@@ -267,6 +267,7 @@ module Dispatch(F : FS_LWT) : FS_LWT with type t = F.t = struct
         | Getattr -> getattr req t
         | Opendir op -> opendir op req t
         | Forget f -> forget (Ctypes.getf f In.Forget.T.nlookup) req t
+        | Batch_forget b -> batch_forget b req t
         | Lookup name -> lookup name req t
         | Readdir r -> readdir r req t
         | Readlink -> readlink req t

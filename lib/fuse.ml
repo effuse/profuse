@@ -22,6 +22,7 @@ module Handles = Handles
 module Nodes = Nodes
 
 module In = Profuse.In
+module Struct = Profuse.Struct
 
 type 'a structure = 'a Ctypes_static.structure
 type request = In.Message.t Profuse.request
@@ -56,6 +57,7 @@ module type RO_SIMPLE = sig
   val getattr    : t req_handler
   val opendir    : In.Open.T.t structure -> t req_handler
   val forget     : Unsigned.UInt64.t -> t req_handler
+  val batch_forget : Struct.Forget_one.T.t structure list -> t req_handler
   val lookup     : string -> t req_handler
   val readdir    : In.Read.T.t structure -> t req_handler
   val readlink   : t req_handler
@@ -158,9 +160,12 @@ module Zero(State : STATE)(IO : IO)
     let log_error _msg = () in
     IO.(Out.write_error log_error req Errno.ENOSYS >>= fun () -> return st)
 
+  let drop _req st = IO.return st
+
   let getattr      = enosys
   let opendir _    = enosys
   let forget _     = enosys
+  let batch_forget _ = drop
   let lookup _     = enosys
   let readdir _    = enosys
   let readlink     = enosys
