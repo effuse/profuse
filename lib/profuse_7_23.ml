@@ -149,6 +149,10 @@ module Struct = struct
         (i32 (getf pkt T.rdev))
         (i32 (getf pkt T.blksize))
   end
+
+  module Forget_one = struct
+    module T = T.Forget_one
+  end
 end
 
 module In = struct
@@ -501,6 +505,10 @@ module In = struct
       CArray.from_ptr (coerce (ptr T.t) (ptr char) (addr pkt)) (sizeof T.t)
   end
 
+  module Batch_forget = struct
+    module T = T.Batch_forget
+  end
+
   module Message = struct
     type t =
       | Init of Init.T.t structure
@@ -538,6 +546,7 @@ module In = struct
       | Setlkw of Lk.T.t structure
       | Interrupt of Interrupt.T.t structure
       | Bmap of Bmap.T.t structure
+      | Batch_forget of Struct.Forget_one.T.t structure list
       | Destroy
       | Other of Opcode.t
       | Unknown of int32
@@ -605,11 +614,22 @@ module In = struct
          | `FUSE_SETLKW      -> Setlkw     (!@ (from_voidp Lk.T.t buf))
          | `FUSE_INTERRUPT   -> Interrupt  (!@ (from_voidp Interrupt.T.t buf))
          | `FUSE_BMAP        -> Bmap       (!@ (from_voidp Bmap.T.t buf))
+         | `FUSE_BATCH_FORGET ->
+           let batch_forget = !@ (from_voidp Batch_forget.T.t buf) in
+           let forgets =
+             match UInt32.to_int (getf batch_forget Batch_forget.T.count) with
+             | 0 -> []
+             | k ->
+               let head = coerce (ptr void) (ptr Batch_forget.T.t) buf in
+               let p = to_voidp (head +@ 1) in
+               let first = coerce (ptr void) (ptr Struct.Forget_one.T.t) p in
+               CArray.(to_list (from_ptr first k))
+           in
+           Batch_forget forgets
          | `FUSE_DESTROY     -> Destroy
 
          | `CUSE_INIT         -> Other opcode
          | `FUSE_NOTIFY_REPLY -> Other opcode
-         | `FUSE_BATCH_FORGET -> Other opcode
          | `FUSE_RENAME2      -> Other opcode
          | `FUSE_READDIRPLUS  -> Other opcode
          | `FUSE_FALLOCATE    -> Other opcode
@@ -752,6 +772,15 @@ module In = struct
          | Fsync _
          | Statfs
          | Bmap _ -> "FIX ME"
+         | Batch_forget b ->
+           let forgets = String.concat ", " (List.map (fun forget ->
+             let id = getf forget Struct.Forget_one.T.nodeid in
+             let n  = getf forget Struct.Forget_one.T.nlookup in
+             Printf.sprintf "%Ld: %Ld"
+               (UInt64.to_int64 id)
+               (UInt64.to_int64 n)
+           ) b) in
+           Printf.sprintf "[%s]" forgets
          | Other opcode -> "OTHER "^(Opcode.to_string opcode)
          | Unknown i -> "UNKNOWN "^(Int32.to_string i)
         )
