@@ -102,6 +102,15 @@ module Types : sig
       val name :
         (char Ctypes_static.carray, t structure) Ctypes.field
     end
+
+    module Forget_one : sig
+      type t
+      val t : t structure Ctypes.typ
+
+      val nodeid  : (Unsigned.uint64, t structure) Ctypes.field
+      val nlookup : (Unsigned.uint64, t structure) Ctypes.field
+    end
+
   end
 
   module Out : sig
@@ -647,6 +656,10 @@ module Struct : sig
     val describe : host:Host.t -> T.t structure -> string
 
   end
+
+  module Forget_one : sig
+    module T = T.Forget_one
+  end
 end
 
 module In : sig
@@ -874,6 +887,7 @@ module In : sig
       | Setlkw of Lk.T.t Ctypes.structure
       | Interrupt of Interrupt.T.t Ctypes.structure
       | Bmap of Bmap.T.t Ctypes.structure
+      | Batch_forget of Struct.Forget_one.T.t structure list
       | Destroy
       | Other of Opcode.t
       | Unknown of int32
