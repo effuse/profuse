@@ -7,7 +7,6 @@ PKG unix-dirent
 PKG unix-fcntl
 PKG unix-unistd
 PKG unix-sys-stat
-PKG fd-send-recv
 
 S lib
 S lib_gen
