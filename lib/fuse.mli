@@ -39,6 +39,8 @@ module type RO_SIMPLE = sig
   val getattr : t req_handler
   val opendir : Profuse.In.Open.T.t structure -> t req_handler
   val forget : Unsigned.UInt64.t -> t req_handler
+  val batch_forget :
+    Profuse.Struct.Forget_one.T.t structure list -> t req_handler
   val lookup : string -> t req_handler
   val readdir : Profuse.In.Read.T.t structure -> t req_handler
   val readlink : t req_handler
