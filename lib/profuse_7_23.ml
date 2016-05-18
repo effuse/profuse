@@ -1133,6 +1133,13 @@ module Out = struct
       setf pkt T.attr_valid_nsec attr_valid_nsec;
       store_attr (getf pkt T.attr);
       CArray.from_ptr (coerce (ptr T.t) (ptr char) (addr pkt)) (sizeof T.t)
+
+    let describe ~host pkt =
+      Printf.sprintf
+        "attr_valid=%Ld.%ld attr={%s}"
+        (Unsigned.UInt64.to_int64 (getf pkt T.attr_valid))
+        (Unsigned.UInt32.to_int32 (getf pkt T.attr_valid_nsec))
+        (Struct.Attr.describe ~host (getf pkt T.attr))
   end
 
   module Create = struct
@@ -1286,7 +1293,7 @@ module Out = struct
       let host = chan.host in
       match pkt with
       | Init i -> Init.describe i
-      | Getattr a -> "GETATTR FIXME" (* TODO: more *)
+      | Getattr a -> Attr.describe ~host a
       | Lookup e -> Entry.describe ~host e
       | Opendir o -> "OPENDIR FIXME" (* TODO: more *)
       | Readdir r -> Dirent.describe ~host r
@@ -1313,7 +1320,7 @@ module Out = struct
         Printf.sprintf "[%s][%s]"
           (Entry.describe ~host entry) (Open.describe open_)
       | Mknod e -> Entry.describe ~host e
-      | Setattr a -> "SETATTR FIXME" (* TODO: more *)
+      | Setattr a -> Attr.describe ~host a
       | Link e -> Entry.describe ~host e
       | Symlink e -> Entry.describe ~host e
       | Rename -> "RENAME"
