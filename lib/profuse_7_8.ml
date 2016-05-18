@@ -378,9 +378,6 @@ module In = struct
         mtime : bool;
         fh : bool;
         unknown : int32;
-        (*atime_now : bool;
-        mtime_now : bool;
-          lockowner : bool;*)
       }
 
       let (&&&) = UInt32.logand
@@ -416,9 +413,6 @@ module In = struct
         mtime = UInt32.(compare zero (i &&& T.fattr_mtime) <> 0);
         fh = UInt32.(compare zero (i &&& T.fattr_fh) <> 0);
         unknown = UInt32.(to_int32 (i &&& (lognot all)));
-        (*atime_now = UInt32.(compare zero (i &&& T.fattr_atime_now) <> 0);
-        mtime_now = UInt32.(compare zero (i &&& T.fattr_mtime_now) <> 0);
-          lockowner = UInt32.(compare zero (i &&& T.fattr_lockowner) <> 0);*)
       }
 
       let to_uint32 {
@@ -429,9 +423,6 @@ module In = struct
         atime;
         mtime;
         fh;
-        (*atime_now;
-        mtime_now;
-        lockowner;*)
       } =
         let open UInt32 in
         (if mode then T.fattr_mode else zero) |||
@@ -440,10 +431,7 @@ module In = struct
         (if size then T.fattr_size else zero) |||
         (if atime then T.fattr_atime else zero) |||
         (if mtime then T.fattr_mtime else zero) |||
-        (if fh then T.fattr_fh else zero) (*|||
-        (if atime_now then T.fattr_atime_now else zero) |||
-        (if mtime_now then T.fattr_mtime_now else zero) |||
-        (if lockowner then T.fattr_lockowner else zero)*)
+        (if fh then T.fattr_fh else zero)
     end
 
     let create_from_hdr
@@ -462,6 +450,63 @@ module In = struct
       setf pkt T.uid        uid;
       setf pkt T.gid        gid;
       CArray.from_ptr (coerce (ptr T.t) (ptr char) (addr pkt)) (sizeof T.t)
+
+    let to_string_list ~host t =
+      let valid = Valid.of_uint32 (getf t T.valid) in
+      let list =
+        if valid.Valid.mode
+        then
+          let mode_code = Unsigned.UInt32.to_int (getf t T.mode) in
+          let mode = Sys_stat.File_perm.full_of_code ~host mode_code in
+          let mode_string = Sys_stat.File_perm.to_string ~host mode in
+          [Printf.sprintf "mode=%s" mode_string]
+        else []
+      in
+      let list =
+        if valid.Valid.uid
+        then
+          let uid = Unsigned.UInt32.to_int (getf t T.uid) in
+          (Printf.sprintf "uid=%d" uid)::list
+        else list
+      in
+      let list =
+        if valid.Valid.gid
+        then
+          let gid = Unsigned.UInt32.to_int (getf t T.gid) in
+          (Printf.sprintf "gid=%d" gid)::list
+        else list
+      in
+      let list =
+        if valid.Valid.size
+        then
+          let size = Unsigned.UInt64.to_int64 (getf t T.size) in
+          (Printf.sprintf "size=%Ld" size)::list
+        else list
+      in
+      let list =
+        if valid.Valid.atime
+        then
+          let atime = Unsigned.UInt64.to_int64 (getf t T.atime) in
+          (Printf.sprintf "atime=%Ld" atime)::list
+        else list
+      in
+      let list =
+        if valid.Valid.mtime
+        then
+          let mtime = Unsigned.UInt64.to_int64 (getf t T.mtime) in
+          (Printf.sprintf "mtime=%Ld" mtime)::list
+        else list
+      in
+      let list =
+        if valid.Valid.fh
+        then
+          let fh = Unsigned.UInt64.to_int64 (getf t T.fh) in
+          (Printf.sprintf "fh=%Ld" fh)::list
+        else list
+      in
+      if valid.Valid.unknown = Int32.zero
+      then list
+      else (Printf.sprintf "unknown[0x%lx]" valid.Valid.unknown)::list
   end
 
   module Getxattr = struct
@@ -660,10 +705,10 @@ module In = struct
            in
            Printf.sprintf "flags=[%s]" flags_s
          | Setattr s ->
-           let attrs = Setattr.Valid.of_uint32 (getf s Setattr.T.valid) in
+           let host = req.chan.host.Host.sys_stat.Sys_stat.Host.file_perm in
            Printf.sprintf "0x%lX[%s]"
              (UInt32.to_int32 (getf s Setattr.T.valid))
-             (String.concat " " (Setattr.Valid.to_string_list attrs))
+             (String.concat " " (Setattr.to_string_list ~host s))
          | Access a ->
            let code = getf a Access.T.mask in
            (*let phost = Fuse.(req.chan.host.unistd.Unix_unistd.access) in

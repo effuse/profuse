@@ -384,7 +384,7 @@ module In = struct
         unknown : int32;
         atime_now : bool;
         mtime_now : bool;
-        lockowner : bool;
+        lock_owner : bool;
         ctime : bool;
       }
 
@@ -392,17 +392,17 @@ module In = struct
       let (|||) = UInt32.logor
 
       let to_string_list valid =
-        let list = if valid.mode       then ["mode"]      else []   in
-        let list = if valid.uid        then "uid"       ::list else list in
-        let list = if valid.gid        then "gid"       ::list else list in
-        let list = if valid.size       then "size"      ::list else list in
-        let list = if valid.atime      then "atime"     ::list else list in
-        let list = if valid.mtime      then "mtime"     ::list else list in
-        let list = if valid.fh         then "fh"        ::list else list in
-        let list = if valid.atime_now  then "atime_now" ::list else list in
-        let list = if valid.mtime_now  then "mtime_now" ::list else list in
-        let list = if valid.lockowner  then "lockowner" ::list else list in
-        let list = if valid.ctime      then "ctime"     ::list else list in
+        let list = if valid.mode       then ["mode"]            else []   in
+        let list = if valid.uid        then "uid"        ::list else list in
+        let list = if valid.gid        then "gid"        ::list else list in
+        let list = if valid.size       then "size"       ::list else list in
+        let list = if valid.atime      then "atime"      ::list else list in
+        let list = if valid.mtime      then "mtime"      ::list else list in
+        let list = if valid.fh         then "fh"         ::list else list in
+        let list = if valid.atime_now  then "atime_now"  ::list else list in
+        let list = if valid.mtime_now  then "mtime_now"  ::list else list in
+        let list = if valid.lock_owner then "lock_owner" ::list else list in
+        let list = if valid.ctime      then "ctime"      ::list else list in
         if valid.unknown = Int32.zero
         then list
         else (Printf.sprintf "unknown[0x%lx]" valid.unknown)::list
@@ -432,7 +432,7 @@ module In = struct
         unknown = UInt32.(to_int32 (i &&& (lognot all)));
         atime_now = UInt32.(compare zero (i &&& T.fattr_atime_now) <> 0);
         mtime_now = UInt32.(compare zero (i &&& T.fattr_mtime_now) <> 0);
-        lockowner = UInt32.(compare zero (i &&& T.fattr_lockowner) <> 0);
+        lock_owner = UInt32.(compare zero (i &&& T.fattr_lockowner) <> 0);
         ctime = UInt32.(compare zero (i &&& T.fattr_ctime) <> 0);
       }
 
@@ -446,7 +446,7 @@ module In = struct
         fh;
         atime_now;
         mtime_now;
-        lockowner;
+        lock_owner;
         ctime;
       } =
         let open UInt32 in
@@ -459,14 +459,14 @@ module In = struct
         (if fh then T.fattr_fh else zero) |||
         (if atime_now then T.fattr_atime_now else zero) |||
         (if mtime_now then T.fattr_mtime_now else zero) |||
-        (if lockowner then T.fattr_lockowner else zero) |||
+        (if lock_owner then T.fattr_lockowner else zero) |||
         (if ctime then T.fattr_ctime else zero)
     end
 
     let create_from_hdr
         ~valid ~fh ~size
         ~atime ~mtime ~atimensec ~mtimensec
-        ~mode ~uid ~gid ~lockowner
+        ~mode ~uid ~gid ~lock_owner
         ~ctime ~ctimensec
         hdr =
       let pkt = Hdr.make_from_hdr hdr T.t in
@@ -480,10 +480,91 @@ module In = struct
       setf pkt T.mode       mode;
       setf pkt T.uid        uid;
       setf pkt T.gid        gid;
-      setf pkt T.lock_owner lockowner;
+      setf pkt T.lock_owner lock_owner;
       setf pkt T.ctime      ctime;
       setf pkt T.ctimensec  ctimensec;
       CArray.from_ptr (coerce (ptr T.t) (ptr char) (addr pkt)) (sizeof T.t)
+
+    let to_string_list ~host t =
+      let valid = Valid.of_uint32 (getf t T.valid) in
+      let list =
+        if valid.Valid.mode
+        then
+          let mode_code = Unsigned.UInt32.to_int (getf t T.mode) in
+          let mode = Sys_stat.File_perm.full_of_code ~host mode_code in
+          let mode_string = Sys_stat.File_perm.to_string ~host mode in
+          [Printf.sprintf "mode=%s" mode_string]
+        else []
+      in
+      let list =
+        if valid.Valid.uid
+        then
+          let uid = Unsigned.UInt32.to_int (getf t T.uid) in
+          (Printf.sprintf "uid=%d" uid)::list
+        else list
+      in
+      let list =
+        if valid.Valid.gid
+        then
+          let gid = Unsigned.UInt32.to_int (getf t T.gid) in
+          (Printf.sprintf "gid=%d" gid)::list
+        else list
+      in
+      let list =
+        if valid.Valid.size
+        then
+          let size = Unsigned.UInt64.to_int64 (getf t T.size) in
+          (Printf.sprintf "size=%Ld" size)::list
+        else list
+      in
+      let list =
+        if valid.Valid.atime
+        then
+          let atime = Unsigned.UInt64.to_int64 (getf t T.atime) in
+          (Printf.sprintf "atime=%Ld" atime)::list
+        else list
+      in
+      let list =
+        if valid.Valid.atime_now
+        then (Printf.sprintf "atime_now")::list
+        else list
+      in
+      let list =
+        if valid.Valid.mtime
+        then
+          let mtime = Unsigned.UInt64.to_int64 (getf t T.mtime) in
+          (Printf.sprintf "mtime=%Ld" mtime)::list
+        else list
+      in
+      let list =
+        if valid.Valid.mtime_now
+        then (Printf.sprintf "mtime_now")::list
+        else list
+      in
+      let list =
+        if valid.Valid.fh
+        then
+          let fh = Unsigned.UInt64.to_int64 (getf t T.fh) in
+          (Printf.sprintf "fh=%Ld" fh)::list
+        else list
+      in
+      let list =
+        if valid.Valid.ctime
+        then
+          let ctime = Unsigned.UInt64.to_int64 (getf t T.ctime) in
+          (Printf.sprintf "ctime=%Ld" ctime)::list
+        else list
+      in
+      let list =
+        if valid.Valid.lock_owner
+        then
+          let mtime = Unsigned.UInt64.to_int64 (getf t T.lock_owner) in
+          (Printf.sprintf "lock_owner=%Ld" mtime)::list
+        else list
+      in
+      if valid.Valid.unknown = Int32.zero
+      then list
+      else (Printf.sprintf "unknown[0x%lx]" valid.Valid.unknown)::list
   end
 
   module Getxattr = struct
@@ -705,10 +786,10 @@ module In = struct
            in
            Printf.sprintf "flags=[%s]" flags_s
          | Setattr s ->
-           let attrs = Setattr.Valid.of_uint32 (getf s Setattr.T.valid) in
+           let host = req.chan.host.Host.sys_stat.Sys_stat.Host.file_perm in
            Printf.sprintf "0x%lX[%s]"
              (UInt32.to_int32 (getf s Setattr.T.valid))
-             (String.concat " " (Setattr.Valid.to_string_list attrs))
+             (String.concat " " (Setattr.to_string_list ~host s))
          | Access a ->
            let code = getf a Access.T.mask in
            (*let phost = Fuse.(req.chan.host.unistd.Unix_unistd.access) in
