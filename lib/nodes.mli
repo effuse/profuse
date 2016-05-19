@@ -33,7 +33,7 @@ module type NODE = sig
 
   val to_string : t -> string
   val child : t node -> string -> t
-  val rename : t node -> t node -> string -> t node
+  val rename : t node -> t node -> string -> unit
 end
 
 module Path : NODE with type t = string list
