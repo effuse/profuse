@@ -1118,9 +1118,11 @@ module Out = struct
     let describe ~host pkt =
       (* TODO: times? *)
       Printf.sprintf
-        "nodeid=%Ld.%Ld attr={%s}"
+        "nodeid=%Ld.%Ld valid=%Ld.%09lds attr={%s}"
         (UInt64.to_int64 (getf pkt T.generation))
         (UInt64.to_int64 (getf pkt T.nodeid))
+        (UInt64.to_int64 (getf pkt T.entry_valid))
+        (UInt32.to_int32 (getf pkt T.entry_valid_nsec))
         (Struct.Attr.describe ~host (getf pkt T.attr))
   end
 
