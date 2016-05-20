@@ -805,7 +805,7 @@ module In : sig
         unknown : int32;
         atime_now : bool;
         mtime_now : bool;
-        lockowner : bool;
+        lock_owner : bool;
         ctime : bool;
       }
 
@@ -827,7 +827,7 @@ module In : sig
       mode:Unsigned.uint32 ->
       uid:Unsigned.uint32 ->
       gid:Unsigned.uint32 ->
-      lockowner:Unsigned.uint64 ->
+      lock_owner:Unsigned.uint64 ->
       ctime:Unsigned.uint64 ->
       ctimensec:Unsigned.uint32 ->
       Hdr.T.t structure -> char Ctypes.CArray.t
