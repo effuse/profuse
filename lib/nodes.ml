@@ -1,5 +1,5 @@
 (*
- * Copyright (c) 2014 David Sheets <sheets@alum.mit.edu>
+ * Copyright (c) 2014-2016 David Sheets <sheets@alum.mit.edu>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -39,7 +39,7 @@ module type NODE = sig
 
   val to_string : t -> string
   val child : t node -> string -> t
-  val rename : t node -> t node -> string -> t node
+  val rename : t node -> t node -> string -> unit
 end
 
 module Path : NODE with type t = string list = struct
@@ -48,10 +48,34 @@ module Path : NODE with type t = string list = struct
   let to_string = function
     | [] | [""] -> Filename.dir_sep
     | path -> String.concat Filename.dir_sep (List.rev path)
+
   let child node name = name::node.data
-  let rename parent node name = {
-    node with name; data = child parent name;
-  }
+
+  let rec set_trunk k trunk branch = function
+    | _ when k = 0 -> List.rev_append branch trunk
+    | h::t -> set_trunk (k - 1) trunk (h::branch) t
+    | [] -> assert false
+
+  let rec rename_subtree trunk = function
+    | [] -> ()
+    | (k, node)::rest ->
+      let { table } = node.space in
+      Hashtbl.replace table node.id {
+        node with data = set_trunk k trunk [] node.data
+      };
+      let k = k + 1 in
+      rename_subtree trunk (Hashtbl.fold (fun _ id list ->
+        (k, Hashtbl.find table id)::list
+      ) node.children rest)
+
+  let rename parent node name =
+    let node = { node with name; } in
+    (* TODO: explore trade-off between computing paths dynamically
+       which will slightly slow every operation and this
+       implementation which requires operations on every descendent
+       when a directory is moved *)
+    rename_subtree (child parent name) [0, node];
+    Hashtbl.replace parent.children name node.id
 end
 
 module Make(N : NODE) = struct
@@ -149,8 +173,7 @@ module Make(N : NODE) = struct
              (string_of_id space srcpn.id) src id)
     in
     Hashtbl.remove srcpn.children src;
-    Hashtbl.replace table id (N.rename destpn srcn dest);
-    Hashtbl.replace destpn.children dest id
+    N.rename destpn srcn dest
 
   let forget node n =
     let { space } = node in
