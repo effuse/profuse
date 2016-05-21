@@ -48,6 +48,6 @@ module Make(N : NODE) : sig
 
   val lookup : N.t node -> string -> N.t node
   val rename : N.t node -> string -> N.t node -> string -> unit
-  val unlink : N.t node -> unit
+  val unlink : N.t node -> string -> unit
   val forget : N.t node -> int -> unit
 end
