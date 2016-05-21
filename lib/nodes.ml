@@ -18,7 +18,7 @@
 type id = int64
 type 'a node = {
   space    : 'a space;
-  parent   : id;
+  parent   : id option;
   gen      : int64;
   id       : id;
   name     : string;
@@ -100,7 +100,7 @@ module Make(N : NODE) = struct
       if id=1L then
         let node = {
           space;
-          parent = 1L;
+          parent = Some 1L;
           gen = 0L;
           id = 1L;
           name = "";
@@ -146,7 +146,7 @@ module Make(N : NODE) = struct
       let (gen,id) = alloc_id space in
       let node = {
         space;
-        parent=parent.id;
+        parent=Some parent.id;
         gen; id; name; data;
         children=Hashtbl.create 8;
         lookups=1;
@@ -175,16 +175,29 @@ module Make(N : NODE) = struct
     Hashtbl.remove srcpn.children src;
     N.rename destpn srcn dest
 
+  let unlink node =
+    let { space } = node in
+    let { table } = space in
+    match node.parent with
+    | None -> ()
+    | Some parent ->
+      let parent = Hashtbl.find table parent in
+      Hashtbl.remove parent.children node.name;
+      Hashtbl.replace table node.id { node with parent = None }
+
   let forget node n =
     let { space } = node in
     let { table } = space in
     let lookups = node.lookups - n in
-    if lookups <= 0
-    then
-      let parent = Hashtbl.find table node.parent in
-      Hashtbl.remove parent.children node.name;
+    if lookups > 0
+    then Hashtbl.replace table node.id { node with lookups }
+    else begin
       Hashtbl.remove table node.id;
-      space.free <- (Int64.add node.gen 1L, node.id)::space.free
-    else
-      Hashtbl.replace table node.id { node with lookups }
+      space.free <- (Int64.add node.gen 1L, node.id)::space.free;
+      match node.parent with
+      | None -> ()
+      | Some parent ->
+        let parent = Hashtbl.find table parent in
+        Hashtbl.remove parent.children node.name
+    end
 end

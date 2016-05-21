@@ -18,7 +18,7 @@
 type id = int64
 type 'a node = {
   space    : 'a space;
-  parent   : id;
+  parent   : id option;
   gen      : int64;
   id       : id;
   name     : string;
@@ -48,5 +48,6 @@ module Make(N : NODE) : sig
 
   val lookup : N.t node -> string -> N.t node
   val rename : N.t node -> string -> N.t node -> string -> unit
+  val unlink : N.t node -> unit
   val forget : N.t node -> int -> unit
 end
