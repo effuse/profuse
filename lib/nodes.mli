@@ -16,6 +16,7 @@
  *)
 
 type id = int64
+type fh = int64
 type 'a node = {
   space    : 'a space;
   parent   : id option;
@@ -30,13 +31,31 @@ and 'a space
 
 module type NODE = sig
   type t
+  type h
+  type v
+
+  val of_value  : v -> t
+  val new_child : t node -> string -> t
 
   val to_string : t -> string
-  val child : t node -> string -> t
+
+  val get_handle : t node -> fh -> h
+  val get_handles : t node -> (fh * h) list
+  val set_handle : t node -> fh -> h -> t
+  val free_handle : t node -> fh -> t
+
   val rename : t node -> t node -> string -> unit
 end
 
-module Path : NODE with type t = string list
+module UnixHandle : sig
+  type t =
+    | Dir of Unix.dir_handle * int
+    | File of Unix.file_descr * Sys_stat.File_kind.t
+
+  val close : t -> unit
+end
+
+module Path : NODE with type v = string list and type h = UnixHandle.t
 
 module Make(N : NODE) : sig
   type t = N.t space
@@ -46,7 +65,15 @@ module Make(N : NODE) : sig
   val string_of_id : t -> id -> string
   val to_string    : t -> string
 
+  module Handle : sig
+    val open_ : N.t node -> N.h -> fh
+    val get   : t -> fh -> N.h
+    val set   : t -> fh -> N.h -> unit
+    val free  : t -> fh -> unit
+  end
+
   val lookup : N.t node -> string -> N.t node
+  val handles : N.t node -> (fh * N.h) list
   val rename : N.t node -> string -> N.t node -> string -> unit
   val unlink : N.t node -> string -> unit
   val forget : N.t node -> int -> unit

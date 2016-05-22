@@ -1,6 +1,4 @@
 
-module Handles = Handles
-
 module Nodes = Nodes
 
 type 'a structure = 'a Ctypes_static.structure
