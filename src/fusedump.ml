@@ -21,6 +21,9 @@ type packet =
   | Query of Profuse.In.Message.t Profuse.request
   | Reply of (int64 * Unsigned.UInt8.t Ctypes.ptr * int)
 
+type time_label =
+  | Mtime
+
 let is_fuse_packet filename =
   try
     let fin = String.rindex filename '.' + 1 in
@@ -187,18 +190,24 @@ let pretty_string_of_reply_without_query p len =
     Printf.sprintf "returning err [ %s ] from %Ld"
       (String.concat ", " (List.map Errno.to_string errnos)) id
 
-let pretty_print query_table = function
+let time_label = function
+  | None -> (fun _ -> "")
+  | Some Mtime -> Printf.sprintf "%Ld: "
+
+let pretty_print time =
+  let time_label = time_label time in
+  fun query_table -> function
   | (t, Query q) ->
-    Printf.printf "%Ld: %s\n%!" t (pretty_string_of_query q)
+    Printf.printf "%s%s\n%!" (time_label t) (pretty_string_of_query q)
   | (t, Reply (unique, ptr, len)) ->
     let message = try
         let query = Hashtbl.find query_table unique in
         pretty_string_of_reply query ptr len
       with Not_found -> pretty_string_of_reply_without_query ptr len
     in
-    Printf.printf "%Ld: %s\n%!" t message
+    Printf.printf "%s%s\n%!" (time_label t) message
 
-let show dir =
+let show time dir =
   let files = Array.to_list (Sys.readdir dir) in
   let query_table = Hashtbl.create 128 in
   let packets = List.fold_left (fun list filename ->
@@ -217,15 +226,25 @@ let show dir =
   | packets ->
     let compare_time (t, _) (t', _) = Int64.compare t t' in
     let timeline = List.sort compare_time packets in
-    List.iter (pretty_print query_table) timeline;
+    let print = pretty_print time in
+    List.iter (print query_table) timeline;
     `Ok ()
 
 open Cmdliner
 
+let time_label = Arg.enum [
+  "mtime", Some Mtime;
+  "none", None;
+]
+
 let show_cmd =
   let doc = "pretty print the packets in directory (or pwd)" in
   let dir = Arg.(value (pos 0 dir (Sys.getcwd ()) (info ~docv:"DIR" []))) in
-  Term.(ret (pure show $ dir)),
+  let time = Arg.(
+    value (opt time_label (Some Mtime)
+             (info ~docv:"TIME_LABEL" ["time"]))
+  ) in
+  Term.(ret (pure show $ time $ dir)),
   Term.info "show" ~doc
 
 let cmds = [show_cmd]
