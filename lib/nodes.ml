@@ -123,7 +123,7 @@ module Path : NODE with type v = string list and type h = UnixHandle.t = struct
       ) node.children rest)
 
   let rename parent node name =
-    let node = { node with name; } in
+    let node = { node with name; parent = Some parent.id } in
     (* TODO: explore trade-off between computing paths dynamically
        which will slightly slow every operation and this
        implementation which requires operations on every descendent
