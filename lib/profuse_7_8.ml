@@ -726,7 +726,9 @@ module In = struct
              (UInt32.to_int32 gid)
              perms
          | Unlink name | Rmdir name -> name
-         | Rename (_r,src,dest) -> src ^ " -> " ^ dest
+         | Rename (r,src,dest) ->
+           let newdir = UInt64.to_string (getf r Rename.T.newdir) in
+           Printf.sprintf "%s -> %s %s" src newdir dest
          | Read r ->
            let fh = getf r Read.T.fh in
            let offset = getf r Read.T.offset in
