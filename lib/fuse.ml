@@ -15,8 +15,6 @@
  *
  *)
 
-module Handles = Handles
-
 module Nodes = Nodes
 
 module In = Profuse.In
