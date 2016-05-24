@@ -267,6 +267,18 @@ module Make(N : NODE) = struct
 
   let handles = N.get_handles
 
+  let unlink parent name =
+    let { space } = parent in
+    let { table } = space in
+    try
+      let id = Hashtbl.find parent.children name in
+      Hashtbl.remove parent.children name;
+      try
+        let node = Hashtbl.find table id in
+        Hashtbl.replace table node.id { node with parent = None };
+      with Not_found -> ()
+    with Not_found -> ()
+
   let rename srcpn src destpn dest =
     let { space } = srcpn in
     let { table } = space in
@@ -285,19 +297,8 @@ module Make(N : NODE) = struct
              (string_of_id space srcpn.id) src id)
     in
     Hashtbl.remove srcpn.children src;
+    unlink srcpn dest;
     N.rename destpn srcn dest
-
-  let unlink parent name =
-    let { space } = parent in
-    let { table } = space in
-    try
-      let id = Hashtbl.find parent.children name in
-      Hashtbl.remove parent.children name;
-      try
-        let node = Hashtbl.find table id in
-        Hashtbl.replace table node.id { node with parent = None };
-      with Not_found -> ()
-    with Not_found -> ()
 
   let forget node n =
     let { space } = node in
