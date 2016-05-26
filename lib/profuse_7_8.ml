@@ -1188,7 +1188,7 @@ module Out = struct
       | Init i -> Init.describe i
       | Getattr a -> Attr.describe ~host a
       | Lookup e -> Entry.describe ~host e
-      | Opendir o -> "OPENDIR FIXME" (* TODO: more *)
+      | Opendir o -> Open.describe o
       | Readdir r -> Dirent.describe ~host r
       | Releasedir -> "RELEASEDIR"
       | Fsyncdir -> "FSYNCDIR"
