@@ -696,6 +696,7 @@ module In = struct
              flags_s
              (string_of_mode req (UInt32.to_int (getf c Create.T.mode)))
              name
+         | Opendir o
          | Open o ->
            let host = req.chan.host.Host.fcntl.Fcntl.Host.oflags in
            let flags_code = UInt32.to_int (getf o Open.T.flags) in
@@ -768,7 +769,6 @@ module In = struct
          | Link (_,_)
          | Flush _
          | Release _
-         | Opendir _
          | Releasedir _
          | Fsyncdir _
          | Fsync _
