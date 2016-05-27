@@ -199,15 +199,16 @@ module Make(N : NODE) = struct
         failwith (Printf.sprintf "set: fh %Ld missing from %s"
                     fh (to_string space))
 
-    let open_ node kind =
-      let { space } = node in
+    let open_ space id kind =
+      let { table; handles } = space in
       let fh = match space.freeh with
         | fh::r -> space.freeh <- r; fh
         | [] -> let fh = space.maxh in space.maxh <- Int64.add fh 1L; fh
       in
+      let node = Hashtbl.find table id in
       let node = { node with data = N.set_handle node fh kind } in
-      Hashtbl.replace space.table node.id node;
-      Hashtbl.replace space.handles fh node.id;
+      Hashtbl.replace table id node;
+      Hashtbl.replace handles fh id;
       fh
 
     let free space fh =
