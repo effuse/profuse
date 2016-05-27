@@ -696,6 +696,7 @@ module In = struct
              flags_s
              (string_of_mode req (UInt32.to_int (getf c Create.T.mode)))
              name
+         | Opendir o
          | Open o ->
            let host = req.chan.host.Host.fcntl.Fcntl.Host.oflags in
            let flags_code = UInt32.to_int (getf o Open.T.flags) in
@@ -758,6 +759,17 @@ module In = struct
              (UInt64.to_int64 fh)
              (UInt64.to_int64 offset)
              (UInt32.to_int32 size)
+         | Release r
+         | Releasedir r ->
+           let fh = getf r Release.T.fh in
+           let flags = getf r Release.T.flags in
+           let rflags = getf r Release.T.release_flags in
+           let lock_owner = getf r Release.T.lock_owner in
+           Printf.sprintf "fh=%s flags=%s release_flags=%s lock_owner=%s"
+             (UInt64.to_string fh)
+             (UInt32.to_string flags)
+             (UInt32.to_string rflags)
+             (UInt64.to_string lock_owner)
          | Getxattr _
          | Setxattr _
          | Listxattr _
@@ -767,9 +779,6 @@ module In = struct
          | Setlkw _
          | Link (_,_)
          | Flush _
-         | Release _
-         | Opendir _
-         | Releasedir _
          | Fsyncdir _
          | Fsync _
          | Statfs
@@ -1188,7 +1197,7 @@ module Out = struct
       | Init i -> Init.describe i
       | Getattr a -> Attr.describe ~host a
       | Lookup e -> Entry.describe ~host e
-      | Opendir o -> "OPENDIR FIXME" (* TODO: more *)
+      | Opendir o -> Open.describe o
       | Readdir r -> Dirent.describe ~host r
       | Releasedir -> "RELEASEDIR"
       | Fsyncdir -> "FSYNCDIR"
