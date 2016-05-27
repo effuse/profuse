@@ -66,7 +66,7 @@ module Make(N : NODE) : sig
   val to_string    : t -> string
 
   module Handle : sig
-    val open_ : N.t node -> N.h -> fh
+    val open_ : N.t space -> id -> N.h -> fh
     val get   : t -> fh -> N.h
     val set   : t -> fh -> N.h -> unit
     val free  : t -> fh -> unit
@@ -76,5 +76,5 @@ module Make(N : NODE) : sig
   val handles : N.t node -> (fh * N.h) list
   val rename : N.t node -> string -> N.t node -> string -> unit
   val unlink : N.t node -> string -> unit
-  val forget : N.t node -> int -> unit
+  val forget : N.t space -> id -> int -> unit
 end
