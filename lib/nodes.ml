@@ -301,15 +301,15 @@ module Make(N : NODE) = struct
     unlink srcpn dest;
     N.rename destpn srcn dest
 
-  let forget node n =
-    let { space } = node in
+  let forget space id n =
     let { table } = space in
+    let node = Hashtbl.find table id in
     let lookups = node.lookups - n in
     if lookups > 0
-    then Hashtbl.replace table node.id { node with lookups }
+    then Hashtbl.replace table id { node with lookups }
     else begin
-      Hashtbl.remove table node.id;
-      space.free <- (Int64.add node.gen 1L, node.id)::space.free;
+      Hashtbl.remove table id;
+      space.free <- (Int64.add node.gen 1L, id)::space.free;
       match node.parent with
       | None -> ()
       | Some parent ->
