@@ -89,6 +89,28 @@ module Struct = struct
       store
         ~blocks ~bfree ~bavail ~files ~ffree ~bsize ~namelen ~frsize kstatfs;
       kstatfs
+
+    let describe pkt =
+      let i64 = UInt64.to_int64 in
+      let i32 = UInt32.to_int32 in
+      let blocks  = getf pkt T.blocks in
+      let bfree   = getf pkt T.bfree in
+      let bavail  = getf pkt T.bavail in
+      let files   = getf pkt T.files in
+      let ffree   = getf pkt T.ffree in
+      let bsize   = getf pkt T.bsize in
+      let frsize  = getf pkt T.frsize in
+      let namelen = getf pkt T.namelen in
+      Printf.sprintf
+        "blocks=%Ld bfree=%Ld bavail=%Ld files=%Ld ffree=%Ld bsize=%ld frsize=%ld namelen=%ld"
+        (i64 blocks)
+        (i64 bfree)
+        (i64 bavail)
+        (i64 files)
+        (i64 ffree)
+        (i32 bsize)
+        (i32 frsize)
+        (i32 namelen)
   end
 
   module File_lock = struct
@@ -672,7 +694,7 @@ module In = struct
              (UInt32.to_int (getf i Init.T.minor))
              (UInt32.to_int (getf i Init.T.max_readahead))
              (Unsigned.UInt32.to_int32 (getf i Init.T.flags))
-         | Getattr | Readlink | Destroy -> ""
+         | Getattr | Readlink | Statfs | Destroy -> ""
          | Symlink (name,target) -> name ^ " -> " ^ target
          | Forget f ->
            Int64.to_string (UInt64.to_int64 (getf f Forget.T.nlookup))
@@ -781,7 +803,6 @@ module In = struct
          | Flush _
          | Fsyncdir _
          | Fsync _
-         | Statfs
          | Bmap _ -> "FIX ME"
          | Other opcode -> "OTHER "^(Opcode.to_string opcode)
          | Unknown i -> "UNKNOWN "^(Int32.to_string i)
@@ -925,6 +946,22 @@ module Out = struct
     let describe pkt =
       let size = getf pkt T.size in
       Printf.sprintf "size=%ld" (UInt32.to_int32 size)
+  end
+
+  module Statfs = struct
+    module T = T.Statfs
+
+    let create
+        ~blocks ~bfree ~bavail ~files ~ffree ~bsize ~namelen ~frsize req =
+      let pkt = Hdr.make req T.t in
+      let st = getf pkt T.st in
+      Struct.Kstatfs.store
+        ~blocks ~bfree ~bavail ~files ~ffree ~bsize ~namelen ~frsize st;
+      CArray.from_ptr (coerce (ptr T.t) (ptr char) (addr pkt)) (sizeof T.t)
+
+    let describe pkt =
+      let kstatfs = getf pkt T.st in
+      Struct.Kstatfs.describe kstatfs
   end
 
   module Open = struct
@@ -1134,7 +1171,8 @@ module Out = struct
            Read (CArray.from_ptr (from_voidp char buf) len)
          | `FUSE_WRITE       -> Write      (!@ (from_voidp Write.T.t buf))
          | `FUSE_STATFS      ->
-           Statfs (!@ (from_voidp Struct.Kstatfs.T.t buf))
+           let statfs_pkt = !@ (from_voidp Statfs.T.t buf) in
+           Statfs (getf statfs_pkt Statfs.T.st)
          | `FUSE_FLUSH       -> Flush
          | `FUSE_RELEASE     -> Release
          | `FUSE_FSYNC       -> Fsync
@@ -1213,7 +1251,7 @@ module Out = struct
       | Open o -> Open.describe o
       | Read r -> Read.describe r
       | Write w -> Write.describe w
-      | Statfs s -> "STATFS FIXME" (* TODO: more *)
+      | Statfs s -> Struct.Kstatfs.describe s
       | Flush -> "FLUSH"
       | Release -> "RELEASE"
       | Fsync -> "FSYNC"
