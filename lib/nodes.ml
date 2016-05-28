@@ -298,7 +298,7 @@ module Make(N : NODE) = struct
              (string_of_id space srcpn.id) src id)
     in
     Hashtbl.remove srcpn.children src;
-    unlink srcpn dest;
+    unlink destpn dest;
     N.rename destpn srcn dest
 
   let forget space id n =
