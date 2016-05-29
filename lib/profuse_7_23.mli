@@ -990,6 +990,21 @@ module Out : sig
     val create : size:Unsigned.uint32 -> 'a request -> char Ctypes.CArray.t
   end
 
+  module Statfs : sig
+    module T = T.Statfs
+
+    val create :
+      blocks:Unsigned.uint64 ->
+      bfree:Unsigned.uint64 ->
+      bavail:Unsigned.uint64 ->
+      files:Unsigned.uint64 ->
+      ffree:Unsigned.uint64 ->
+      bsize:Unsigned.uint32 ->
+      namelen:Unsigned.uint32 ->
+      frsize:Unsigned.uint32 ->
+      'a request -> char Ctypes.CArray.t
+  end
+
   module Open : sig
     module T = T.Open
 
