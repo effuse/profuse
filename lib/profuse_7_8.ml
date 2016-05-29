@@ -1079,7 +1079,7 @@ module Out = struct
 
     let describe ~host pkt =
       Printf.sprintf
-        "attr_valid=%Ld.%ld attr={%s}"
+        "attr_valid=%Ld.%09lds attr={%s}"
         (Unsigned.UInt64.to_int64 (getf pkt T.attr_valid))
         (Unsigned.UInt32.to_int32 (getf pkt T.attr_valid_nsec))
         (Struct.Attr.describe ~host (getf pkt T.attr))
