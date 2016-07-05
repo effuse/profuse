@@ -28,6 +28,8 @@ type packet =
 type time_label =
   | Mtime
 
+let failf fmt = Printf.kprintf failwith fmt
+
 let is_fuse_packet filename =
   try
     let fin = String.rindex filename '.' + 1 in
@@ -82,16 +84,9 @@ let parse_query host size query_table fd =
   let len = Unsigned.UInt32.to_int (Ctypes.getf hdr Profuse.In.Hdr.T.len) in
   (if size_read < len
    then (* TODO: accumulate? *)
-     let msg =
-       Printf.sprintf "Packet has %d bytes but only read %d" len size_read
-     in
-     failwith msg
+     failf "Packet has %d bytes but only read %d" len size_read
    else if size_read > len
-   then
-     let msg =
-       Printf.sprintf "Packet has %d bytes but file contained %d" len size_read
-     in
-     failwith msg
+   then failf "Packet has %d bytes but file contained %d" len size_read
   );
   let len = len - Profuse.In.Hdr.sz in
   let ptr = Ctypes.(to_voidp (mem +@ Profuse.In.Hdr.sz)) in
@@ -113,17 +108,9 @@ let parse_reply host size query_table fd =
   let len = Unsigned.UInt32.to_int (Ctypes.getf hdr Profuse.Out.Hdr.T.len) in
   (if size_read < len
    then (* TODO: accumulate? *)
-     let msg =
-       Printf.sprintf "Packet has %d bytes but only read %d" len size_read
-     in
-     failwith msg
+       failf "Packet has %d bytes but only read %d" len size_read
    else if size_read > len
-   then
-     let msg =
-       Printf.sprintf "Packet has %d bytes but file contained %d" len size_read
-     in
-     failwith msg
-  );
+   then failf "Packet has %d bytes but file contained %d" len size_read);
   try
     let query = Hashtbl.find query_table unique in
     Hashtbl.remove query_table unique;
@@ -146,8 +133,7 @@ let parse_packet host query_table fd =
       | "Q" -> Query (parse_query host size query_table fd)
       | "R" -> parse_reply host size query_table fd
       | x ->
-        let b = offset - 9 in
-        failwith (Printf.sprintf "unknown packet type %S at byte 0x%x" x b)
+        failf "unknown packet type %S at byte 0x%x" x (offset - 9)
     in
     Some (now, packet)
 
@@ -164,18 +150,13 @@ let parse_session filename =
         let major = int_of_char (Bytes.get header 6) in
         let minor = int_of_char (Bytes.get header 7) in
         (if major <> 7
-         then failwith
-             ("only FUSE major version 7 supported (not "^
-              string_of_int major^")")
-        );
-        (if minor <> 8
-         then failwith
-             ("only FUSE version 7.8 supported (not 7."^
-              string_of_int minor^")")
+         then failf "only FUSE major version 7 supported (not %d)" major
+         else if minor <> 8
+         then failf "only FUSE version 7.8 supported (not 7.%d)" minor
         );
         match Bytes.get header 5 with
         | 'L' -> Profuse.Host.linux_4_0_5
-        | c -> failwith ("unknown host type '"^(String.make 1 c)^"'")
+        | c -> failf "unknown host type '%c'" c
       with exn ->
         Unix.close fd;
         raise exn
