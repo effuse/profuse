@@ -17,9 +17,13 @@
 
 let version = "0.5.0"
 
+type request = Profuse.In.Message.t Profuse.request
+type reply = (Profuse.Out.Hdr.T.t, Profuse.Out.Message.t) Profuse.packet
+
 type packet =
-  | Query of Profuse.In.Message.t Profuse.request
-  | Reply of (int64 * Unsigned.UInt8.t Ctypes.ptr * int)
+  | Query of request
+  | Reply_to of (request * reply)
+  | Reply_unlinked of (int * Profuse.Out.Hdr.T.t Profuse.Types.structure)
 
 type time_label =
   | Mtime
@@ -33,18 +37,25 @@ let is_fuse_packet filename =
     | _ -> false
   with Not_found -> false
 
-let int64_of_le_bytes bytes =
+let int64_of_le_bytes off bytes =
   let open Int64 in
-  let (+) = add in
+  let (++) = add in
   let int64_of_byte k = of_int (int_of_char (Bytes.get bytes k)) in
-  (int64_of_byte 0) +
-  (shift_left (int64_of_byte 1)  8) +
-  (shift_left (int64_of_byte 2) 16) +
-  (shift_left (int64_of_byte 3) 24) +
-  (shift_left (int64_of_byte 4) 32) +
-  (shift_left (int64_of_byte 5) 40) +
-  (shift_left (int64_of_byte 6) 48) +
-  (shift_left (int64_of_byte 7) 56)
+  (int64_of_byte off) ++
+  (shift_left (int64_of_byte (off + 1))  8) ++
+  (shift_left (int64_of_byte (off + 2)) 16) ++
+  (shift_left (int64_of_byte (off + 3)) 24) ++
+  (shift_left (int64_of_byte (off + 4)) 32) ++
+  (shift_left (int64_of_byte (off + 5)) 40) ++
+  (shift_left (int64_of_byte (off + 6)) 48) ++
+  (shift_left (int64_of_byte (off + 7)) 56)
+
+let int_of_4_le_bytes off bytes =
+  let int_of_byte k = int_of_char (Bytes.get bytes k) in
+  (int_of_byte off) +
+  ((int_of_byte (off + 1)) lsl  8) +
+  ((int_of_byte (off + 2)) lsl 16) +
+  ((int_of_byte (off + 3)) lsl 24)
 
 let parse_query host size query_table fd =
   let chan = Profuse.({
@@ -63,7 +74,6 @@ let parse_query host size query_table fd =
     try Unistd_unix.read fd (Ctypes.to_voidp mem) size
     with exn -> Unix.close fd; raise exn
   in
-  Unix.close fd;
   (if size_read <> size then failwith "couldn't read packet");
   let hdr_ptr = Ctypes.(coerce (ptr uint8_t) (ptr Profuse.In.Hdr.T.t)) mem in
   let hdr = Ctypes.(!@ hdr_ptr) in
@@ -89,13 +99,12 @@ let parse_query host size query_table fd =
   Hashtbl.replace query_table unique message;
   message
 
-let read_reply size fd =
+let parse_reply host size query_table fd =
   let mem = Ctypes.allocate_n Ctypes.uint8_t ~count:size in
   let size_read =
     try Unistd_unix.read fd (Ctypes.to_voidp mem) size
     with exn -> Unix.close fd; raise exn
   in
-  Unix.close fd;
   (if size_read <> size then failwith "couldn't read packet");
   let hdr_ptr = Ctypes.(coerce (ptr uint8_t) (ptr Profuse.Out.Hdr.T.t)) mem in
   let hdr = Ctypes.(!@ hdr_ptr) in
@@ -115,18 +124,41 @@ let read_reply size fd =
      in
      failwith msg
   );
-  (unique, mem, size)
+  try
+    let query = Hashtbl.find query_table unique in
+    Hashtbl.remove query_table unique;
+    let p = Ctypes.(coerce (ptr uint8_t) (ptr char) mem) in
+    let pkt = Profuse.Out.Message.deserialize query len p in
+    Reply_to (query, pkt)
+  with Not_found -> Reply_unlinked (len, hdr)
 
-let parse_packet query_table filename =
-  let header_len = 4 + 1 + 1 + 2 + 8 in
+let parse_packet host query_table fd =
+  let typ = Bytes.create 1 in
+  match try Unix.read fd typ 0 1 with exn -> Unix.close fd; raise exn with
+  | 0 -> None
+  | _ ->
+    let buf = Bytes.create 12 in
+    ignore (try Unix.read fd buf 0 12 with exn -> Unix.close fd; raise exn);
+    ignore Unix.(lseek fd ~-4 SEEK_CUR);
+    let now = int64_of_le_bytes 0 buf in
+    let size = int_of_4_le_bytes 8 buf in
+    let packet = match Bytes.to_string typ with
+      | "Q" -> Query (parse_query host size query_table fd)
+      | "R" -> parse_reply host size query_table fd
+      | _ -> failwith "unknown FUSE packet type"
+    in
+    Some (now, packet)
+
+let parse_session filename =
+  let header_len = 4 + 1 + 1 + 2 in
   let header = Bytes.create header_len in
   let fd = Unix.(openfile filename [O_RDONLY] 0) in
-  let (host, time, size) =
+  let host =
     begin try
         let header_read = Unix.read fd header 0 header_len in
         (if header_read <> header_len then failwith "couldn't read header");
-        (if Bytes.sub header 0 4 <> Bytes.of_string "FUSE"
-         then failwith "not a FUSE packet");
+        (if Bytes.sub header 0 5 <> Bytes.of_string "FUSES"
+         then failwith "not a FUSE session");
         let major = int_of_char (Bytes.get header 6) in
         let minor = int_of_char (Bytes.get header 7) in
         (if major <> 7
@@ -139,29 +171,26 @@ let parse_packet query_table filename =
              ("only FUSE version 7.8 supported (not 7."^
               string_of_int minor^")")
         );
-        let host = match Bytes.get header 5 with
-          | 'L' -> Profuse.Host.linux_4_0_5
-          | c -> failwith ("unknown host type '"^(String.make 1 c)^"'")
-        in
-        let time = int64_of_le_bytes (Bytes.sub header 8 8) in
-        let size = Unix.((fstat fd).st_size) - header_len in
-        (host, time, size)
+        match Bytes.get header 5 with
+        | 'L' -> Profuse.Host.linux_4_0_5
+        | c -> failwith ("unknown host type '"^(String.make 1 c)^"'")
       with exn ->
         Unix.close fd;
         raise exn
     end
   in
-  (time, match Bytes.get header 4 with
-   | 'Q' -> Query (parse_query host size query_table fd)
-   | 'R' -> Reply (read_reply size fd)
-   | _ -> failwith "unknown FUSE packet type"
-  )
+  let query_table = Hashtbl.create 128 in
+  let rec read_next session = match parse_packet host query_table fd with
+    | None -> List.rev session
+    | Some packet -> read_next (packet::session)
+  in
+  let session = read_next [] in
+  Unix.close fd;
+  session
 
 let pretty_string_of_query q = Profuse.In.Message.describe q
 
-let pretty_string_of_reply q p len =
-  let p = Ctypes.(coerce (ptr uint8_t) (ptr char) p) in
-  let pkt = Profuse.Out.Message.deserialize q len p in
+let pretty_string_of_reply pkt =
   let id =
     Unsigned.UInt64.to_int64 Profuse.(Ctypes.getf pkt.hdr Out.Hdr.T.unique)
   in
@@ -175,8 +204,7 @@ let pretty_string_of_reply q p len =
     Printf.sprintf "returning err [ %s ] from %Ld"
       (String.concat ", " (List.map Errno.to_string errnos)) id
 
-let pretty_string_of_reply_without_query p len =
-  let hdr = Ctypes.(!@ (coerce (ptr uint8_t) (ptr Profuse.Out.Hdr.T.t) p)) in
+let pretty_string_of_reply_unlinked len hdr =
   let id =
     Unsigned.UInt64.to_int64 Profuse.(Ctypes.getf hdr Out.Hdr.T.unique)
   in
@@ -196,39 +224,24 @@ let time_label = function
 
 let pretty_print time =
   let time_label = time_label time in
-  fun query_table -> function
+  function
   | (t, Query q) ->
     Printf.printf "%s%s\n%!" (time_label t) (pretty_string_of_query q)
-  | (t, Reply (unique, ptr, len)) ->
-    let message = try
-        let query = Hashtbl.find query_table unique in
-        pretty_string_of_reply query ptr len
-      with Not_found -> pretty_string_of_reply_without_query ptr len
-    in
-    Printf.printf "%s%s\n%!" (time_label t) message
+  | (t, Reply_to (_q, r)) ->
+    Printf.printf "%s%s\n%!" (time_label t) (pretty_string_of_reply r)
+  | (t, Reply_unlinked (len, hdr)) ->
+    Printf.printf "%s%s\n%!"
+      (time_label t) (pretty_string_of_reply_unlinked len hdr)
 
-let show time dir =
-  let files = Array.to_list (Sys.readdir dir) in
-  let query_table = Hashtbl.create 128 in
-  let packets = List.fold_left (fun list filename ->
-      if is_fuse_packet filename
-      then
-        try parse_packet query_table filename :: list
-        with exn ->
-          Printf.eprintf "Couldn't parse FUSE packet %s: %s\n%!"
-            filename (Printexc.to_string exn);
-          list
-      else list
-    ) [] files
-  in
-  match packets with
-  | [] -> `Error (false, "No fuse packets found.")
-  | packets ->
-    let compare_time (t, _) (t', _) = Int64.compare t t' in
-    let timeline = List.sort compare_time packets in
-    let print = pretty_print time in
-    List.iter (print query_table) timeline;
+let show time session_file =
+  try
+    let session = parse_session session_file in
+    List.iter (pretty_print time) session;
     `Ok ()
+  with exn ->
+    `Error (false,
+            Printf.sprintf "Couldn't parse FUSE session %s: %s\n%!"
+              session_file (Printexc.to_string exn))
 
 open Cmdliner
 
@@ -238,21 +251,22 @@ let time_label = Arg.enum [
 ]
 
 let show_cmd =
-  let doc = "pretty print the packets in directory (or pwd)" in
-  let dir = Arg.(value (pos 0 dir (Sys.getcwd ()) (info ~docv:"DIR" []))) in
+  let doc = "pretty print the packets in a session" in
+  let session = Arg.(
+    value (pos 0 file (Sys.getcwd ()) (info ~docv:"SESSION" []))
+  ) in
   let time = Arg.(
     value (opt time_label (Some Mtime)
              (info ~docv:"TIME_LABEL" ["time"]))
   ) in
-  Term.(ret (pure show $ time $ dir)),
+  Term.(ret (pure show $ time $ session)),
   Term.info "show" ~doc
 
 let cmds = [show_cmd]
 
 let help_cmd =
   let show_usage =
-    "  show [DIR]   Read the packet files in a directory (or pwd if omitted)\n"
-    ^"               and pretty print the session to stdout.\n"
+    "  show [SESSION]   Read the packets in SESSION and print to stdout.\n"
   in
   let usage () = Printf.printf
       "fusedump %s\n\nSubcommands:\n%s\n" version show_usage
