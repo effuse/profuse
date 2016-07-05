@@ -38,14 +38,19 @@ let with_open_fd filename f =
   | v -> Unix.close fd; v
   | exception e -> Unix.close fd; raise e
 
-let is_fuse_packet filename =
-  try
-    let fin = String.rindex filename '.' + 1 in
-    let ext = String.sub filename fin (String.length filename - fin) in
-    match ext with
-    | "fuse" -> true
-    | _ -> false
-  with Not_found -> false
+(** [startswith hay needle] if [hay] is [needle ^ s] for some [s] *)
+let startswith hay needle =
+  String.length needle <= String.length hay
+  && String.sub hay 0 (String.length needle) = needle
+
+(** [endswith hay needle] if [hay] is [s ^ needle] for some [s] *)
+let endswith hay needle =
+  let nlen = String.length needle and hlen = String.length hay in
+  let pos = hlen - nlen in
+  nlen <= hlen
+  && String.sub hay pos nlen = needle
+
+let is_fuse_packet filename = endswith filename ".fuse"
 
 let int64_of_le_bytes off bytes =
   let open Int64 in
@@ -141,20 +146,21 @@ let parse_packet host query_table fd =
 
 let parse_session filename =
   let header_len = 4 + 1 + 1 + 2 in
-  let header = Bytes.create header_len in
+  let bheader = Bytes.create header_len in
   with_open_fd filename @@ fun fd ->
-  let header_read = Unix.read fd header 0 header_len in
+  let header_read = Unix.read fd bheader 0 header_len in
+  let header = Bytes.to_string bheader in
   (if header_read <> header_len then failwith "couldn't read header");
-  (if Bytes.sub header 0 5 <> Bytes.of_string "FUSES"
+  (if not (startswith header "FUSES")
    then failwith "not a FUSE session");
-  let major = int_of_char (Bytes.get header 6) in
-  let minor = int_of_char (Bytes.get header 7) in
+  let major = int_of_char header.[6] in
+  let minor = int_of_char header.[7] in
   (if major <> 7
    then failf "only FUSE major version 7 supported (not %d)" major
    else if minor <> 8
    then failf "only FUSE version 7.8 supported (not 7.%d)" minor);
   let host =
-    match Bytes.get header 5 with
+    match header.[5] with
     | 'L' -> Profuse.Host.linux_4_0_5
     | c -> failf "unknown host type '%c'" c
   in
