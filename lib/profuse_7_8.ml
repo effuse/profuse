@@ -115,6 +115,17 @@ module Struct = struct
 
   module File_lock = struct
     module T = T.File_lock
+
+    let describe fl =
+      let start = getf fl T.start
+      and end_ = getf fl T.end_
+      and type_ = getf fl T.type_
+      and pid = getf fl T.pid in
+      Printf.sprintf "start=%Ld end=%Ld type=%ld pid=%ld"
+        (UInt64.to_int64 start)
+        (UInt64.to_int64 end_)
+        (UInt32.to_int32 type_)
+        (UInt32.to_int32 pid)
   end
 
   module Attr = struct
@@ -375,6 +386,14 @@ module In = struct
 
   module Lk = struct
     module T = T.Lk
+
+    let describe lk =
+      let fh = getf lk T.fh
+      and owner = getf lk T.owner
+      and lk = getf lk T.lk in
+      Printf.sprintf "fh=%Ld owner=%Ld lk=(%s)"
+        fh (UInt64.to_int64 owner)
+        (Struct.File_lock.describe lk)
   end
 
   module Interrupt = struct
@@ -792,18 +811,34 @@ module In = struct
              (UInt32.to_string flags)
              (UInt32.to_string rflags)
              (UInt64.to_string lock_owner)
-         | Getxattr _
-         | Setxattr _
-         | Listxattr _
-         | Removexattr _
-         | Getlk _
-         | Setlk _
-         | Setlkw _
-         | Link (_,_)
-         | Flush _
-         | Fsyncdir _
-         | Fsync _
-         | Bmap _ -> "FIX ME"
+         | Getxattr r ->
+           let size = getf r Getxattr.T.size in
+           Printf.sprintf "size=%ld"
+             (UInt32.to_int32 size)
+         | Setxattr r ->
+           let size = getf r Setxattr.T.size in
+           let flags = getf r Setxattr.T.flags in
+           Printf.sprintf "size=%ld flags%ld="
+             (UInt32.to_int32 size)
+             (UInt32.to_int32 flags)
+         | Listxattr r ->
+           let size = getf r Getxattr.T.size in
+           Printf.sprintf "size=%ld"
+             (UInt32.to_int32 size)
+         | Removexattr name -> name
+         | Getlk t ->
+           Lk.describe t
+         | Setlk t ->
+           Lk.describe t
+         | Setlkw t ->
+           Lk.describe t
+         | Link (l,n) ->
+           let name = Link.name (to_voidp (addr l)) in
+           Printf.sprintf "name=%s %s" name n
+         | Flush _r -> ""
+         | Fsyncdir _r -> ""
+         | Fsync _r -> ""
+         | Bmap _r -> ""
          | Other opcode -> "OTHER "^(Opcode.to_string opcode)
          | Unknown i -> "UNKNOWN "^(Int32.to_string i)
         )
