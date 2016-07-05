@@ -30,6 +30,14 @@ type time_label =
 
 let failf fmt = Printf.kprintf failwith fmt
 
+(** [with_open_fd filename f] opens [filename], passes the resulting
+    descriptor to [f], and closes the file when [f] returns or raises. *)
+let with_open_fd filename f =
+  let fd = Unix.(openfile filename [O_RDONLY] 0) in
+  match f fd with
+  | v -> Unix.close fd; v
+  | exception e -> Unix.close fd; raise e
+
 let is_fuse_packet filename =
   try
     let fin = String.rindex filename '.' + 1 in
@@ -72,10 +80,7 @@ let parse_query host size query_table fd =
     })
   in
   let mem = Ctypes.allocate_n Ctypes.uint8_t ~count:size in
-  let size_read =
-    try Unistd_unix.read fd (Ctypes.to_voidp mem) size
-    with exn -> Unix.close fd; raise exn
-  in
+  let size_read = Unistd_unix.read fd (Ctypes.to_voidp mem) size in
   (if size_read <> size then failwith "couldn't read packet");
   let hdr_ptr = Ctypes.(coerce (ptr uint8_t) (ptr Profuse.In.Hdr.T.t)) mem in
   let hdr = Ctypes.(!@ hdr_ptr) in
@@ -96,10 +101,7 @@ let parse_query host size query_table fd =
 
 let parse_reply host size query_table fd =
   let mem = Ctypes.allocate_n Ctypes.uint8_t ~count:size in
-  let size_read =
-    try Unistd_unix.read fd (Ctypes.to_voidp mem) size
-    with exn -> Unix.close fd; raise exn
-  in
+  let size_read = Unistd_unix.read fd (Ctypes.to_voidp mem) size in
   (if size_read <> size then failwith "couldn't read packet");
   let hdr_ptr = Ctypes.(coerce (ptr uint8_t) (ptr Profuse.Out.Hdr.T.t)) mem in
   let hdr = Ctypes.(!@ hdr_ptr) in
@@ -121,11 +123,11 @@ let parse_reply host size query_table fd =
 
 let parse_packet host query_table fd =
   let typ = Bytes.create 1 in
-  match try Unix.read fd typ 0 1 with exn -> Unix.close fd; raise exn with
+  match Unix.read fd typ 0 1 with
   | 0 -> None
   | _ ->
     let buf = Bytes.create 12 in
-    ignore (try Unix.read fd buf 0 12 with exn -> Unix.close fd; raise exn);
+    ignore (Unix.read fd buf 0 12);
     let offset = Unix.(lseek fd ~-4 SEEK_CUR) in
     let now = int64_of_le_bytes 0 buf in
     let size = int_of_4_le_bytes 8 buf in
@@ -140,27 +142,21 @@ let parse_packet host query_table fd =
 let parse_session filename =
   let header_len = 4 + 1 + 1 + 2 in
   let header = Bytes.create header_len in
-  let fd = Unix.(openfile filename [O_RDONLY] 0) in
+  with_open_fd filename @@ fun fd ->
+  let header_read = Unix.read fd header 0 header_len in
+  (if header_read <> header_len then failwith "couldn't read header");
+  (if Bytes.sub header 0 5 <> Bytes.of_string "FUSES"
+   then failwith "not a FUSE session");
+  let major = int_of_char (Bytes.get header 6) in
+  let minor = int_of_char (Bytes.get header 7) in
+  (if major <> 7
+   then failf "only FUSE major version 7 supported (not %d)" major
+   else if minor <> 8
+   then failf "only FUSE version 7.8 supported (not 7.%d)" minor);
   let host =
-    begin try
-        let header_read = Unix.read fd header 0 header_len in
-        (if header_read <> header_len then failwith "couldn't read header");
-        (if Bytes.sub header 0 5 <> Bytes.of_string "FUSES"
-         then failwith "not a FUSE session");
-        let major = int_of_char (Bytes.get header 6) in
-        let minor = int_of_char (Bytes.get header 7) in
-        (if major <> 7
-         then failf "only FUSE major version 7 supported (not %d)" major
-         else if minor <> 8
-         then failf "only FUSE version 7.8 supported (not 7.%d)" minor
-        );
-        match Bytes.get header 5 with
-        | 'L' -> Profuse.Host.linux_4_0_5
-        | c -> failf "unknown host type '%c'" c
-      with exn ->
-        Unix.close fd;
-        raise exn
-    end
+    match Bytes.get header 5 with
+    | 'L' -> Profuse.Host.linux_4_0_5
+    | c -> failf "unknown host type '%c'" c
   in
   let query_table = Hashtbl.create 128 in
   let rec read_next session = match parse_packet host query_table fd with
@@ -168,7 +164,6 @@ let parse_session filename =
     | Some packet -> read_next (packet::session)
   in
   let session = read_next [] in
-  Unix.close fd;
   session
 
 let pretty_string_of_query q = Profuse.In.Message.describe q
