@@ -20,10 +20,13 @@ let version = "0.5.0"
 type request = Profuse.In.Message.t Profuse.request
 type reply = (Profuse.Out.Hdr.T.t, Profuse.Out.Message.t) Profuse.packet
 
+type reply_packet =
+  | Reply_to of request * reply
+  | Reply_unlinked of int * Profuse.Out.Hdr.T.t Profuse.Types.structure
+
 type packet =
   | Query of request
-  | Reply_to of (request * reply)
-  | Reply_unlinked of (int * Profuse.Out.Hdr.T.t Profuse.Types.structure)
+  | Reply of reply_packet
 
 type time_label =
   | Mtime
@@ -72,59 +75,99 @@ let int_of_4_le_bytes off bytes =
   ((int_of_byte (off + 2)) lsl 16) +
   ((int_of_byte (off + 3)) lsl 24)
 
-let parse_query host size query_table fd =
-  let chan = Profuse.({
-      id = 0;
-      unique = Unsigned.UInt64.of_int 0;
-      mnt = "";
-      version = (7, 8);
-      max_readahead = 0;
-      max_write = 0;
-      flags = Flags.empty;
-      host;
-    })
-  in
-  let mem = Ctypes.allocate_n Ctypes.uint8_t ~count:size in
-  let size_read = Unistd_unix.read fd (Ctypes.to_voidp mem) size in
-  (if size_read <> size then failwith "couldn't read packet");
-  let hdr_ptr = Ctypes.(coerce (ptr uint8_t) (ptr Profuse.In.Hdr.T.t)) mem in
-  let hdr = Ctypes.(!@ hdr_ptr) in
-  let unique = Ctypes.getf hdr Profuse.In.Hdr.T.unique in
-  let unique = Unsigned.UInt64.to_int64 unique in
-  let len = Unsigned.UInt32.to_int (Ctypes.getf hdr Profuse.In.Hdr.T.len) in
-  (if size_read < len
-   then (* TODO: accumulate? *)
-     failf "Packet has %d bytes but only read %d" len size_read
-   else if size_read > len
-   then failf "Packet has %d bytes but file contained %d" len size_read
-  );
-  let len = len - Profuse.In.Hdr.sz in
-  let ptr = Ctypes.(to_voidp (mem +@ Profuse.In.Hdr.sz)) in
-  let message = Profuse.In.Message.parse chan hdr len ptr in
-  Hashtbl.replace query_table unique message;
-  message
-
-let parse_reply host size query_table fd =
-  let mem = Ctypes.allocate_n Ctypes.uint8_t ~count:size in
-  let size_read = Unistd_unix.read fd (Ctypes.to_voidp mem) size in
-  (if size_read <> size then failwith "couldn't read packet");
-  let hdr_ptr = Ctypes.(coerce (ptr uint8_t) (ptr Profuse.Out.Hdr.T.t)) mem in
-  let hdr = Ctypes.(!@ hdr_ptr) in
-  let unique = Ctypes.getf hdr Profuse.Out.Hdr.T.unique in
-  let unique = Unsigned.UInt64.to_int64 unique in
-  let len = Unsigned.UInt32.to_int (Ctypes.getf hdr Profuse.Out.Hdr.T.len) in
-  (if size_read < len
-   then (* TODO: accumulate? *)
+module Query =
+struct
+  let parse host size query_table fd =
+    let chan = Profuse.({
+        id = 0;
+        unique = Unsigned.UInt64.of_int 0;
+        mnt = "";
+        version = (7, 8);
+        max_readahead = 0;
+        max_write = 0;
+        flags = Flags.empty;
+        host;
+      })
+    in
+    let mem = Ctypes.allocate_n Ctypes.uint8_t ~count:size in
+    let size_read = Unistd_unix.read fd (Ctypes.to_voidp mem) size in
+    (if size_read <> size then failwith "couldn't read packet");
+    let hdr_ptr = Ctypes.(coerce (ptr uint8_t) (ptr Profuse.In.Hdr.T.t)) mem in
+    let hdr = Ctypes.(!@ hdr_ptr) in
+    let unique = Ctypes.getf hdr Profuse.In.Hdr.T.unique in
+    let unique = Unsigned.UInt64.to_int64 unique in
+    let len = Unsigned.UInt32.to_int (Ctypes.getf hdr Profuse.In.Hdr.T.len) in
+    (if size_read < len
+     then (* TODO: accumulate? *)
        failf "Packet has %d bytes but only read %d" len size_read
-   else if size_read > len
-   then failf "Packet has %d bytes but file contained %d" len size_read);
-  try
-    let query = Hashtbl.find query_table unique in
-    Hashtbl.remove query_table unique;
-    let p = Ctypes.(coerce (ptr uint8_t) (ptr char) mem) in
-    let pkt = Profuse.Out.Message.deserialize query len p in
-    Reply_to (query, pkt)
-  with Not_found -> Reply_unlinked (len, hdr)
+     else if size_read > len
+     then failf "Packet has %d bytes but file contained %d" len size_read
+    );
+    let len = len - Profuse.In.Hdr.sz in
+    let ptr = Ctypes.(to_voidp (mem +@ Profuse.In.Hdr.sz)) in
+    let message = Profuse.In.Message.parse chan hdr len ptr in
+    Hashtbl.replace query_table unique message;
+    message
+
+  let pretty q = Profuse.In.Message.describe q
+end
+
+module Reply =
+struct
+  let parse host size query_table fd =
+    let mem = Ctypes.allocate_n Ctypes.uint8_t ~count:size in
+    let size_read = Unistd_unix.read fd (Ctypes.to_voidp mem) size in
+    (if size_read <> size then failwith "couldn't read packet");
+    let hdr_ptr = Ctypes.(coerce (ptr uint8_t) (ptr Profuse.Out.Hdr.T.t)) mem in
+    let hdr = Ctypes.(!@ hdr_ptr) in
+    let unique = Ctypes.getf hdr Profuse.Out.Hdr.T.unique in
+    let unique = Unsigned.UInt64.to_int64 unique in
+    let len = Unsigned.UInt32.to_int (Ctypes.getf hdr Profuse.Out.Hdr.T.len) in
+    (if size_read < len
+     then (* TODO: accumulate? *)
+         failf "Packet has %d bytes but only read %d" len size_read
+     else if size_read > len
+     then failf "Packet has %d bytes but file contained %d" len size_read);
+    try
+      let query = Hashtbl.find query_table unique in
+      Hashtbl.remove query_table unique;
+      let p = Ctypes.(coerce (ptr uint8_t) (ptr char) mem) in
+      let pkt = Profuse.Out.Message.deserialize query len p in
+      Reply_to (query, pkt)
+    with Not_found -> Reply_unlinked (len, hdr)
+
+  let pretty_string_of_reply pkt =
+    let id =
+      Unsigned.UInt64.to_int64 Profuse.(Ctypes.getf pkt.hdr Out.Hdr.T.unique)
+    in
+    match Ctypes.getf pkt.Profuse.hdr Profuse.Out.Hdr.T.error with
+    | 0_l ->
+      Printf.sprintf "returning %s from %Ld"
+        (Profuse.Out.Message.describe pkt) id
+    | nerrno ->
+      let host = Profuse.(pkt.chan.host.Host.errno) in
+      let errnos = Errno.of_code ~host (- (Int32.to_int nerrno)) in
+      Printf.sprintf "returning err [ %s ] from %Ld"
+        (String.concat ", " (List.map Errno.to_string errnos)) id
+
+  let pretty_string_of_reply_unlinked len hdr =
+    let id =
+      Unsigned.UInt64.to_int64 Profuse.(Ctypes.getf hdr Out.Hdr.T.unique)
+    in
+    match Ctypes.getf hdr Profuse.Out.Hdr.T.error with
+    | 0_l ->
+      Printf.sprintf "returning UNKNOWN SUCCESS of length %d from %Ld" len id
+    | nerrno ->
+      (* TODO: this should look up the stream host *)
+      let host = Profuse.Host.(linux_4_0_5.errno) in
+      let errnos = Errno.of_code ~host (- (Int32.to_int nerrno)) in
+      Printf.sprintf "returning err [ %s ] from %Ld"
+        (String.concat ", " (List.map Errno.to_string errnos)) id
+
+  let pretty = function
+  | Reply_to (_q, r) -> pretty_string_of_reply r
+  | Reply_unlinked (len, hdr) -> pretty_string_of_reply_unlinked len hdr
+end
 
 let parse_packet host query_table fd =
   let typ = Bytes.create 1 in
@@ -137,8 +180,8 @@ let parse_packet host query_table fd =
     let now = int64_of_le_bytes 0 buf in
     let size = int_of_4_le_bytes 8 buf in
     let packet = match Bytes.to_string typ with
-      | "Q" -> Query (parse_query host size query_table fd)
-      | "R" -> parse_reply host size query_table fd
+      | "Q" -> Query (Query.parse host size query_table fd)
+      | "R" -> Reply (Reply.parse host size query_table fd)
       | x ->
         failf "unknown packet type %S at byte 0x%x" x (offset - 9)
     in
@@ -169,53 +212,16 @@ let parse_session filename =
     | None -> List.rev session
     | Some packet -> read_next (packet::session)
   in
-  let session = read_next [] in
-  session
+  read_next []
 
-let pretty_string_of_query q = Profuse.In.Message.describe q
-
-let pretty_string_of_reply pkt =
-  let id =
-    Unsigned.UInt64.to_int64 Profuse.(Ctypes.getf pkt.hdr Out.Hdr.T.unique)
-  in
-  match Ctypes.getf pkt.Profuse.hdr Profuse.Out.Hdr.T.error with
-  | 0_l ->
-    Printf.sprintf "returning %s from %Ld"
-      (Profuse.Out.Message.describe pkt) id
-  | nerrno ->
-    let host = Profuse.(pkt.chan.host.Host.errno) in
-    let errnos = Errno.of_code ~host (- (Int32.to_int nerrno)) in
-    Printf.sprintf "returning err [ %s ] from %Ld"
-      (String.concat ", " (List.map Errno.to_string errnos)) id
-
-let pretty_string_of_reply_unlinked len hdr =
-  let id =
-    Unsigned.UInt64.to_int64 Profuse.(Ctypes.getf hdr Out.Hdr.T.unique)
-  in
-  match Ctypes.getf hdr Profuse.Out.Hdr.T.error with
-  | 0_l ->
-    Printf.sprintf "returning UNKNOWN SUCCESS of length %d from %Ld" len id
-  | nerrno ->
-    (* TODO: this should look up the stream host *)
-    let host = Profuse.Host.(linux_4_0_5.errno) in
-    let errnos = Errno.of_code ~host (- (Int32.to_int nerrno)) in
-    Printf.sprintf "returning err [ %s ] from %Ld"
-      (String.concat ", " (List.map Errno.to_string errnos)) id
-
-let time_label = function
-  | None -> (fun _ -> "")
-  | Some Mtime -> Printf.sprintf "%Ld: "
-
-let pretty_print time =
-  let time_label = time_label time in
-  function
-  | (t, Query q) ->
-    Printf.printf "%s%s\n%!" (time_label t) (pretty_string_of_query q)
-  | (t, Reply_to (_q, r)) ->
-    Printf.printf "%s%s\n%!" (time_label t) (pretty_string_of_reply r)
-  | (t, Reply_unlinked (len, hdr)) ->
-    Printf.printf "%s%s\n%!"
-      (time_label t) (pretty_string_of_reply_unlinked len hdr)
+let pretty_print time (t, p) =
+  Printf.printf "%s%s\n%!"
+    (match time with
+     | None -> ""
+     | Some Mtime -> Printf.sprintf "%Ld: " t)
+    (match p with
+     | Query q -> Query.pretty q
+     | Reply r -> Reply.pretty r)
 
 let show time session_file =
   try
