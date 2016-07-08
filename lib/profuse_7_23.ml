@@ -1085,25 +1085,28 @@ module Out = struct
     let struct_size = hdrsz
     let size name = hdrsz + 8 * (((String.length name) + 7) / 8)
 
-    let of_list ~host listing offset read_size req =
-      let phost = host.Host.dirent.Dirent.Host.file_kind in
+    let filter_listing listing offset read_size =
       let emit = ref false in
       let count = ref 0 in
       let listing = List.fold_left (fun acc ((off,_,name,_) as ent) ->
-        if offset <> 0 && not !emit then (* TODO: fixme this is gross *)
-          if off = offset
-          then (emit := true; acc)
-          else acc
-        else
-          let next_total = !count + (size name) in
-          if next_total > read_size
-          then acc
-          else begin
-            count := next_total;
-            ent::acc
-          end
-      ) [] listing in
-      let count = !count in
+          if offset <> 0 && not !emit then (* TODO: fixme this is gross *)
+            if off = offset
+            then (emit := true; acc)
+            else acc
+          else
+            let next_total = !count + (size name) in
+            if next_total > read_size
+            then acc
+            else begin
+              count := next_total;
+              ent::acc
+            end
+        ) [] listing in
+      listing, !count
+
+    let of_list ~host listing offset read_size req =
+      let phost = host.Host.dirent.Dirent.Host.file_kind in
+      let listing, count = filter_listing listing offset read_size in
       let pkt = Hdr.packet ~count req in
       let buf = CArray.start pkt in
       let ep = List.fold_left (fun p (off,ino,name,typ) ->
