@@ -1097,24 +1097,29 @@ module Out = struct
           loop acc ~read ~emit:(off = offset) l
       in loop [] ~read:0 ~emit:false listing      
 
-    let of_list ~host listing offset read_size req =
-      let phost = host.Host.dirent.Dirent.Host.file_kind in
-      let listing, count = filter_listing listing offset read_size in
-      let pkt = Hdr.packet ~count req in
-      let buf = CArray.start pkt in
-      let ep = List.fold_left (fun p (off,ino,name,typ) ->
-        let sz = size name in
-        let dirent = !@ (coerce (ptr char) (ptr T.t) p) in
-        let typ = Dirent.File_kind.(to_code ~host:phost typ) in
+    let store ~ino ~off ~name ~typ dirent =
+      let p = coerce (ptr T.t) (ptr char) (addr dirent) in
+      begin
         setf dirent T.ino     (UInt64.of_int64 ino);
         setf dirent T.off     (UInt64.of_int off);
         setf dirent T.namelen (UInt32.of_int (String.length name));
         setf dirent T.typ     (UInt32.of_int (int_of_char typ));
         let sp = ref (p +@ hdrsz) in
         (* TODO: better copy *)
-        String.iter (fun c -> !sp <-@ c; sp := !sp +@ 1) name;
+        String.iter (fun c -> !sp <-@ c; sp := !sp +@ 1) name
         (* Printf.eprintf "dirent serialized %s\n%!" name; *)
-        p +@ sz
+      end
+
+    let of_list ~host listing offset read_size req =
+      let phost = host.Host.dirent.Dirent.Host.file_kind in
+      let listing, count = filter_listing listing offset read_size in
+      let pkt = Hdr.packet ~count req in
+      let buf = CArray.start pkt in
+      let ep = List.fold_left (fun p (off,ino,name,typ) ->
+          let sz = size name in
+          let typ = Dirent.File_kind.(to_code ~host:phost typ) in
+          store ~ino ~off ~name ~typ !@(coerce (ptr char) (ptr T.t) p);
+          p +@ sz
       ) buf (List.rev listing) in
       assert (ptr_diff buf ep = count);
       pkt
