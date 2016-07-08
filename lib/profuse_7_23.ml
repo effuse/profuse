@@ -1085,24 +1085,17 @@ module Out = struct
     let struct_size = hdrsz
     let size name = hdrsz + 8 * (((String.length name) + 7) / 8)
 
-    let filter_listing listing offset read_size =
-      let emit = ref false in
-      let count = ref 0 in
-      let listing = List.fold_left (fun acc ((off,_,name,_) as ent) ->
-          if offset <> 0 && not !emit then (* TODO: fixme this is gross *)
-            if off = offset
-            then (emit := true; acc)
-            else acc
-          else
-            let next_total = !count + (size name) in
-            if next_total > read_size
-            then acc
-            else begin
-              count := next_total;
-              ent::acc
-            end
-        ) [] listing in
-      listing, !count
+    let filter_listing listing offset read_limit =
+      let rec loop acc ~read ~emit = function
+        | [] ->
+          acc, read
+        | (_,_,name,_) :: l when read + size name > read_limit ->
+          acc, read
+        | ((_,_,name,_) as ent)::l when offset = 0 || emit ->
+          loop (ent :: acc) ~read:(read + size name) ~emit l
+        | (off,_,_,_) :: l ->
+          loop acc ~read ~emit:(off = offset) l
+      in loop [] ~read:0 ~emit:false listing      
 
     let of_list ~host listing offset read_size req =
       let phost = host.Host.dirent.Dirent.Host.file_kind in
