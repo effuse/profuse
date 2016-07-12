@@ -35,6 +35,8 @@ module type NODE = sig
   type v
 
   val of_value  : v -> t
+  val value : t -> v
+  val with_value : t -> v -> t
   val new_child : t node -> string -> t
 
   val to_string : t -> string
@@ -55,18 +57,28 @@ module UnixHandle : sig
   val close : t -> unit
 end
 
-module Path : NODE with type v = string list and type h = UnixHandle.t
+module type METADATA = sig
+  type t
+
+  val to_path : t -> string list
+  val create_child : t -> string -> t
+end
+
+module Path(Metadata : METADATA)
+  : NODE with type v = Metadata.t and type h = UnixHandle.t
 
 module Make(N : NODE) : sig
   type t = N.t space
 
   val create       : ?label:string -> N.t -> t
+  val root         : t -> N.t node
   val get          : t -> id -> N.t node
   val string_of_id : t -> id -> string
   val to_string    : t -> string
+  val forget       : t -> id -> int -> unit
 
   module Handle : sig
-    val open_ : N.t space -> id -> N.h -> fh
+    val open_ : t -> id -> N.h -> fh
     val get   : t -> fh -> N.h
     val set   : t -> fh -> N.h -> unit
     val free  : t -> fh -> unit
@@ -76,5 +88,5 @@ module Make(N : NODE) : sig
   val handles : N.t node -> (fh * N.h) list
   val rename : N.t node -> string -> N.t node -> string -> unit
   val unlink : N.t node -> string -> unit
-  val forget : N.t space -> id -> int -> unit
+  val store : N.t node -> unit
 end
