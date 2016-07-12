@@ -44,6 +44,8 @@ module type NODE = sig
   type v
 
   val of_value  : v -> t
+  val value : t -> v
+  val with_value : t -> v -> t
   val new_child : t node -> string -> t
 
   val to_string : t -> string
@@ -69,17 +71,30 @@ module UnixHandle = struct
 
 end
 
-module Path : NODE with type v = string list and type h = UnixHandle.t = struct
+module type METADATA = sig
+  type t
+
+  val to_path : t -> string list
+  val create_child : t -> string -> t
+end
+
+module Path(Metadata : METADATA)
+  : NODE with type v = Metadata.t and type h = UnixHandle.t = struct
   type h = UnixHandle.t
-  type v = string list
+  type v = Metadata.t
   type t = {
+    meta    : Metadata.t;
     path    : string list;
     handles : (fh * h) list;
   }
 
-  let of_value path = { path; handles = [] }
+  let of_value meta = { meta; path = Metadata.to_path meta; handles = []; }
 
-  let new_child parent name = of_value (name::parent.data.path)
+  let value { meta } = meta
+  let with_value t meta = { t with meta }
+
+  let new_child parent name =
+    of_value (Metadata.create_child parent.data.meta name)
 
   let to_string { path } = match path with
     | [] | [""] -> Filename.dir_sep
@@ -169,6 +184,8 @@ module Make(N : NODE) = struct
         node
       else raise Not_found
 
+  let root space = get space 1_L
+
   let string_of_id s id =
     if id = Int64.zero (* TODO: should be in get for FUSE_INIT? *)
     then "id=0"
@@ -229,7 +246,7 @@ module Make(N : NODE) = struct
                     fh (to_string space))
 
     let get space fh =
-      let { table; handles } = space in
+      let { handles } = space in
       try
         let id = Hashtbl.find handles fh in
         let node = get space id in
@@ -316,4 +333,9 @@ module Make(N : NODE) = struct
         let parent = Hashtbl.find table parent in
         Hashtbl.remove parent.children node.name
     end
+
+  let store node =
+    let { space } = node in
+    let { table } = space in
+    Hashtbl.replace table node.id node
 end
