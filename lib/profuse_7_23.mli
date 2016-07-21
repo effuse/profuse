@@ -936,8 +936,7 @@ module Out : sig
       val struct_size : int
       val size : string -> int
 
-      val create :
-        Unsigned.UInt64.t -> string -> 'a request -> char Ctypes.CArray.t
+      val create : Unsigned.UInt64.t -> string -> char Ctypes.CArray.t
     end
 
     type t =
