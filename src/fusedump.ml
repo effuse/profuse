@@ -139,13 +139,15 @@ let parse_packet host query_table fd =
   | _ ->
     let buf = Bytes.create 12 in
     ignore (try Unix.read fd buf 0 12 with exn -> Unix.close fd; raise exn);
-    ignore Unix.(lseek fd ~-4 SEEK_CUR);
+    let offset = Unix.(lseek fd ~-4 SEEK_CUR) in
     let now = int64_of_le_bytes 0 buf in
     let size = int_of_4_le_bytes 8 buf in
     let packet = match Bytes.to_string typ with
       | "Q" -> Query (parse_query host size query_table fd)
       | "R" -> parse_reply host size query_table fd
-      | _ -> failwith "unknown FUSE packet type"
+      | x ->
+        let b = offset - 9 in
+        failwith (Printf.sprintf "unknown packet type %S at byte 0x%x" x b)
     in
     Some (now, packet)
 
