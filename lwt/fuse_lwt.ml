@@ -21,24 +21,28 @@ type socket = {
   id    : int;
   read  : int -> uint8 Ctypes.CArray.t Lwt.t;
   write : uint8 Ctypes.ptr -> int -> int Lwt.t;
+  nwrite: uint8 Ctypes.ptr -> int -> int Lwt.t;
+  nread : unit -> uint32 Lwt.t;
 }
 
 let null_socket = {
   id = -1;
   read  = (fun _ -> Lwt.return (Ctypes.CArray.make uint8_t 0));
-  write = (fun _ _ -> Lwt.return 0);
+  write = (fun _ len -> Lwt.return len);
+  nwrite= (fun _ len -> Lwt.return len);
+  nread = (fun _ -> Lwt.return UInt32.zero);
 }
 
 let socket_table = ref (Array.make 0 null_socket)
 
 (* TODO: release socket *)
-let new_socket ~read ~write =
+let new_socket ~read ~write ~nwrite ~nread =
   let table = !socket_table in
   let next_id = Array.length table in
   let table = Array.init (next_id + 1) (fun i ->
     if i <> next_id
     then table.(i)
-    else { id = next_id; read; write }
+    else { id = next_id; read; write; nwrite; nread }
   )  in
   socket_table := table;
   table.(next_id)
@@ -52,7 +56,11 @@ let read_socket { read } = read
 
 let write_socket { write } = write
 
-let set_socket k ?read ?write () =
+let nwrite_socket { nwrite } = nwrite
+
+let nread_socket { nread } = nread ()
+
+let set_socket k ?read ?write ?nwrite ?nread () =
   let table = !socket_table in
   if k >= Array.length table
   then raise (Invalid_argument "bad socket table index")
@@ -61,14 +69,46 @@ let set_socket k ?read ?write () =
     table.(k) <- {
       socket with
       read = (match read with
-          | None -> socket.read
-          | Some read -> read
-        );
+        | None -> socket.read
+        | Some read -> read
+      );
       write = (match write with
-          | None -> socket.write
-          | Some write -> write
-        );
+        | None -> socket.write
+        | Some write -> write
+      );
+      nwrite = (match nwrite with
+        | None -> socket.nwrite
+        | Some nwrite -> nwrite
+      );
+      nread = (match nread with
+        | None -> socket.nread
+        | Some nread -> nread
+      );
     }
+
+let write_notify chan arr =
+  let sz = CArray.length arr + Out.Hdr.sz in
+  let ptr = CArray.start arr -@ Out.Hdr.sz in
+  let socket = get_socket chan.Profuse.id in
+  socket.nwrite (coerce (Ctypes.ptr char) (Ctypes.ptr uint8_t) ptr) sz
+  >>= fun len ->
+  if sz <> len
+  then
+    let msg =
+      Printf.sprintf "Tried to write notify %d but only wrote %d" sz len
+    in
+    fail (Profuse.ProtocolError (chan,msg))
+  else return_unit
+
+let read_notify chan =
+  let socket = get_socket chan.Profuse.id in
+  socket.nread ()
+  >>= fun err ->
+  if UInt32.(compare zero err) = 0
+  then Lwt.return []
+  else
+    let host = chan.host.Host.errno in
+    Lwt.return (Errno.of_code ~host (UInt32.to_int err))
 
 let write_reply_raw req sz ptr =
   let socket = get_socket req.chan.id in
