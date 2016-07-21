@@ -973,7 +973,7 @@ module Out = struct
       let struct_size = hdrsz
       let size name = hdrsz + (String.length name) + 1
 
-      let create parent filename _req =
+      let create parent filename =
         let code = Hdr.T.Notify_code.fuse_notify_inval_entry in
         let pkt = packet ~code ~count:(size filename) in
         let p = CArray.start pkt in
