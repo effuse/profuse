@@ -36,6 +36,7 @@ module type IO = sig
 
   module In : sig
     val read : Profuse.chan -> unit -> request t
+    val read_notify : Profuse.chan -> unit -> Errno.t list t
   end
 
   module Out : sig
@@ -44,6 +45,7 @@ module type IO = sig
       -> unit t
     val write_ack : request -> unit t
     val write_error : (string -> unit) -> request -> Errno.t -> unit t
+    val write_notify : Profuse.chan -> char Ctypes.CArray.t -> unit t
   end
 end
 
