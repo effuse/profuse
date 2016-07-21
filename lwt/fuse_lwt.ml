@@ -200,6 +200,8 @@ module IO : IO_LWT = struct
           | exn -> fail exn
         )
 
+    let read_notify chan () = read_notify chan
+
   end
 
   module Out = struct
@@ -226,6 +228,8 @@ module IO : IO_LWT = struct
             failwith (Printf.sprintf "errno for %s and EIO unknown" errstr)
       in
       write_reply req (Out.Hdr.packet ~nerrno ~count:0)
+
+    let write_notify = write_notify
   end
 end
 
@@ -268,6 +272,14 @@ module Trace(F : FS_LWT) : FS_LWT with type t = F.t = struct
             (Errno.to_string err)
             (UInt64.to_int64 (getf req.hdr In.Hdr.T.unique));
           IO.Out.write_error log_error req err
+
+        let write_notify chan arr =
+          let sz = CArray.length arr + Profuse.Out.Hdr.sz in
+          let p = CArray.start arr -@ Profuse.Out.Hdr.sz in
+          let hdr_ptr = coerce (ptr char) (ptr Out.Hdr.T.t) p in
+          Printf.eprintf "    notifying %s"
+            Out.Notify.(describe (parse chan (!@ hdr_ptr) sz (to_voidp p)));
+          write_notify chan arr
       end
 
       module In = IO.In
