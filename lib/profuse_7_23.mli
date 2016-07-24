@@ -143,6 +143,15 @@ module Types : sig
       val namelen : (Unsigned.UInt32.t, t structure) Ctypes.field
     end
 
+    module Notify_delete : sig
+      type t
+      val t : t structure Ctypes.typ
+
+      val parent  : (Unsigned.UInt64.t, t structure) Ctypes.field
+      val child   : (Unsigned.UInt64.t, t structure) Ctypes.field
+      val namelen : (Unsigned.UInt32.t, t structure) Ctypes.field
+    end
+
     module Write : sig
       type t
       val t : t structure Ctypes.typ
@@ -939,8 +948,19 @@ module Out : sig
       val create : Unsigned.UInt64.t -> string -> char Ctypes.CArray.t
     end
 
+    module Delete : sig
+      module T = T.Notify_delete
+
+      val struct_size : int
+      val size : string -> int
+
+      val create :
+        Unsigned.UInt64.t -> Unsigned.UInt64.t -> string ->
+        char Ctypes.CArray.t
+    end
+
     type t =
-      | Delete (* TODO: do *)
+      | Delete of string * Delete.T.t structure
       | Inval_entry of string * Inval_entry.T.t structure
       | Inval_inode (* TODO: do *)
       | Poll (* TODO: do *)

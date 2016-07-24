@@ -993,8 +993,38 @@ module Out = struct
         Printf.sprintf "under %Ld" (UInt64.to_int64 (getf pkt T.parent))
     end
 
+    module Delete = struct
+      module T = T.Notify_delete
+
+      let hdrsz = sizeof T.t
+      let struct_size = hdrsz
+      let size name = hdrsz + (String.length name) + 1
+
+      let create parent child filename =
+        let code = Hdr.T.Notify_code.fuse_notify_delete in
+        let pkt = packet ~code ~count:(size filename) in
+        let p = CArray.start pkt in
+        let s = !@ (coerce (ptr char) (ptr T.t) p) in
+        setf s T.parent  parent;
+        setf s T.child   child;
+        setf s T.namelen (UInt32.of_int (String.length filename));
+        let sp = ref (p +@ hdrsz) in
+        (* TODO: better copy *)
+        String.iter (fun c -> !sp <-@ c; sp := !sp +@ 1) filename;
+        pkt
+
+      let name p =
+        (* TODO: check namelen valid? *)
+        coerce (ptr char) string ((from_voidp char p) +@ struct_size)
+
+      let describe pkt =
+        Printf.sprintf "as %Ld / %Ld"
+          (UInt64.to_int64 (getf pkt T.parent))
+          (UInt64.to_int64 (getf pkt T.child))
+    end
+
     type t =
-      | Delete (* TODO: do *)
+      | Delete of string * Delete.T.t structure
       | Inval_entry of string * Inval_entry.T.t structure
       | Inval_inode (* TODO: do *)
       | Poll (* TODO: do *)
@@ -1006,7 +1036,10 @@ module Out = struct
       assert (unique = 0_L); (* TODO: really?? *)
       let code = Hdr.Notify_code.of_int32 (getf hdr Hdr.T.error) in
       { chan; hdr; pkt=(match code with
-          | `FUSE_NOTIFY_DELETE -> Delete
+          | `FUSE_NOTIFY_DELETE ->
+            let name = Delete.name p in
+            let s = !@ (from_voidp Delete.T.t p) in
+            Delete (name, s)
           | `FUSE_NOTIFY_INVAL_INODE -> Inval_inode
           | `FUSE_NOTIFY_POLL -> Poll
           | `FUSE_NOTIFY_RETRIEVE -> Retrieve
@@ -1019,7 +1052,8 @@ module Out = struct
 
     let describe ({ chan; pkt }) =
       match pkt with
-      | Delete -> "DELETE FIXME" (* TODO: more *)
+      | Delete (name, d) ->
+        Printf.sprintf "DELETE %s %s" name (Delete.describe d)
       | Inval_entry (name, i) ->
         Printf.sprintf "INVAL_ENTRY %s %s" name (Inval_entry.describe i)
       | Inval_inode -> "INVAL_INODE FIXME" (* TODO: more *)
