@@ -76,6 +76,7 @@ module type METADATA = sig
 
   val to_path : t -> string list
   val create_child : t -> string -> t
+  val rename : t -> string list -> t
 end
 
 module Path(Metadata : METADATA)
@@ -127,11 +128,11 @@ module Path(Metadata : METADATA)
     | [] -> ()
     | (k, node)::rest ->
       let { table } = node.space in
-      Hashtbl.replace table node.id {
-        node with data = {
-        node.data with path = set_trunk k trunk [] node.data.path;
-      }
-      };
+      let data = node.data in
+      let path = set_trunk k trunk [] data.path in
+      let meta = Metadata.rename data.meta path in
+      let data = { data with path; meta } in
+      Hashtbl.replace table node.id { node with data };
       let k = k + 1 in
       rename_subtree trunk (Hashtbl.fold (fun _ id list ->
         (k, Hashtbl.find table id)::list
