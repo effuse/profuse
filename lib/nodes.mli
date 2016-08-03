@@ -62,6 +62,7 @@ module type METADATA = sig
 
   val to_path : t -> string list
   val create_child : t -> string -> t
+  val rename : t -> string list -> t
 end
 
 module Path(Metadata : METADATA)
