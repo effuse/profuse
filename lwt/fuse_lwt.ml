@@ -108,7 +108,8 @@ let read_notify chan =
   then Lwt.return []
   else
     let host = chan.host.Host.errno in
-    Lwt.return (Errno.of_code ~host (UInt32.to_int err))
+    let errno = Signed.SInt.of_int64 (UInt32.to_int64 err) in
+    Lwt.return (Errno.of_code ~host errno)
 
 let write_reply_raw req sz ptr =
   let socket = get_socket req.chan.id in
@@ -213,12 +214,12 @@ module IO : IO_LWT = struct
     let write_error log_error req err =
       let host = req.chan.host.Host.errno in
       let nerrno = match Errno.to_code ~host err with
-        | Some errno -> Int32.of_int (-errno)
+        | Some errno -> Int64.to_int32 Signed.SInt.(to_int64 (neg errno))
         | None -> match Errno.to_code ~host Errno.EIO with
           | Some errno ->
             let errno_string = Errno.to_string err in
             log_error ("Couldn't find host error code for "^errno_string);
-            Int32.of_int (-errno)
+            Int64.to_int32 Signed.SInt.(to_int64 (neg errno))
           | None ->
             let errstr = Errno.to_string err in
             failwith (Printf.sprintf "errno for %s and EIO unknown" errstr)

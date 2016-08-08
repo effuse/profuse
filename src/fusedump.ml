@@ -145,8 +145,9 @@ struct
       Printf.sprintf "returning %s from %Ld"
         (Profuse.Out.Message.describe pkt) id
     | nerrno ->
+      let nerrno = Int64.of_int32 nerrno in
       let host = Profuse.(pkt.chan.host.Host.errno) in
-      let errnos = Errno.of_code ~host (- (Int32.to_int nerrno)) in
+      let errnos = Errno.of_code ~host Signed.SInt.(neg (of_int64 nerrno)) in
       Printf.sprintf "returning err [ %s ] from %Ld"
         (String.concat ", " (List.map Errno.to_string errnos)) id
 
@@ -158,9 +159,10 @@ struct
     | 0_l ->
       Printf.sprintf "returning UNKNOWN SUCCESS of length %d from %Ld" len id
     | nerrno ->
+      let nerrno = Int64.of_int32 nerrno in
       (* TODO: this should look up the stream host *)
       let host = Profuse.Host.(linux_4_0_5.errno) in
-      let errnos = Errno.of_code ~host (- (Int32.to_int nerrno)) in
+      let errnos = Errno.of_code ~host Signed.SInt.(neg (of_int64 nerrno)) in
       Printf.sprintf "returning err [ %s ] from %Ld"
         (String.concat ", " (List.map Errno.to_string errnos)) id
 
