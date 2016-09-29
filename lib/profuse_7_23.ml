@@ -1030,9 +1030,9 @@ module Out = struct
         let s = !@ (coerce (ptr char) (ptr T.t) p) in
         setf s T.parent  parent;
         setf s T.namelen (UInt32.of_int (String.length filename));
-        let sp = ref (p +@ hdrsz) in
-        (* TODO: better copy *)
-        String.iter (fun c -> !sp <-@ c; sp := !sp +@ 1) filename;
+        Memcpy.(unsafe_memcpy ocaml_bytes pointer)
+           ~src:(Bytes.of_string filename) ~src_off:0
+           ~dst:p ~dst_off:hdrsz ~len:(String.length filename);
         pkt
 
       let name p =
