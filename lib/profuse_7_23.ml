@@ -929,10 +929,10 @@ module In = struct
            Printf.sprintf "oldnodeid=%s %s"
              (UInt64.to_string (getf l Link.T.oldnodeid))
              n
-         | Flush _r -> ""
-         | Fsyncdir _r -> ""
-         | Fsync _r -> ""
-         | Bmap _r -> ""
+         | Flush _r -> "FIXME"
+         | Fsyncdir _r -> "FIXME"
+         | Fsync _r -> "FIXME"
+         | Bmap _r -> "FIXME"
          | Batch_forget b ->
            let forgets = String.concat ", " (List.map (fun forget ->
              let id = getf forget Struct.Forget_one.T.nodeid in
