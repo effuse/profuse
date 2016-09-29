@@ -860,8 +860,8 @@ module In : sig
       | Releasedir of Release.T.t Ctypes.structure
       | Fsyncdir of Fsync.T.t Ctypes.structure
       | Rmdir of string
-      | Getxattr of Getxattr.T.t Ctypes.structure
-      | Setxattr of Setxattr.T.t Ctypes.structure
+      | Getxattr of Getxattr.T.t Ctypes.structure * string
+      | Setxattr of Setxattr.T.t Ctypes.structure * string
       | Listxattr of Getxattr.T.t Ctypes.structure
       | Removexattr of string
       | Access of Access.T.t Ctypes.structure

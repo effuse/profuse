@@ -615,6 +615,8 @@ module In = struct
       let pkt = Hdr.make_from_hdr hdr T.t in
       setf pkt T.size size;
       CArray.from_ptr (coerce (ptr T.t) (ptr char) (addr pkt)) (sizeof T.t)
+
+    let name p = coerce (ptr char) string (from_voidp char p +@ sizeof T.t)
   end
 
   module Setxattr = struct
@@ -625,6 +627,8 @@ module In = struct
       setf pkt T.size  size;
       setf pkt T.flags flags;
       CArray.from_ptr (coerce (ptr T.t) (ptr char) (addr pkt)) (sizeof T.t)
+
+    let name p = coerce (ptr char) string (from_voidp char p +@ sizeof T.t)
   end
 
   module Batch_forget = struct
@@ -641,8 +645,8 @@ module In = struct
       | Releasedir of Release.T.t structure
       | Fsyncdir of Fsync.T.t structure
       | Rmdir of string
-      | Getxattr of Getxattr.T.t structure
-      | Setxattr of Setxattr.T.t structure
+      | Getxattr of Getxattr.T.t structure * string
+      | Setxattr of Setxattr.T.t structure * string
       | Listxattr of Getxattr.T.t structure
       | Removexattr of string
       | Access of Access.T.t structure
@@ -690,8 +694,14 @@ module In = struct
            let name = Mkdir.name buf in
            let s = !@ (from_voidp Mkdir.T.t buf) in
            Mkdir (s, name)
-         | `FUSE_GETXATTR    -> Getxattr   (!@ (from_voidp Getxattr.T.t buf))
-         | `FUSE_SETXATTR    -> Setxattr   (!@ (from_voidp Setxattr.T.t buf))
+         | `FUSE_GETXATTR    ->
+            let name = Getxattr.name buf in
+            let s = !@ (from_voidp Getxattr.T.t buf) in
+            Getxattr (s, name)
+         | `FUSE_SETXATTR    ->
+            let name = Setxattr.name buf in
+            let s = !@ (from_voidp Setxattr.T.t buf) in
+            Setxattr (s, name)
          | `FUSE_LISTXATTR   -> Listxattr  (!@ (from_voidp Getxattr.T.t buf))
          | `FUSE_REMOVEXATTR -> Removexattr (coerce (ptr void) string buf)
          | `FUSE_ACCESS      -> Access     (!@ (from_voidp Access.T.t buf))
@@ -892,14 +902,16 @@ module In = struct
              (UInt32.to_string flags)
              (UInt32.to_string rflags)
              (UInt64.to_string lock_owner)
-         | Getxattr r ->
+         | Getxattr (r, name) ->
            let size = getf r Getxattr.T.size in
-           Printf.sprintf "size=%ld"
+           Printf.sprintf "name=%s size=%ld"
+             name
              (UInt32.to_int32 size)
-         | Setxattr r ->
+         | Setxattr (r, name) ->
            let size = getf r Setxattr.T.size in
            let flags = getf r Setxattr.T.flags in
-           Printf.sprintf "size=%ld flags%ld="
+           Printf.sprintf "name=%s size=%ld flags%ld="
+             name
              (UInt32.to_int32 size)
              (UInt32.to_int32 flags)
          | Listxattr r ->
