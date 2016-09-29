@@ -926,8 +926,9 @@ module In = struct
          | Setlkw t ->
            Lk.describe t
          | Link (l,n) ->
-           let name = Link.name (to_voidp (addr l)) in
-           Printf.sprintf "name=%s %s" name n
+           Printf.sprintf "oldnodeid=%s %s"
+             (UInt64.to_string (getf l Link.T.oldnodeid))
+             n
          | Flush _r -> ""
          | Fsyncdir _r -> ""
          | Fsync _r -> ""
