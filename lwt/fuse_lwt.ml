@@ -323,8 +323,8 @@ module Dispatch(F : FS_LWT) : FS_LWT with type t = F.t = struct
         | Fsync f -> fsync f req t
         | Write (w, data) -> write w data req t
         | Link (l,name) -> link l name req t
-        | Getxattr g -> getxattr g req t
-        | Setxattr s -> setxattr s req t
+        | Getxattr (g,name) -> getxattr g name req t
+        | Setxattr (s,name) -> setxattr s name req t
         | Listxattr g -> listxattr g req t
         | Removexattr name -> removexattr name req t
         | Access a -> access a req t

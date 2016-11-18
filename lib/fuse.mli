@@ -57,7 +57,7 @@ end
 module type RO_FULL = sig
   include RO_MID
 
-  val getxattr : Profuse.In.Getxattr.T.t structure -> t req_handler
+  val getxattr : Profuse.In.Getxattr.T.t structure -> string -> t req_handler
   val listxattr : Profuse.In.Getxattr.T.t structure -> t req_handler
   val interrupt : Profuse.In.Interrupt.T.t structure -> t req_handler
   val bmap : Profuse.In.Bmap.T.t structure -> t req_handler
@@ -99,7 +99,7 @@ module type RW_FULL = sig
      and type 'a req_handler := 'a req_handler
 
   val fsyncdir    : Profuse.In.Fsync.T.t structure -> t req_handler
-  val setxattr    : Profuse.In.Setxattr.T.t structure -> t req_handler
+  val setxattr    : Profuse.In.Setxattr.T.t structure -> string -> t req_handler
   val removexattr : string -> t req_handler
   val getlk       : Profuse.In.Lk.T.t structure -> t req_handler
   val setlk       : Profuse.In.Lk.T.t structure -> t req_handler
