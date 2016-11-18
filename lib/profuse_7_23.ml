@@ -394,10 +394,12 @@ module In = struct
     let describe lk =
       let fh = getf lk T.fh
       and owner = getf lk T.owner
-      and lk = getf lk T.lk in
-      Printf.sprintf "fh=%Ld owner=%Ld lk=(%s)"
+      and lk = getf lk T.lk
+      and lk_flags = getf lk T.lk_flags in
+      Printf.sprintf "fh=%Ld owner=%Ld lk=(%s) lk_flags=%Ld"
         fh (UInt64.to_int64 owner)
         (Struct.File_lock.describe lk)
+	(UInt32.to_int64 lk_flags)
   end
 
   module Interrupt = struct
@@ -910,7 +912,7 @@ module In = struct
          | Setxattr (r, name) ->
            let size = getf r Setxattr.T.size in
            let flags = getf r Setxattr.T.flags in
-           Printf.sprintf "name=%s size=%ld flags%ld="
+           Printf.sprintf "name=%s size=%ld flags=%ld"
              name
              (UInt32.to_int32 size)
              (UInt32.to_int32 flags)
