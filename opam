@@ -25,6 +25,7 @@ depends: [
   "stringext"
   "ctypes" {>= "0.4.0"}
   "ctypes-foreign" # for unix-unistd for now
+  "memcpy"
   "lwt"      {test}
   "alcotest" {test}
 ]

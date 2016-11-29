@@ -927,9 +927,9 @@ module Out = struct
         setf dirent T.off     (UInt64.of_int off);
         setf dirent T.namelen (UInt32.of_int (String.length name));
         setf dirent T.typ     (UInt32.of_int (int_of_char typ));
-        let sp = ref (p +@ hdrsz) in
-        (* TODO: better copy *)
-        String.iter (fun c -> !sp <-@ c; sp := !sp +@ 1) name;
+        Memcpy.(unsafe_memcpy ocaml_bytes pointer)
+          ~src:(Bytes.of_string name) ~src_off:0
+          ~dst:p ~dst_off:hdrsz ~len:(String.length name);
         (* Printf.eprintf "dirent serialized %s\n%!" name; *)
         p +@ sz
       ) buf (List.rev listing) in
@@ -966,9 +966,10 @@ module Out = struct
     let create ~target req =
       let count = String.length target in
       let pkt = Hdr.packet ~count req in
-      let sp = ref (CArray.start pkt) in
-      (* TODO: FIXME should not iterate! *)
-      String.iter (fun c -> !sp <-@ c; sp := !sp +@ 1) target;
+      let sp = CArray.start pkt in
+      Memcpy.(unsafe_memcpy ocaml_bytes pointer)
+        ~src:(Bytes.of_string target) ~src_off:0
+        ~dst:sp ~dst_off:0 ~len:count;
       pkt
   end
 

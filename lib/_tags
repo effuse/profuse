@@ -1,2 +1,2 @@
-<*.*>: package(ctypes.stubs), package(unix-errno), package(unix-dirent.unix), package(unix-sys-stat.unix), package(unix-fcntl), package(unix-unistd.unix)
+<*.*>: package(ctypes.stubs unix-errno unix-dirent.unix unix-sys-stat.unix unix-fcntl unix-unistd.unix memcpy)
 true: debug

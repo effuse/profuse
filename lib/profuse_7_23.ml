@@ -1030,9 +1030,9 @@ module Out = struct
         let s = !@ (coerce (ptr char) (ptr T.t) p) in
         setf s T.parent  parent;
         setf s T.namelen (UInt32.of_int (String.length filename));
-        let sp = ref (p +@ hdrsz) in
-        (* TODO: better copy *)
-        String.iter (fun c -> !sp <-@ c; sp := !sp +@ 1) filename;
+        Memcpy.(unsafe_memcpy ocaml_bytes pointer)
+           ~src:(Bytes.of_string filename) ~src_off:0
+           ~dst:p ~dst_off:hdrsz ~len:(String.length filename);
         pkt
 
       let name p =
@@ -1085,40 +1085,40 @@ module Out = struct
     let struct_size = hdrsz
     let size name = hdrsz + 8 * (((String.length name) + 7) / 8)
 
-    let of_list ~host listing offset read_size req =
-      let phost = host.Host.dirent.Dirent.Host.file_kind in
-      let emit = ref false in
-      let count = ref 0 in
-      let listing = List.fold_left (fun acc ((off,_,name,_) as ent) ->
-        if offset <> 0 && not !emit then (* TODO: fixme this is gross *)
-          if off = offset
-          then (emit := true; acc)
-          else acc
-        else
-          let next_total = !count + (size name) in
-          if next_total > read_size
-          then acc
-          else begin
-            count := next_total;
-            ent::acc
-          end
-      ) [] listing in
-      let count = !count in
-      let pkt = Hdr.packet ~count req in
-      let buf = CArray.start pkt in
-      let ep = List.fold_left (fun p (off,ino,name,typ) ->
-        let sz = size name in
-        let dirent = !@ (coerce (ptr char) (ptr T.t) p) in
-        let typ = Dirent.File_kind.(to_code ~host:phost typ) in
+    let filter_listing listing offset read_limit =
+      let rec loop acc ~read ~emit = function
+        | [] ->
+          acc, read
+        | (_,_,name,_) :: l when read + size name > read_limit ->
+          acc, read
+        | ((_,_,name,_) as ent)::l when offset = 0 || emit ->
+          loop (ent :: acc) ~read:(read + size name) ~emit l
+        | (off,_,_,_) :: l ->
+          loop acc ~read ~emit:(off = offset) l
+      in loop [] ~read:0 ~emit:false listing      
+
+    let store ~ino ~off ~name ~typ dirent =
+      let p = coerce (ptr T.t) (ptr char) (addr dirent) in
+      begin
         setf dirent T.ino     (UInt64.of_int64 ino);
         setf dirent T.off     (UInt64.of_int off);
         setf dirent T.namelen (UInt32.of_int (String.length name));
         setf dirent T.typ     (UInt32.of_int (int_of_char typ));
-        let sp = ref (p +@ hdrsz) in
-        (* TODO: better copy *)
-        String.iter (fun c -> !sp <-@ c; sp := !sp +@ 1) name;
-        (* Printf.eprintf "dirent serialized %s\n%!" name; *)
-        p +@ sz
+        Memcpy.(unsafe_memcpy ocaml_bytes pointer)
+          ~src:(Bytes.of_string name) ~src_off:0
+          ~dst:p ~dst_off:hdrsz ~len:(String.length name)
+      end
+
+    let of_list ~host listing offset read_size req =
+      let phost = host.Host.dirent.Dirent.Host.file_kind in
+      let listing, count = filter_listing listing offset read_size in
+      let pkt = Hdr.packet ~count req in
+      let buf = CArray.start pkt in
+      let ep = List.fold_left (fun p (off,ino,name,typ) ->
+          let sz = size name in
+          let typ = Dirent.File_kind.(to_code ~host:phost typ) in
+          store ~ino ~off ~name ~typ !@(coerce (ptr char) (ptr T.t) p);
+          p +@ sz
       ) buf (List.rev listing) in
       assert (ptr_diff buf ep = count);
       pkt
@@ -1153,9 +1153,10 @@ module Out = struct
     let create ~target req =
       let count = String.length target in
       let pkt = Hdr.packet ~count req in
-      let sp = ref (CArray.start pkt) in
-      (* TODO: FIXME should not iterate! *)
-      String.iter (fun c -> !sp <-@ c; sp := !sp +@ 1) target;
+      let sp = CArray.start pkt in
+      Memcpy.(unsafe_memcpy ocaml_bytes pointer)
+        ~src:(Bytes.of_string target) ~src_off:0
+        ~dst:sp ~dst_off:0 ~len:count;
       pkt
   end
 
