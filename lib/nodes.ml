@@ -76,7 +76,7 @@ module type METADATA = sig
 
   val to_path : t -> string list
   val create_child : t -> string -> t
-  val rename : t -> string list -> t
+  val rename : t -> t -> string -> t
 end
 
 module Path(Metadata : METADATA)
@@ -119,23 +119,16 @@ module Path(Metadata : METADATA)
 
   let get_handles node = node.data.handles
 
-  let rec set_trunk k trunk branch = function
-    | _ when k = 0 -> List.rev_append branch trunk
-    | h::t -> set_trunk (k - 1) trunk (h::branch) t
-    | [] -> assert false
-
-  let rec rename_subtree trunk = function
+  let rec rename_subtree = function
     | [] -> ()
-    | (k, node)::rest ->
+    | (node, parent)::rest ->
       let { table } = node.space in
       let data = node.data in
-      let path = set_trunk k trunk [] data.path in
-      let meta = Metadata.rename data.meta path in
-      let data = { data with path; meta } in
+      let meta = Metadata.rename data.meta parent node.name in
+      let data = { data with path = Metadata.to_path meta; meta } in
       Hashtbl.replace table node.id { node with data };
-      let k = k + 1 in
-      rename_subtree trunk (Hashtbl.fold (fun _ id list ->
-        (k, Hashtbl.find table id)::list
+      rename_subtree (Hashtbl.fold (fun _ id list ->
+        (Hashtbl.find table id, meta)::list
       ) node.children rest)
 
   let rename parent node name =
@@ -144,7 +137,7 @@ module Path(Metadata : METADATA)
        which will slightly slow every operation and this
        implementation which requires operations on every descendent
        when a directory is moved *)
-    rename_subtree (name::parent.data.path) [0, node];
+    rename_subtree [node, parent.data.meta];
     Hashtbl.replace parent.children name node.id
 end
 
