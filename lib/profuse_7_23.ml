@@ -165,6 +165,10 @@ module Struct = struct
       let i64 = UInt64.to_int64 in
       let i32 = UInt32.to_int32 in
       let mode = UInt32.to_int (getf pkt T.mode) in
+      let mode_string = match Sys_stat.Mode.of_code ~host:phost mode with
+        | None -> "UNKNOWN"
+        | Some mode -> Sys_stat.Mode.to_string ~host:phost mode
+      in
       (* TODO: nsec times? *)
       Printf.sprintf
         "ino=%Ld size=%Ld blocks=%Ld atime=%Ld mtime=%Ld ctime=%Ld mode=%s (0x%x) nlink=%ld uid=%ld gid=%ld rdev=%ld blksize=%ld"
@@ -174,7 +178,7 @@ module Struct = struct
         (i64 (getf pkt T.atime))
         (i64 (getf pkt T.mtime))
         (i64 (getf pkt T.ctime))
-        Sys_stat.Mode.(to_string ~host:phost (of_code_exn ~host:phost mode))
+        mode_string
         mode
         (i32 (getf pkt T.nlink))
         (i32 (getf pkt T.uid))
