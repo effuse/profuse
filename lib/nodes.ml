@@ -248,6 +248,27 @@ module Make(N : NODE) = struct
       with Not_found -> raise (Unix.(Unix_error (EBADF,"","")))
   end
 
+  let new_child parent name =
+    let { space } = parent in
+    let data = N.new_child parent name in
+    let (gen,id) = alloc_id space in
+    let node = {
+      space;
+      parent=Some parent.id;
+      gen; id; name; data;
+      children=Hashtbl.create 8;
+      lookups=1;
+    } in
+    Hashtbl.replace parent.children name id;
+    node
+
+  let preload parent name meta_fn =
+    if not (Hashtbl.mem parent.children name)
+    then let node = new_child parent name in
+      let meta = N.value node.data in
+      let node = { node with data = N.with_value node.data (meta_fn meta) } in
+      Hashtbl.replace parent.space.table node.id node
+
   let lookup parent name =
     let { space } = parent in
     let { table } = space in
@@ -264,17 +285,8 @@ module Make(N : NODE) = struct
                     name space.label
                  ))
     with Not_found ->
-      let data = N.new_child parent name in
-      let (gen,id) = alloc_id space in
-      let node = {
-        space;
-        parent=Some parent.id;
-        gen; id; name; data;
-        children=Hashtbl.create 8;
-        lookups=1;
-      } in
-      Hashtbl.replace parent.children name id;
-      Hashtbl.replace table id node;
+      let node = new_child parent name in
+      Hashtbl.replace table node.id node;
       node
 
   let handles = N.get_handles
