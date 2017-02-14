@@ -85,7 +85,7 @@ module Make(N : NODE) : sig
     val free  : t -> fh -> unit
   end
 
-  val preload : N.t node -> string -> (N.v -> N.v) -> unit
+  val preload : N.t node -> string -> (N.v -> N.v) -> N.t node
   val lookup : N.t node -> string -> N.t node
   val handles : N.t node -> (fh * N.h) list
   val rename : N.t node -> string -> N.t node -> string -> unit

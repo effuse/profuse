@@ -263,11 +263,25 @@ module Make(N : NODE) = struct
     node
 
   let preload parent name meta_fn =
-    if not (Hashtbl.mem parent.children name)
-    then let node = new_child parent name in
+    let { space } = parent in
+    let { table } = space in
+    try
+      let id = Hashtbl.find parent.children name in
+      try
+        let node = Hashtbl.find table id in
+        node
+      with Not_found ->
+        raise (Failure
+                 (Printf.sprintf "parent %s has %s but %s does not"
+                    (string_of_id space parent.id)
+                    name space.label
+                 ))
+    with Not_found ->
+      let node = new_child parent name in
       let meta = N.value node.data in
       let node = { node with data = N.with_value node.data (meta_fn meta) } in
-      Hashtbl.replace parent.space.table node.id node
+      Hashtbl.replace table node.id node;
+      node
 
   let lookup parent name =
     let { space } = parent in
