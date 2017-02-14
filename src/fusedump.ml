@@ -232,8 +232,10 @@ let show time session_file =
     `Ok ()
   with exn ->
     `Error (false,
-            Printf.sprintf "Couldn't parse FUSE session %s: %s\n%!"
-              session_file (Printexc.to_string exn))
+            Printf.sprintf "Couldn't parse FUSE session %s: %s\n%s\n%!"
+              session_file (Printexc.to_string exn)
+              (Printexc.get_backtrace ())
+           )
 
 open Cmdliner
 
