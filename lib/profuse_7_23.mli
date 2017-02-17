@@ -17,6 +17,7 @@ module Types : sig
     open Out
     module Hdr : Hdr
     module Notify_inval_entry : Notify_inval_entry
+    module Notify_inval_inode : Notify_inval_inode
     module Notify_delete : Notify_delete
     module Write : Write
     module Open : Open
@@ -415,6 +416,12 @@ module Out : sig
       val create : Unsigned.UInt64.t -> string -> char Ctypes.CArray.t
     end
 
+    module Inval_inode : sig
+      module T = T.Notify_inval_inode
+
+      val create : Unsigned.UInt64.t -> int64 -> int64 -> char Ctypes.CArray.t
+    end
+
     module Delete : sig
       module T = T.Notify_delete
 
@@ -429,7 +436,7 @@ module Out : sig
     type t =
       | Delete of string * Delete.T.t structure
       | Inval_entry of string * Inval_entry.T.t structure
-      | Inval_inode (* TODO: do *)
+      | Inval_inode of Inval_inode.T.t structure
       | Poll (* TODO: do *)
       | Retrieve (* TODO: do *)
       | Store (* TODO: do *)

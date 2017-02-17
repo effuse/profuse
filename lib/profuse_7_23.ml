@@ -1047,6 +1047,26 @@ module Out = struct
         Printf.sprintf "under %Ld" (UInt64.to_int64 (getf pkt T.parent))
     end
 
+    module Inval_inode = struct
+      module T = T.Notify_inval_inode
+
+      let create nodeid offset length =
+        let code = Hdr.T.Notify_code.fuse_notify_inval_inode in
+        let pkt = packet ~code ~count:(sizeof T.t) in
+        let p = CArray.start pkt in
+        let s = !@ (coerce (ptr char) (ptr T.t) p) in
+        setf s T.ino nodeid;
+        setf s T.off offset;
+        setf s T.len length;
+        pkt
+
+      let describe pkt =
+        Printf.sprintf "node %Ld from %Ld for %Ld"
+          (UInt64.to_int64 (getf pkt T.ino))
+          (getf pkt T.off)
+          (getf pkt T.len)
+    end
+
     module Delete = struct
       module T = T.Notify_delete
 
@@ -1080,7 +1100,7 @@ module Out = struct
     type t =
       | Delete of string * Delete.T.t structure
       | Inval_entry of string * Inval_entry.T.t structure
-      | Inval_inode (* TODO: do *)
+      | Inval_inode of Inval_inode.T.t structure
       | Poll (* TODO: do *)
       | Retrieve (* TODO: do *)
       | Store (* TODO: do *)
@@ -1094,7 +1114,9 @@ module Out = struct
             let name = Delete.name p in
             let s = !@ (from_voidp Delete.T.t p) in
             Delete (name, s)
-          | `FUSE_NOTIFY_INVAL_INODE -> Inval_inode
+          | `FUSE_NOTIFY_INVAL_INODE ->
+            let s = !@ (from_voidp Inval_inode.T.t p) in
+            Inval_inode s
           | `FUSE_NOTIFY_POLL -> Poll
           | `FUSE_NOTIFY_RETRIEVE -> Retrieve
           | `FUSE_NOTIFY_STORE -> Store
@@ -1110,7 +1132,8 @@ module Out = struct
         Printf.sprintf "DELETE %s %s" name (Delete.describe d)
       | Inval_entry (name, i) ->
         Printf.sprintf "INVAL_ENTRY %s %s" name (Inval_entry.describe i)
-      | Inval_inode -> "INVAL_INODE FIXME" (* TODO: more *)
+      | Inval_inode i ->
+        Printf.sprintf "INVAL_INODE %s" (Inval_inode.describe i)
       | Poll -> "POLL FIXME" (* TODO: more *)
       | Retrieve -> "RETRIEVE FIXME" (* TODO: more *)
       | Store -> "STORE FIXME" (* TODO: more *)

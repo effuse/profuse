@@ -674,6 +674,15 @@ struct
       val namelen : (Unsigned.UInt32.t, t structure) Ctypes.field
     end
 
+    module type Notify_inval_inode = sig
+      type t
+      val t : t structure Ctypes.typ
+
+      val ino : (Unsigned.UInt64.t, t structure) Ctypes.field
+      val off : (Signed.Int64.t, t structure) Ctypes.field
+      val len : (Signed.Int64.t, t structure) Ctypes.field
+    end
+
     module type Notify_delete = sig
       type t
       val t : t structure Ctypes.typ
