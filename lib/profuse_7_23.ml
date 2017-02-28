@@ -403,7 +403,7 @@ module In = struct
       Printf.sprintf "fh=%Ld owner=%Ld lk=(%s) lk_flags=%Ld"
         fh (UInt64.to_int64 owner)
         (Struct.File_lock.describe lk)
-	(UInt32.to_int64 lk_flags)
+        (UInt32.to_int64 lk_flags)
   end
 
   module Interrupt = struct
