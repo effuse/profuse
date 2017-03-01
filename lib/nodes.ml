@@ -248,6 +248,41 @@ module Make(N : NODE) = struct
       with Not_found -> raise (Unix.(Unix_error (EBADF,"","")))
   end
 
+  let new_child parent name =
+    let { space } = parent in
+    let data = N.new_child parent name in
+    let (gen,id) = alloc_id space in
+    let node = {
+      space;
+      parent=Some parent.id;
+      gen; id; name; data;
+      children=Hashtbl.create 8;
+      lookups=1;
+    } in
+    Hashtbl.replace parent.children name id;
+    node
+
+  let preload parent name meta_fn =
+    let { space } = parent in
+    let { table } = space in
+    try
+      let id = Hashtbl.find parent.children name in
+      try
+        let node = Hashtbl.find table id in
+        node
+      with Not_found ->
+        raise (Failure
+                 (Printf.sprintf "parent %s has %s but %s does not"
+                    (string_of_id space parent.id)
+                    name space.label
+                 ))
+    with Not_found ->
+      let node = new_child parent name in
+      let meta = N.value node.data in
+      let node = { node with data = N.with_value node.data (meta_fn meta) } in
+      Hashtbl.replace table node.id node;
+      node
+
   let lookup parent name =
     let { space } = parent in
     let { table } = space in
@@ -264,17 +299,8 @@ module Make(N : NODE) = struct
                     name space.label
                  ))
     with Not_found ->
-      let data = N.new_child parent name in
-      let (gen,id) = alloc_id space in
-      let node = {
-        space;
-        parent=Some parent.id;
-        gen; id; name; data;
-        children=Hashtbl.create 8;
-        lookups=1;
-      } in
-      Hashtbl.replace parent.children name id;
-      Hashtbl.replace table id node;
+      let node = new_child parent name in
+      Hashtbl.replace table node.id node;
       node
 
   let handles = N.get_handles
