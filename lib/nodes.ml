@@ -58,17 +58,10 @@ module type NODE = sig
   val rename : t node -> t node -> string -> unit
 end
 
-(* TODO: this should either stop using Unix or move elsewhere *)
+module type HANDLE = sig
+  type t
 
-module UnixHandle = struct
-  type t =
-    | Dir of Unix.dir_handle * int
-    | File of Unix.file_descr * Sys_stat.File_kind.t
-
-  let close = function
-    | Dir  (dir,_) -> Unix.closedir dir
-    | File (fd,_)  -> Unix.close fd
-
+  val close : t -> unit
 end
 
 module type METADATA = sig
@@ -79,9 +72,9 @@ module type METADATA = sig
   val rename : t -> t -> string -> t
 end
 
-module Path(Metadata : METADATA)
-  : NODE with type v = Metadata.t and type h = UnixHandle.t = struct
-  type h = UnixHandle.t
+module Path(Metadata : METADATA)(Handle : HANDLE)
+  : NODE with type v = Metadata.t and type h = Handle.t = struct
+  type h = Handle.t
   type v = Metadata.t
   type t = {
     meta    : Metadata.t;
@@ -104,7 +97,7 @@ module Path(Metadata : METADATA)
   let free_handle node fh =
     let { data } = node in
     let { handles } = data in
-    begin try UnixHandle.close (List.assoc fh handles)
+    begin try Handle.close (List.assoc fh handles)
       with Not_found -> ()
     end;
     { data with handles = List.remove_assoc fh handles }

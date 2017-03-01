@@ -49,10 +49,8 @@ module type NODE = sig
   val rename : t node -> t node -> string -> unit
 end
 
-module UnixHandle : sig
-  type t =
-    | Dir of Unix.dir_handle * int
-    | File of Unix.file_descr * Sys_stat.File_kind.t
+module type HANDLE = sig
+  type t
 
   val close : t -> unit
 end
@@ -65,8 +63,8 @@ module type METADATA = sig
   val rename : t -> t -> string -> t
 end
 
-module Path(Metadata : METADATA)
-  : NODE with type v = Metadata.t and type h = UnixHandle.t
+module Path(Metadata : METADATA)(Handle : HANDLE)
+  : NODE with type v = Metadata.t and type h = Handle.t
 
 module Make(N : NODE) : sig
   type t = N.t space
