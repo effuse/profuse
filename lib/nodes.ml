@@ -26,6 +26,7 @@ type 'a node = {
   data     : 'a;
   children : (string, id) Hashtbl.t;
   lookups  : int;
+  pins     : int;
 }
 and 'a space = {
   label        : string;
@@ -166,6 +167,7 @@ module Make(N : NODE) = struct
           data = space.root;
           children = Hashtbl.create 32;
           lookups = 0;
+          pins = 0;
         } in
         Hashtbl.replace table id node;
         node
@@ -251,6 +253,7 @@ module Make(N : NODE) = struct
       gen; id; name; data;
       children=Hashtbl.create 8;
       lookups=1;
+      pins=0;
     } in
     Hashtbl.replace parent.children name id;
     node
@@ -331,24 +334,45 @@ module Make(N : NODE) = struct
     unlink destpn dest;
     N.rename destpn srcn dest
 
+  let release space table id node =
+    Hashtbl.remove table id;
+    space.free <- (Int64.add node.gen 1L, id)::space.free;
+    match node.parent with
+    | None -> ()
+    | Some parent ->
+      let parent = Hashtbl.find table parent in
+      Hashtbl.remove parent.children node.name
+
   let forget space id n =
     let { table } = space in
     let node = Hashtbl.find table id in
     let lookups = node.lookups - n in
     if lookups > 0
     then Hashtbl.replace table id { node with lookups }
-    else begin
-      Hashtbl.remove table id;
-      space.free <- (Int64.add node.gen 1L, id)::space.free;
-      match node.parent with
-      | None -> ()
-      | Some parent ->
-        let parent = Hashtbl.find table parent in
-        Hashtbl.remove parent.children node.name
-    end
+    else if lookups < 0
+    then failwith (Printf.sprintf "forget: node %Ld has %d lookups" id lookups)
+    else if node.pins <> 0
+    then Hashtbl.replace table id {
+      node with lookups;
+                gen = Int64.add node.gen 1L;
+    }
+    else release space table id node
 
   let store node =
     let { space } = node in
     let { table } = space in
     Hashtbl.replace table node.id node
+
+  let pin node = store { node with pins = node.pins + 1 }
+  let unpin node = match node.pins with
+    | 1 ->
+      if node.lookups > 0
+      then store { node with pins = 0 }
+      else
+        let { space; id } = node in
+        release space space.table id node
+    | x when x > 1 -> store { node with pins = node.pins - 1 }
+    | _ ->
+      failwith
+        (Printf.sprintf "unpin: node %Ld unpinned more than pinned" node.id)
 end
