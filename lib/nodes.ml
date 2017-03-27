@@ -273,7 +273,7 @@ module Make(N : NODE) = struct
                     name space.label
                  ))
     with Not_found ->
-      let node = new_child parent name in
+      let node = { (new_child parent name) with lookups = 0 } in
       let meta = N.value node.data in
       let node = { node with data = N.with_value node.data (meta_fn meta) } in
       Hashtbl.replace table node.id node;
