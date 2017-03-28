@@ -90,6 +90,6 @@ module Make(N : NODE) : sig
   val rename : N.t node -> string -> N.t node -> string -> unit
   val unlink : N.t node -> string -> unit
   val store : N.t node -> unit
-  val pin : N.t node -> unit
-  val unpin : N.t node -> unit
+  val pin : N.t node -> N.t node
+  val unpin : N.t node -> N.t node option
 end

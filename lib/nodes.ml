@@ -363,16 +363,44 @@ module Make(N : NODE) = struct
     let { table } = space in
     Hashtbl.replace table node.id node
 
-  let pin node = store { node with pins = node.pins + 1 }
-  let unpin node = match node.pins with
-    | 1 ->
-      if node.lookups > 0
-      then store { node with pins = 0 }
-      else
-        let { space; id } = node in
-        release space space.table id node
-    | x when x > 1 -> store { node with pins = node.pins - 1 }
-    | _ ->
-      failwith
-        (Printf.sprintf "unpin: node %Ld unpinned more than pinned" node.id)
+  let pin node =
+    let rec pin_to_root node =
+      store node;
+      match node.parent with
+      | None -> ()
+      | Some id when id = node.id -> () (* root *)
+      | Some id ->
+        pin_to_root { (get node.space id) with pins = node.pins + 1 }
+    in
+    let node = { node with pins = node.pins + 1 } in
+    pin_to_root node;
+    node
+
+  let unpin node =
+    let rec unpin_from_root node =
+      begin match node.pins with
+        | 1 ->
+          if node.lookups = 0
+          then
+            let { space; id } = node in
+            release space space.table id node
+          else store { node with pins = node.pins - 1 };
+        | x when x > 1 -> store { node with pins = node.pins - 1 };
+        | _ ->
+          let msg =
+            Printf.sprintf "unpin: node %Ld unpinned more than pinned" node.id
+          in
+          failwith msg
+      end;
+      match node.parent with
+      | None -> ()
+      | Some id when id = node.id -> () (* root *)
+      | Some id ->
+        unpin_from_root (get node.space id)
+    in
+    unpin_from_root node;
+    if node.pins = 1 && node.lookups = 0
+    then None
+    else Some { node with pins = node.pins - 1 }
+
 end
