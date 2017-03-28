@@ -173,6 +173,8 @@ module Make(N : NODE) = struct
         node
       else raise Not_found
 
+  let refresh { space; id } = get space id
+
   let root space = get space 1_L
 
   let string_of_id s id =
@@ -402,5 +404,4 @@ module Make(N : NODE) = struct
     if node.pins = 1 && node.lookups = 0
     then None
     else Some { node with pins = node.pins - 1 }
-
 end

@@ -73,6 +73,7 @@ module Make(N : NODE) : sig
   val create       : ?label:string -> N.t -> t
   val root         : t -> N.t node
   val get          : t -> id -> N.t node
+  val refresh      : N.t node -> N.t node
   val string_of_id : t -> id -> string
   val to_string    : t -> string
   val forget       : t -> id -> int -> unit
