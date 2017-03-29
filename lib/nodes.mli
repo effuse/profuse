@@ -27,6 +27,7 @@ type 'a node = {
   children : (string, id) Hashtbl.t;
   lookups  : int;
   pins     : int;
+  deps     : int;
 }
 and 'a space
 
