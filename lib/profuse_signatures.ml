@@ -760,3 +760,389 @@ struct
     module type Bmap = Bmap
   end
 end
+
+module Signatures_7_8 =
+struct
+  type 'a structure = 'a Ctypes.structure
+
+  module In = struct
+    module type Opcode = sig
+      module Struct : Types_7_8_struct
+      module Types : Types_7_8_in with module Struct := Struct
+      module T = Types.Opcode
+
+      type t = T.t
+
+      val to_string : t -> string
+
+      val returns : t -> bool
+
+      val of_uint32 : Unsigned.uint32 -> t
+
+      val to_uint32 : t -> Unsigned.uint32
+    end
+
+    module type Hdr = sig
+      module Struct : Types_7_8_struct
+      module Types : Types_7_8_in with module Struct := Struct
+      module T = Types.Hdr
+
+      type opcode_t
+
+      val sz : int
+
+      val packet :
+        opcode:opcode_t ->
+        unique:Unsigned.uint64 ->
+        nodeid:Unsigned.uint64 ->
+        uid:Unsigned.uint32 ->
+        gid:Unsigned.uint32 ->
+        pid:Unsigned.uint32 -> count:int -> char Ctypes.CArray.t
+
+      val make :
+        opcode:opcode_t ->
+        unique:Unsigned.uint64 ->
+        nodeid:Unsigned.uint64 ->
+        uid:Unsigned.uint32 ->
+        gid:Unsigned.uint32 -> pid:Unsigned.uint32 -> 'a Ctypes.typ -> 'a
+
+      val memcpy :
+        dest:unit Ctypes.ptr -> src:unit Ctypes.ptr -> int -> unit
+
+      val packet_from_hdr :
+        T.t structure ->
+        count:int -> char Ctypes.CArray.t
+
+      val make_from_hdr :
+        T.t structure -> 'a Ctypes.typ -> 'a
+    end
+
+    module type Init = sig
+      module Struct : Types_7_8_struct
+      module Types : Types_7_8_in with module Struct := Struct
+
+      module T = Types.Init
+   end
+
+    module type Open = sig
+      module Struct : Types_7_8_struct
+      module Types : Types_7_8_in with module Struct := Struct
+      module T = Types.Open
+
+   end
+
+    module type Read = sig
+      module Struct : Types_7_8_struct
+      module Types : Types_7_8_in with module Struct := Struct
+      module T = Types.Read
+
+   end
+
+    module type Release = sig
+      module Struct : Types_7_8_struct
+      module Types : Types_7_8_in with module Struct := Struct
+      module T = Types.Release
+
+   end
+
+    module type Access = sig
+      module Struct : Types_7_8_struct
+      module Types : Types_7_8_in with module Struct := Struct
+      module T = Types.Access
+
+   end
+
+    module type Forget = sig
+      module Struct : Types_7_8_struct
+      module Types : Types_7_8_in with module Struct := Struct
+      module T = Types.Forget
+
+   end
+
+    module type Flush = sig
+      module Struct : Types_7_8_struct
+      module Types : Types_7_8_in with module Struct := Struct
+      module T = Types.Flush
+
+   end
+
+    module type Create = sig
+      module Struct : Types_7_8_struct
+      module Types : Types_7_8_in with module Struct := Struct
+      module T = Types.Create
+
+      val name : unit Ctypes.ptr -> string
+    end
+
+    module type Mknod = sig
+      module Struct : Types_7_8_struct
+      module Types : Types_7_8_in with module Struct := Struct
+      module T = Types.Mknod
+
+      val name : unit Ctypes.ptr -> string
+    end
+
+    module type Mkdir = sig
+      module Struct : Types_7_8_struct
+      module Types : Types_7_8_in with module Struct := Struct
+      module T = Types.Mkdir
+
+      val name : unit Ctypes.ptr -> string
+    end
+
+    module type Rename = sig
+      module Struct : Types_7_8_struct
+      module Types : Types_7_8_in with module Struct := Struct
+      module T = Types.Rename
+
+      val source_destination : unit Ctypes.ptr -> string * string
+    end
+
+    module type Link = sig
+      module Struct : Types_7_8_struct
+      module Types : Types_7_8_in with module Struct := Struct
+      module T = Types.Link
+
+      val name : unit Ctypes.ptr -> string
+    end
+
+    module type Write = sig
+      module Struct : Types_7_8_struct
+      module Types : Types_7_8_in with module Struct := Struct
+      module T = Types.Write
+
+   end
+
+    module type Fsync = sig
+      module Struct : Types_7_8_struct
+      module Types : Types_7_8_in with module Struct := Struct
+      module T = Types.Fsync
+
+   end
+
+    module type Lk = sig
+      module Struct : Types_7_8_struct
+      module Types : Types_7_8_in with module Struct := Struct
+      module T = Types.Lk
+
+   end
+
+    module type Interrupt = sig
+      module Struct : Types_7_8_struct
+      module Types : Types_7_8_in with module Struct := Struct
+      module T = Types.Interrupt
+
+    end
+    module type Bmap = sig
+      module Struct : Types_7_8_struct
+      module Types : Types_7_8_in with module Struct := Struct
+      module T = Types.Bmap
+
+   end
+
+    module type Setattr = sig
+      module Struct : Types_7_8_struct
+      module Types : Types_7_8_in with module Struct := Struct
+      module T = Types.Setattr
+
+      module Valid : sig
+        module T = T.Valid
+
+        type t = {
+          mode : bool;
+          uid : bool;
+          gid : bool;
+          size : bool;
+          atime : bool;
+          mtime : bool;
+          fh : bool;
+          unknown : int32;
+          (*atime_now : bool;
+          mtime_now : bool;
+            lockowner : bool;*)
+        }
+
+        val to_string_list : t -> string list
+
+        val of_uint32 : Unsigned.uint32 -> t
+
+        val to_uint32 : t -> Unsigned.uint32
+      end
+
+      type hdr_t
+
+      val create_from_hdr :
+        valid:Unsigned.uint32 ->
+        fh:Unsigned.uint64 ->
+        size:Unsigned.uint64 ->
+        atime:Unsigned.uint64 ->
+        mtime:Unsigned.uint64 ->
+        atimensec:Unsigned.uint32 ->
+        mtimensec:Unsigned.uint32 ->
+        mode:Unsigned.uint32 ->
+        uid:Unsigned.uint32 ->
+        gid:Unsigned.uint32 ->
+        hdr_t structure -> char Ctypes.CArray.t
+    end
+
+    module type Getxattr = sig
+      module Struct : Types_7_8_struct
+      module Types : Types_7_8_in with module Struct := Struct
+      module T = Types.Getxattr
+
+      type hdr_t
+
+      val create_from_hdr :
+        size:Unsigned.uint32 ->
+        hdr_t structure -> char Ctypes.CArray.t
+    end
+
+    module type Setxattr = sig
+      module Struct : Types_7_8_struct
+      module Types : Types_7_8_in with module Struct := Struct
+      module T = Types.Setxattr
+
+      type hdr_t
+
+      val create_from_hdr :
+        size:Unsigned.uint32 ->
+        flags:Unsigned.uint32 ->
+        hdr_t structure -> char Ctypes.CArray.t
+    end
+
+    module type Message = sig
+      type t
+      type hdr_t
+      type chan
+      type (_,_) packet
+
+      val parse :
+        chan -> hdr_t Ctypes.structure -> int -> unit Ctypes.ptr
+        -> (hdr_t, t) packet
+
+      val describe : (hdr_t, t) packet -> string
+    end
+  end
+end
+
+module type Signatures_7_8_in = sig
+  module Struct : Types_7_8_struct
+  module T : Types_7_8_in with module Struct := Struct
+  open Signatures_7_8
+  open In
+
+  type chan
+  type ('h, 'b) packet
+
+  module Opcode : Opcode
+    with module Struct := Struct
+    with module Types := T
+  module Hdr : Hdr with type opcode_t := Opcode.t
+    with module Struct := Struct
+    with module Types := T
+  module Init : Init
+    with module Struct := Struct
+    with module Types := T
+  module Open : Open
+    with module Struct := Struct
+    with module Types := T
+  module Read : Read
+    with module Struct := Struct
+    with module Types := T
+  module Release : Release
+    with module Struct := Struct
+    with module Types := T
+  module Access : Access
+    with module Struct := Struct
+    with module Types := T
+  module Forget : Forget
+    with module Struct := Struct
+    with module Types := T
+  module Flush : Flush
+    with module Struct := Struct
+    with module Types := T
+  module Create : Create
+    with module Struct := Struct
+    with module Types := T
+  module Mknod : Mknod
+    with module Struct := Struct
+    with module Types := T
+  module Mkdir : Mkdir
+    with module Struct := Struct
+    with module Types := T
+  module Rename : Rename
+    with module Struct := Struct
+    with module Types := T
+  module Link : Link
+    with module Struct := Struct
+    with module Types := T
+  module Write : Write
+    with module Struct := Struct
+    with module Types := T
+  module Fsync : Fsync
+    with module Struct := Struct
+    with module Types := T
+  module Lk : Lk
+    with module Struct := Struct
+    with module Types := T
+  module Interrupt : Interrupt
+    with module Struct := Struct
+    with module Types := T
+  module Bmap : Bmap
+    with module Struct := Struct
+    with module Types := T
+  module Setattr : Setattr with type hdr_t := Hdr.T.t
+    with module Struct := Struct
+    with module Types := T
+  module Getxattr : Getxattr with type hdr_t := Hdr.T.t
+    with module Struct := Struct
+    with module Types := T
+  module Setxattr : Setxattr with type hdr_t := Hdr.T.t
+    with module Struct := Struct
+    with module Types := T
+  module Message : sig
+    type t =
+      | Init of Init.T.t Ctypes.structure
+      | Getattr
+      | Lookup of string
+      | Opendir of Open.T.t Ctypes.structure
+      | Readdir of Read.T.t Ctypes.structure
+      | Releasedir of Release.T.t Ctypes.structure
+      | Fsyncdir of Fsync.T.t Ctypes.structure
+      | Rmdir of string
+      | Getxattr of Getxattr.T.t Ctypes.structure * string
+      | Setxattr of Setxattr.T.t Ctypes.structure * string
+      | Listxattr of Getxattr.T.t Ctypes.structure
+      | Removexattr of string
+      | Access of Access.T.t Ctypes.structure
+      | Forget of Forget.T.t Ctypes.structure
+      | Readlink
+      | Open of Open.T.t Ctypes.structure
+      | Read of Read.T.t Ctypes.structure
+      | Write of Write.T.t structure * char Ctypes.ptr
+      | Statfs
+      | Flush of Flush.T.t Ctypes.structure
+      | Release of Release.T.t Ctypes.structure
+      | Fsync of Fsync.T.t Ctypes.structure
+      | Unlink of string
+      | Create of Create.T.t Ctypes.structure * string
+      | Mknod of Mknod.T.t Ctypes.structure * string
+      | Mkdir of Mkdir.T.t Ctypes.structure * string
+      | Setattr of Setattr.T.t Ctypes.structure
+      | Link of Link.T.t Ctypes.structure * string
+      | Symlink of string * string
+      | Rename of Rename.T.t Ctypes.structure * string * string
+      | Getlk of Lk.T.t Ctypes.structure
+      | Setlk of Lk.T.t Ctypes.structure
+      | Setlkw of Lk.T.t Ctypes.structure
+      | Interrupt of Interrupt.T.t Ctypes.structure
+      | Bmap of Bmap.T.t Ctypes.structure
+      | Destroy
+      | Other of Opcode.t
+      | Unknown of int32
+    include Message with type t := t
+                     and type hdr_t := Hdr.T.t
+                     and type chan := chan
+                     and type ('h, 'b) packet := ('h, 'b) packet
+  end
+end
