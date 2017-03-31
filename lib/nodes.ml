@@ -363,7 +363,9 @@ module Make(N : NODE) = struct
     else begin
       let unpinned_node = { node with pins = node.pins - 1 } in
       undep_from_root 1 unpinned_node;
-      if node.pins = 1 && node.deps = 0 && node.lookups = 0
+      if unpinned_node.pins = 0
+      && unpinned_node.deps = 0
+      && unpinned_node.lookups = 0
       then None
       else Some unpinned_node
     end
