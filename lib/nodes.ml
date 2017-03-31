@@ -27,6 +27,7 @@ type 'a node = {
   children : (string, id) Hashtbl.t;
   lookups  : int;
   pins     : int;
+  deps     : int;
 }
 and 'a space = {
   label        : string;
@@ -168,10 +169,13 @@ module Make(N : NODE) = struct
           children = Hashtbl.create 32;
           lookups = 0;
           pins = 0;
+          deps = 0;
         } in
         Hashtbl.replace table id node;
         node
       else raise Not_found
+
+  let refresh { space; id } = get space id
 
   let root space = get space 1_L
 
@@ -254,6 +258,7 @@ module Make(N : NODE) = struct
       children=Hashtbl.create 8;
       lookups=1;
       pins=0;
+      deps=0;
     } in
     Hashtbl.replace parent.children name id;
     node
@@ -301,6 +306,70 @@ module Make(N : NODE) = struct
 
   let handles = N.get_handles
 
+  let release space table id node =
+    Hashtbl.remove table id;
+    space.free <- (Int64.add node.gen 1L, id)::space.free;
+    match node.parent with
+    | None -> ()
+    | Some parent ->
+      let parent = Hashtbl.find table parent in
+      Hashtbl.remove parent.children node.name
+
+  let store node =
+    let { space } = node in
+    let { table } = space in
+    Hashtbl.replace table node.id node
+
+  let rec dep_to_root k node =
+    store node;
+    match node.parent with
+    | None -> () (* unlinked *)
+    | Some id when id = node.id -> () (* root *)
+    | Some id -> dep k (get node.space id)
+  and dep k node =
+    if k <> 0
+    then dep_to_root k { node with deps = node.deps + k }
+
+  let pin node =
+    let node = { node with pins = node.pins + 1 } in
+    dep_to_root 1 node;
+    node
+
+  let rec undep_from_root k node =
+    begin
+      if node.pins = 0 && node.deps = 0 && node.lookups = 0
+      then
+        let { space; id } = node in
+        release space space.table id node
+      else store node
+    end;
+    match node.parent with
+    | None -> () (* unlinked *)
+    | Some id when id = node.id -> () (* root *)
+    | Some id ->
+      let node = get node.space id in
+      undep k node
+  and undep k node =
+    if k <> 0
+    then if node.deps >= k
+      then undep_from_root k { node with deps = node.deps - k }
+      else
+        failwith (Printf.sprintf "undep: node %Ld was not depended on %d"
+                    node.id k)
+
+  let unpin node =
+    if node.pins < 1
+    then failwith (Printf.sprintf "unpin: node %Ld was not pinned" node.id)
+    else begin
+      let unpinned_node = { node with pins = node.pins - 1 } in
+      undep_from_root 1 unpinned_node;
+      if unpinned_node.pins = 0
+      && unpinned_node.deps = 0
+      && unpinned_node.lookups = 0
+      then None
+      else Some unpinned_node
+    end
+
   let unlink parent name =
     let { space } = parent in
     let { table } = space in
@@ -310,6 +379,8 @@ module Make(N : NODE) = struct
       try
         let node = Hashtbl.find table id in
         Hashtbl.replace table node.id { node with parent = None };
+        let deps = node.deps + node.pins in
+        undep deps parent
       with Not_found -> ()
     with Not_found -> ()
 
@@ -331,17 +402,11 @@ module Make(N : NODE) = struct
              (string_of_id space srcpn.id) src id)
     in
     Hashtbl.remove srcpn.children src;
+    let srcdeps = srcn.deps + srcn.pins in
+    undep srcdeps srcpn;
     unlink destpn dest;
-    N.rename destpn srcn dest
-
-  let release space table id node =
-    Hashtbl.remove table id;
-    space.free <- (Int64.add node.gen 1L, id)::space.free;
-    match node.parent with
-    | None -> ()
-    | Some parent ->
-      let parent = Hashtbl.find table parent in
-      Hashtbl.remove parent.children node.name
+    N.rename destpn srcn dest;
+    dep srcdeps destpn
 
   let forget space id n =
     let { table } = space in
@@ -351,28 +416,10 @@ module Make(N : NODE) = struct
     then Hashtbl.replace table id { node with lookups }
     else if lookups < 0
     then failwith (Printf.sprintf "forget: node %Ld has %d lookups" id lookups)
-    else if node.pins <> 0
+    else if node.pins <> 0 || node.deps <> 0
     then Hashtbl.replace table id {
       node with lookups;
                 gen = Int64.add node.gen 1L;
     }
     else release space table id node
-
-  let store node =
-    let { space } = node in
-    let { table } = space in
-    Hashtbl.replace table node.id node
-
-  let pin node = store { node with pins = node.pins + 1 }
-  let unpin node = match node.pins with
-    | 1 ->
-      if node.lookups > 0
-      then store { node with pins = 0 }
-      else
-        let { space; id } = node in
-        release space space.table id node
-    | x when x > 1 -> store { node with pins = node.pins - 1 }
-    | _ ->
-      failwith
-        (Printf.sprintf "unpin: node %Ld unpinned more than pinned" node.id)
 end

@@ -27,6 +27,7 @@ type 'a node = {
   children : (string, id) Hashtbl.t;
   lookups  : int;
   pins     : int;
+  deps     : int;
 }
 and 'a space
 
@@ -73,6 +74,7 @@ module Make(N : NODE) : sig
   val create       : ?label:string -> N.t -> t
   val root         : t -> N.t node
   val get          : t -> id -> N.t node
+  val refresh      : N.t node -> N.t node
   val string_of_id : t -> id -> string
   val to_string    : t -> string
   val forget       : t -> id -> int -> unit
@@ -90,6 +92,6 @@ module Make(N : NODE) : sig
   val rename : N.t node -> string -> N.t node -> string -> unit
   val unlink : N.t node -> string -> unit
   val store : N.t node -> unit
-  val pin : N.t node -> unit
-  val unpin : N.t node -> unit
+  val pin : N.t node -> N.t node
+  val unpin : N.t node -> N.t node option
 end
