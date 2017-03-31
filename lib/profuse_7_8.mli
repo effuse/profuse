@@ -4,53 +4,9 @@ module Types : sig
   type 'a structure = 'a Ctypes_static.structure
 
   open Profuse_signatures.Types_7_8
-  module Struct : sig
-    open Struct
-    module Kstatfs : Kstatfs
-    module File_lock : File_lock
-    module Attr : Attr
-    module Dirent : Dirent
-  end
-
-  module Out : sig
-    open Out
-    module Hdr : Hdr
-    module Write : Write
-    module Open : Open
-    module Init : Init
-    module Entry : Entry with type struct_attr_t := Struct.Attr.t
-    module Attr : Attr with type struct_attr_t := Struct.Attr.t
-    module Statfs : Statfs with type struct_kstatfs_t := Struct.Kstatfs.t
-    module Getxattr : Getxattr
-    module Lk : Lk with type struct_file_lock_t := Struct.File_lock.t
-    module Bmap : Bmap
-  end
-
-  module In : sig
-    open In
-    module Opcode : Opcode
-    module Hdr : Hdr
-    module Init : Init
-    module Open : Open
-    module Read : Read
-    module Release : Release
-    module Access : Access
-    module Forget : Forget
-    module Flush : Flush
-    module Create : Create
-    module Mknod : Mknod
-    module Mkdir : Mkdir
-    module Rename : Rename
-    module Link : Link
-    module Write : Write
-    module Fsync : Fsync
-    module Lk : Lk with type struct_file_lock_t := Struct.File_lock.t
-    module Interrupt : Interrupt
-    module Bmap : Bmap
-    module Setattr : Setattr
-    module Getxattr : Getxattr
-    module Setxattr : Setxattr
-  end
+  module Struct : Profuse_signatures.Types_7_8_struct
+  module Out : Profuse_signatures.Types_7_8_out with module Struct := Struct
+  module In : Profuse_signatures.Types_7_8_in with module Struct := Struct
 end
 
 type 'a structure = 'a Types.structure

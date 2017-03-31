@@ -536,6 +536,56 @@ module Types_7_8 = struct
   end
 end
 
+module type Types_7_8_struct = sig
+  open Types_7_8.Struct
+  module Kstatfs : Kstatfs
+  module File_lock : File_lock
+  module Attr : Attr
+  module Dirent : Dirent
+end
+
+module type Types_7_8_out = sig
+  module Struct : Types_7_8_struct
+  open Types_7_8.Out
+  module Hdr : Hdr
+  module Write : Write
+  module Open : Open
+  module Init : Init
+  module Entry : Entry with type struct_attr_t := Struct.Attr.t
+  module Attr : Attr with type struct_attr_t := Struct.Attr.t
+  module Statfs : Statfs with type struct_kstatfs_t := Struct.Kstatfs.t
+  module Getxattr : Getxattr
+  module Lk : Lk with type struct_file_lock_t := Struct.File_lock.t
+  module Bmap : Bmap
+end
+
+module type Types_7_8_in = sig
+  module Struct : Types_7_8_struct
+  open Types_7_8.In
+  module Opcode : Opcode
+  module Hdr : Hdr
+  module Init : Init
+  module Open : Open
+  module Read : Read
+  module Release : Release
+  module Access : Access
+  module Forget : Forget
+  module Flush : Flush
+  module Create : Create
+  module Mknod : Mknod
+  module Mkdir : Mkdir
+  module Rename : Rename
+  module Link : Link
+  module Write : Write
+  module Fsync : Fsync
+  module Lk : Lk with type struct_file_lock_t := Struct.File_lock.t
+  module Interrupt : Interrupt
+  module Bmap : Bmap
+  module Setattr : Setattr
+  module Getxattr : Getxattr
+  module Setxattr : Setxattr
+end
+
 module Types_7_23 =
 struct
   type 'a structure = 'a Ctypes_static.structure
