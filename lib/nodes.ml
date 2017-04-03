@@ -404,8 +404,11 @@ module Make(N : NODE) = struct
     Hashtbl.remove srcpn.children src;
     let srcdeps = srcn.deps + srcn.pins in
     undep srcdeps srcpn;
+    let destpn = refresh destpn in
     unlink destpn dest;
+    let destpn = refresh destpn in
     N.rename destpn srcn dest;
+    let destpn = refresh destpn in
     dep srcdeps destpn
 
   let forget space id n =
