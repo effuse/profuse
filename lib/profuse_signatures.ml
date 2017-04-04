@@ -1099,6 +1099,217 @@ struct
       val describe : (hdr_t, t) packet -> string
     end
   end
+
+  module Out = struct
+    module type Hdr = sig
+      type 'a request
+      module Struct : Types_7_8_struct
+      module Types : Types_7_8_out with module Struct := Struct
+      module T = Types.Hdr
+
+      val sz : int
+
+      val packet :
+        ?nerrno:int32 ->
+        count:int -> 'a request -> char Ctypes.CArray.t
+
+      val make : 'a request -> 'b Ctypes.typ -> 'b
+
+      val set_size : char Ctypes.CArray.t -> int -> char Ctypes.CArray.t
+    end
+
+    module type Dirent = sig
+      type 'a request
+      type host_t
+      module Struct : Types_7_8_struct
+      module T = Struct.Dirent
+
+      val struct_size : int
+
+      val size : string -> int
+
+      val of_list :
+        host:host_t ->
+        (int * int64 * string * Dirent.File_kind.t) list ->
+        int -> int -> 'a request -> char Ctypes.CArray.t
+    end
+
+    module type Readlink = sig
+      type 'a request
+      val create :
+        target:string -> 'a request -> char Ctypes.CArray.t
+    end
+
+    module type Read = sig
+      type 'a request
+      val allocate : size:int -> 'a request -> char Ctypes.CArray.t
+
+      val finalize :
+        size:int -> char Ctypes.CArray.t -> 'a request -> char Ctypes.CArray.t
+
+      val describe : char Ctypes.CArray.t -> string
+    end
+
+    module type Write = sig
+      type 'a request
+      module Struct : Types_7_8_struct
+      module Types : Types_7_8_out with module Struct := Struct
+      module T = Types.Write
+
+      val create : size:Unsigned.uint32 -> 'a request -> char Ctypes.CArray.t
+    end
+
+    module type Statfs = sig
+      type 'a request
+      module Struct : Types_7_8_struct
+      module Types : Types_7_8_out with module Struct := Struct
+      module T = Types.Statfs
+
+      val create :
+        blocks:Unsigned.uint64 ->
+        bfree:Unsigned.uint64 ->
+        bavail:Unsigned.uint64 ->
+        files:Unsigned.uint64 ->
+        ffree:Unsigned.uint64 ->
+        bsize:Unsigned.uint32 ->
+        namelen:Unsigned.uint32 ->
+        frsize:Unsigned.uint32 ->
+        'a request -> char Ctypes.CArray.t
+    end
+
+    module type Open_flags = sig
+      type t = {
+        direct_io  : bool;
+        keep_cache : bool;
+      }
+
+      val zero : t
+
+      val of_uint32 : Unsigned.uint32 -> t
+      val to_uint32 : t -> Unsigned.uint32
+      val to_string : t -> string
+    end
+
+    module type Open = sig
+      type 'a request
+      module Struct : Types_7_8_struct
+      module Types : Types_7_8_out with module Struct := Struct
+      module T = Types.Open
+
+      module Flags : Open_flags
+
+      val store :
+        fh:Unsigned.uint64 ->
+        open_flags:Flags.t ->
+        T.t structure -> 'a -> unit
+
+      val create :
+        fh:Unsigned.uint64 ->
+        open_flags:Flags.t ->
+        'a request -> char Ctypes.CArray.t
+    end
+
+    module type Init = sig
+      type 'a request
+      module Struct : Types_7_8_struct
+      module Types : Types_7_8_out with module Struct := Struct
+      module T = Types.Init
+
+      val create :
+        major:Unsigned.uint32 ->
+        minor:Unsigned.uint32 ->
+        max_readahead:Unsigned.uint32 ->
+        flags:Unsigned.uint32 ->
+        max_write:Unsigned.uint32 ->
+        'a request -> char Ctypes.CArray.t
+      val describe : T.t structure -> string
+    end
+
+    module type Entry = sig
+      type 'a request
+      module Struct : Types_7_8_struct
+      module Types : Types_7_8_out with module Struct := Struct
+      module T = Types.Entry
+
+      val store :
+        nodeid:Unsigned.uint64 ->
+        generation:Unsigned.uint64 ->
+        entry_valid:Unsigned.uint64 ->
+        attr_valid:Unsigned.uint64 ->
+        entry_valid_nsec:Unsigned.uint32 ->
+        attr_valid_nsec:Unsigned.uint32 ->
+        store_attr:(Struct.Attr.t structure -> unit) ->
+        T.t structure -> 'a -> unit
+
+      val create :
+        nodeid:Unsigned.uint64 ->
+        generation:Unsigned.uint64 ->
+        entry_valid:Unsigned.uint64 ->
+        attr_valid:Unsigned.uint64 ->
+        entry_valid_nsec:Unsigned.uint32 ->
+        attr_valid_nsec:Unsigned.uint32 ->
+        store_attr:(Struct.Attr.t structure -> unit) ->
+        'a request -> char Ctypes.CArray.t
+
+      type host_t
+      val describe : host:host_t -> T.t structure -> string
+    end
+
+    module type Attr = sig
+      type 'a request
+      module Struct : Types_7_8_struct
+      module Types : Types_7_8_out with module Struct := Struct
+      module T = Types.Attr
+
+      val create :
+        attr_valid:Unsigned.uint64 ->
+        attr_valid_nsec:Unsigned.uint32 ->
+        store_attr:(Struct.Attr.t structure -> unit) ->
+        'a request -> char Ctypes.CArray.t
+    end
+
+    module type Create_t = sig
+      module Struct : Types_7_8_struct
+      module Types : Types_7_8_out with module Struct := Struct
+      type t
+      val t : t structure Ctypes.typ
+
+      val entry : (Types.Entry.t structure, t structure) Ctypes.field
+      val open_ : (Types.Open.t structure, t structure) Ctypes.field
+    end
+
+    module type Create = sig
+      type 'a request
+      type host_t
+      module Struct : Types_7_8_struct
+      module Types : Types_7_8_out with module Struct := Struct
+      module Entry : Entry
+        with module Struct := Struct
+        with module Types := Types
+        with type 'a request := 'a request
+        with type host_t := host_t
+      module Open : Open with module Struct := Struct with module Types := Types with type 'a request := 'a request
+      module T : Create_t with module Struct := Struct with module Types := Types
+
+      val create :
+        store_entry:(Entry.T.t structure -> 'a request -> unit)
+        -> store_open:(Open.T.t structure -> 'a request -> unit)
+        -> 'a request -> char Ctypes.CArray.t
+    end
+
+    module type Message = sig
+      type t
+      type in_hdr_t
+      type hdr_t
+      type (_,_) packet
+
+      val deserialize :
+        (in_hdr_t, 'a) packet -> int -> char Ctypes.ptr
+        -> (hdr_t, t) packet
+
+      val describe : ('a,t) packet -> string
+    end
+  end
 end
 
 module type Signatures_7_8_struct = sig
@@ -1232,5 +1443,105 @@ module type Signatures_7_8_in = sig
                      and type hdr_t := Hdr.T.t
                      and type chan := chan
                      and type ('h, 'b) packet := ('h, 'b) packet
+  end
+end
+
+module type Signatures_7_8_out = sig
+  module Struct : Types_7_8_struct
+  module In : Types_7_8_in with module Struct := Struct
+  module T : Types_7_8_out with module Struct := Struct
+  type 'a request
+  type host_t
+  type ('h, 'b) packet
+
+  module Hdr : Signatures_7_8.Out.Hdr
+    with module Struct := Struct
+     and module Types := T
+     and type 'a request := 'a request
+  module Dirent : Signatures_7_8.Out.Dirent
+    with module Struct := Struct
+    and type 'a request := 'a request
+    and type host_t := host_t
+  module Readlink : Signatures_7_8.Out.Readlink
+    with type 'a request := 'a request
+  module Read : Signatures_7_8.Out.Read
+    with type 'a request := 'a request
+  module Write : Signatures_7_8.Out.Write
+    with module Struct := Struct
+     and module Types := T
+     and type 'a request := 'a request
+  module Statfs : Signatures_7_8.Out.Statfs
+    with module Struct := Struct
+     and module Types := T
+     and type 'a request := 'a request
+  module Open : Signatures_7_8.Out.Open
+    with module Struct := Struct
+     and module Types := T
+     and type 'a request := 'a request
+  module Init : Signatures_7_8.Out.Init
+    with module Struct := Struct
+     and module Types := T
+     and type 'a request := 'a request
+  module Entry : Signatures_7_8.Out.Entry
+    with module Struct := Struct
+     and module Types := T
+     and type 'a request := 'a request
+     and type host_t := host_t
+  module Attr : Signatures_7_8.Out.Attr
+    with module Struct := Struct
+     and module Types := T
+     and type 'a request := 'a request
+  module Create : Signatures_7_8.Out.Create
+    with module Struct := Struct
+     and module Types := T
+     and type 'a request := 'a request
+     and type host_t := host_t
+     and module Open := Open
+     and module Entry := Entry
+  module Message : sig
+    type t =
+      | Init    of Init.T.t  Ctypes.structure
+      | Getattr of Attr.T.t  Ctypes.structure
+      | Lookup  of Entry.T.t Ctypes.structure
+      | Opendir of Open.T.t  Ctypes.structure
+      | Readdir of char Ctypes.CArray.t
+      | Releasedir
+      | Fsyncdir (* TODO: do *)
+      | Rmdir
+      | Mkdir   of Entry.T.t Ctypes.structure
+      | Getxattr (* TODO: do *)
+      | Setxattr (* TODO: do *)
+      | Listxattr (* TODO: do *)
+      | Removexattr (* TODO: do *)
+      | Access
+      | Forget (* TODO: should never happen? *)
+      | Readlink of string
+      | Open     of Open.T.t           Ctypes.structure
+      | Read     of char Ctypes.CArray.t
+      | Write    of Write.T.t          Ctypes.structure
+      | Statfs   of Struct.Kstatfs.t Ctypes.structure
+      | Flush
+      | Release
+      | Fsync
+      | Unlink
+      | Create   of Entry.T.t Ctypes.structure * Open.T.t Ctypes.structure
+      | Mknod    of Entry.T.t Ctypes.structure
+      | Setattr  of Attr.T.t  Ctypes.structure
+      | Link     of Entry.T.t Ctypes.structure
+      | Symlink  of Entry.T.t Ctypes.structure
+      | Rename
+      | Getlk (* TODO: do *)
+      | Setlk (* TODO: do *)
+      | Setlkw (* TODO: do *)
+      | Interrupt (* TODO: do *)
+      | Bmap (* TODO: do *)
+      | Destroy
+      | Other    of In.Opcode.t
+      | Unknown  of int32 * int * unit Ctypes.ptr
+    include Signatures_7_8.Out.Message
+      with type t := t
+       and type in_hdr_t := In.Hdr.t
+       and type hdr_t := T.Hdr.t
+       and type ('h, 'b) packet := ('h, 'b) packet
   end
 end
