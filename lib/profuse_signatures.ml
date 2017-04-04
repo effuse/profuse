@@ -765,6 +765,82 @@ module Signatures_7_8 =
 struct
   type 'a structure = 'a Ctypes.structure
 
+  module Struct = struct
+    module type Kstatfs = sig
+      module Types : Types_7_8_struct
+      module T = Types.Kstatfs
+
+      val store :
+        blocks:Unsigned.uint64 ->
+        bfree:Unsigned.uint64 ->
+        bavail:Unsigned.uint64 ->
+        files:Unsigned.uint64 ->
+        ffree:Unsigned.uint64 ->
+        bsize:Unsigned.uint32 ->
+        namelen:Unsigned.uint32 ->
+        frsize:Unsigned.uint32 ->
+        T.t structure -> unit
+
+      val create :
+        blocks:Unsigned.uint64 ->
+        bfree:Unsigned.uint64 ->
+        bavail:Unsigned.uint64 ->
+        files:Unsigned.uint64 ->
+        ffree:Unsigned.uint64 ->
+        bsize:Unsigned.uint32 ->
+        namelen:Unsigned.uint32 ->
+        frsize:Unsigned.uint32 ->
+        unit -> T.t structure
+    end
+
+    module type File_lock = sig
+      module Types : Types_7_8_struct
+      module T = Types.File_lock
+    end
+
+    module type Attr = sig
+      module Types : Types_7_8_struct
+      module T = Types.Attr
+
+      val store :
+        ino:Unsigned.uint64 ->
+        size:Unsigned.uint64 ->
+        blocks:Unsigned.uint64 ->
+        atime:Unsigned.uint64 ->
+        mtime:Unsigned.uint64 ->
+        ctime:Unsigned.uint64 ->
+        atimensec:Unsigned.uint32 ->
+        mtimensec:Unsigned.uint32 ->
+        ctimensec:Unsigned.uint32 ->
+        mode:Unsigned.uint32 ->
+        nlink:Unsigned.uint32 ->
+        uid:Unsigned.uint32 ->
+        gid:Unsigned.uint32 ->
+        rdev:Unsigned.uint32 ->
+        T.t structure -> unit
+
+      val create :
+        ino:Unsigned.uint64 ->
+        size:Unsigned.uint64 ->
+        blocks:Unsigned.uint64 ->
+        atime:Unsigned.uint64 ->
+        mtime:Unsigned.uint64 ->
+        ctime:Unsigned.uint64 ->
+        atimensec:Unsigned.uint32 ->
+        mtimensec:Unsigned.uint32 ->
+        ctimensec:Unsigned.uint32 ->
+        mode:Unsigned.uint32 ->
+        nlink:Unsigned.uint32 ->
+        uid:Unsigned.uint32 ->
+        gid:Unsigned.uint32 ->
+        rdev:Unsigned.uint32 ->
+        unit -> T.t structure
+
+      type host_t
+      val describe : host:host_t -> T.t structure -> string
+    end
+  end
+
   module In = struct
     module type Opcode = sig
       module Struct : Types_7_8_struct
@@ -1025,79 +1101,91 @@ struct
   end
 end
 
+module type Signatures_7_8_struct = sig
+  module T : Types_7_8_struct
+  type host_t
+
+  module Kstatfs : Signatures_7_8.Struct.Kstatfs
+    with module Types := T
+  module File_lock : Signatures_7_8.Struct.File_lock
+    with module Types := T
+  module Attr : Signatures_7_8.Struct.Attr
+    with module Types := T
+    with type host_t := host_t
+end
+
+
 module type Signatures_7_8_in = sig
   module Struct : Types_7_8_struct
   module T : Types_7_8_in with module Struct := Struct
-  open Signatures_7_8
-  open In
 
   type chan
   type ('h, 'b) packet
 
-  module Opcode : Opcode
+  module Opcode : Signatures_7_8.In.Opcode
     with module Struct := Struct
     with module Types := T
-  module Hdr : Hdr with type opcode_t := Opcode.t
+  module Hdr : Signatures_7_8.In.Hdr with type opcode_t := Opcode.t
     with module Struct := Struct
     with module Types := T
-  module Init : Init
+  module Init : Signatures_7_8.In.Init
     with module Struct := Struct
     with module Types := T
-  module Open : Open
+  module Open : Signatures_7_8.In.Open
     with module Struct := Struct
     with module Types := T
-  module Read : Read
+  module Read : Signatures_7_8.In.Read
     with module Struct := Struct
     with module Types := T
-  module Release : Release
+  module Release : Signatures_7_8.In.Release
     with module Struct := Struct
     with module Types := T
-  module Access : Access
+  module Access : Signatures_7_8.In.Access
     with module Struct := Struct
     with module Types := T
-  module Forget : Forget
+  module Forget : Signatures_7_8.In.Forget
     with module Struct := Struct
     with module Types := T
-  module Flush : Flush
+  module Flush : Signatures_7_8.In.Flush
     with module Struct := Struct
     with module Types := T
-  module Create : Create
+  module Create : Signatures_7_8.In.Create
     with module Struct := Struct
     with module Types := T
-  module Mknod : Mknod
+  module Mknod : Signatures_7_8.In.Mknod
     with module Struct := Struct
     with module Types := T
-  module Mkdir : Mkdir
+  module Mkdir : Signatures_7_8.In.Mkdir
     with module Struct := Struct
     with module Types := T
-  module Rename : Rename
+  module Rename : Signatures_7_8.In.Rename
     with module Struct := Struct
     with module Types := T
-  module Link : Link
+  module Link : Signatures_7_8.In.Link
     with module Struct := Struct
     with module Types := T
-  module Write : Write
+  module Write : Signatures_7_8.In.Write
     with module Struct := Struct
     with module Types := T
-  module Fsync : Fsync
+  module Fsync : Signatures_7_8.In.Fsync
     with module Struct := Struct
     with module Types := T
-  module Lk : Lk
+  module Lk : Signatures_7_8.In.Lk
     with module Struct := Struct
     with module Types := T
-  module Interrupt : Interrupt
+  module Interrupt : Signatures_7_8.In.Interrupt
     with module Struct := Struct
     with module Types := T
-  module Bmap : Bmap
+  module Bmap : Signatures_7_8.In.Bmap
     with module Struct := Struct
     with module Types := T
-  module Setattr : Setattr with type hdr_t := Hdr.T.t
+  module Setattr : Signatures_7_8.In.Setattr with type hdr_t := Hdr.T.t
     with module Struct := Struct
     with module Types := T
-  module Getxattr : Getxattr with type hdr_t := Hdr.T.t
+  module Getxattr : Signatures_7_8.In.Getxattr with type hdr_t := Hdr.T.t
     with module Struct := Struct
     with module Types := T
-  module Setxattr : Setxattr with type hdr_t := Hdr.T.t
+  module Setxattr : Signatures_7_8.In.Setxattr with type hdr_t := Hdr.T.t
     with module Struct := Struct
     with module Types := T
   module Message : sig
@@ -1119,7 +1207,7 @@ module type Signatures_7_8_in = sig
       | Readlink
       | Open of Open.T.t Ctypes.structure
       | Read of Read.T.t Ctypes.structure
-      | Write of Write.T.t structure * char Ctypes.ptr
+      | Write of Write.T.t Ctypes.structure * char Ctypes.ptr
       | Statfs
       | Flush of Flush.T.t Ctypes.structure
       | Release of Release.T.t Ctypes.structure
@@ -1140,7 +1228,7 @@ module type Signatures_7_8_in = sig
       | Destroy
       | Other of Opcode.t
       | Unknown of int32
-    include Message with type t := t
+    include Signatures_7_8.In.Message with type t := t
                      and type hdr_t := Hdr.T.t
                      and type chan := chan
                      and type ('h, 'b) packet := ('h, 'b) packet

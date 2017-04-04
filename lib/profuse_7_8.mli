@@ -11,79 +11,9 @@ end
 
 type 'a structure = 'a Types.structure
 
-module Struct : sig
-  module T = Types.Struct
-  module Kstatfs : sig
-    module T = T.Kstatfs
-
-    val store :
-      blocks:Unsigned.uint64 ->
-      bfree:Unsigned.uint64 ->
-      bavail:Unsigned.uint64 ->
-      files:Unsigned.uint64 ->
-      ffree:Unsigned.uint64 ->
-      bsize:Unsigned.uint32 ->
-      namelen:Unsigned.uint32 ->
-      frsize:Unsigned.uint32 ->
-      T.t structure -> unit
-
-    val create :
-      blocks:Unsigned.uint64 ->
-      bfree:Unsigned.uint64 ->
-      bavail:Unsigned.uint64 ->
-      files:Unsigned.uint64 ->
-      ffree:Unsigned.uint64 ->
-      bsize:Unsigned.uint32 ->
-      namelen:Unsigned.uint32 ->
-      frsize:Unsigned.uint32 ->
-      unit -> T.t structure
-  end
-
-  module File_lock : sig
-    module T = T.File_lock
-  end
-
-  module Attr : sig
-    module T = T.Attr
-
-    val store :
-      ino:Unsigned.uint64 ->
-      size:Unsigned.uint64 ->
-      blocks:Unsigned.uint64 ->
-      atime:Unsigned.uint64 ->
-      mtime:Unsigned.uint64 ->
-      ctime:Unsigned.uint64 ->
-      atimensec:Unsigned.uint32 ->
-      mtimensec:Unsigned.uint32 ->
-      ctimensec:Unsigned.uint32 ->
-      mode:Unsigned.uint32 ->
-      nlink:Unsigned.uint32 ->
-      uid:Unsigned.uint32 ->
-      gid:Unsigned.uint32 ->
-      rdev:Unsigned.uint32 ->
-      T.t structure -> unit
-
-    val create :
-      ino:Unsigned.uint64 ->
-      size:Unsigned.uint64 ->
-      blocks:Unsigned.uint64 ->
-      atime:Unsigned.uint64 ->
-      mtime:Unsigned.uint64 ->
-      ctime:Unsigned.uint64 ->
-      atimensec:Unsigned.uint32 ->
-      mtimensec:Unsigned.uint32 ->
-      ctimensec:Unsigned.uint32 ->
-      mode:Unsigned.uint32 ->
-      nlink:Unsigned.uint32 ->
-      uid:Unsigned.uint32 ->
-      gid:Unsigned.uint32 ->
-      rdev:Unsigned.uint32 ->
-      unit -> T.t structure
-
-    val describe : host:Host.t -> T.t structure -> string
-
-  end
-end
+module Struct : Profuse_signatures.Signatures_7_8_struct
+  with module T = Types.Struct
+  and type host_t := Host.t
 
 module In : Profuse_signatures.Signatures_7_8_in 
   with module Struct := Types.Struct
