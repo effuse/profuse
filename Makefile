@@ -66,7 +66,7 @@ lib/profuse_signatures.mli: lib/profuse_signatures.ml
 	ocamlfind ocamlc \
 		-package unix-fcntl,unix-errno,unix-sys-stat,unix-dirent \
 		-package unix-unistd,ctypes -i \
-		lib/profuse_signatures.ml >> $@
+		lib/profuse_signatures.ml >> $@ || (rm -f $@ && false)
 
 test: build
 	$(OCAMLBUILD) lib_test/test.native
