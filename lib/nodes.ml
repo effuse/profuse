@@ -167,7 +167,7 @@ module Make(N : NODE) = struct
           name = "";
           data = space.root;
           children = Hashtbl.create 32;
-          lookups = 0;
+          lookups = 1;
           pins = 0;
           deps = 0;
         } in
