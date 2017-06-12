@@ -31,6 +31,7 @@ module Server(M : MOUNT_LWT)(F : FS_LWT)(IO : IO_LWT)
 type socket
 
 val new_socket :
+  fd:Unix.file_descr ->
   read:(int -> Unsigned.uint8 Ctypes.CArray.t Lwt.t) ->
   write:(Unsigned.uint8 Ctypes.ptr -> int -> int Lwt.t) ->
   nwrite:(Unsigned.uint8 Ctypes.ptr -> int -> int Lwt.t) ->
@@ -38,6 +39,8 @@ val new_socket :
   socket
 
 val socket_id : socket -> int
+
+val socket_fd : socket -> Unix.file_descr
 
 val get_socket : int -> socket
 

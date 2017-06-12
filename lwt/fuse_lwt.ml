@@ -20,6 +20,7 @@ end
 
 type socket = {
   id    : int;
+  fd    : Unix.file_descr;
   read  : int -> uint8 Ctypes.CArray.t Lwt.t;
   write : uint8 Ctypes.ptr -> int -> int Lwt.t;
   nwrite: uint8 Ctypes.ptr -> int -> int Lwt.t;
@@ -28,6 +29,7 @@ type socket = {
 
 let null_socket = {
   id = -1;
+  fd    = Unix.stdout;
   read  = (fun _ -> Lwt.return (Ctypes.CArray.make uint8_t 0));
   write = (fun _ len -> Lwt.return len);
   nwrite= (fun _ len -> Lwt.return len);
@@ -37,18 +39,20 @@ let null_socket = {
 let socket_table = ref (Array.make 0 null_socket)
 
 (* TODO: release socket *)
-let new_socket ~read ~write ~nwrite ~nread =
+let new_socket ~fd ~read ~write ~nwrite ~nread =
   let table = !socket_table in
   let next_id = Array.length table in
   let table = Array.init (next_id + 1) (fun i ->
     if i <> next_id
     then table.(i)
-    else { id = next_id; read; write; nwrite; nread }
+    else { id = next_id; fd; read; write; nwrite; nread }
   )  in
   socket_table := table;
   table.(next_id)
 
 let socket_id { id } = id
+
+let socket_fd { fd } = fd
 
 let get_socket k =
   (!socket_table).(k)
