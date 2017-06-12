@@ -5,6 +5,7 @@ module Nodes = Nodes
 
 type 'a structure = 'a Ctypes_static.structure
 type request = Profuse.In.Message.t Profuse.request
+type response = Profuse.In.Message.t Profuse.response
 
 module type IO = sig
   type 'a t
@@ -35,7 +36,7 @@ end
 
 module type RO_SIMPLE = sig
   module IO : IO
-  type 'a req_handler = request -> 'a -> 'a IO.t
+  type 'a req_handler = request -> 'a -> ('a * response list) IO.t
 
   type t
     
@@ -119,7 +120,7 @@ module type FS_IO = sig
   val negotiate_mount :
     Profuse.In.Init.T.t structure -> request -> t -> (request * t) IO.t
 
-  val dispatch : request -> t -> t IO.t
+  val dispatch : request -> t -> (t * response list) IO.t
 end
 
 module type STATE = sig
@@ -170,7 +171,7 @@ module Support : functor(IO : IO) -> sig
 
   val nodeid : request -> Unsigned.uint64
 
-  val enosys : request -> 'a -> 'a IO.t
+  val enosys : request -> 'a -> ('a * response list) IO.t
 
   val store_entry :
     ?entry_valid:Unsigned.uint64 ->
@@ -187,5 +188,5 @@ module Support : functor(IO : IO) -> sig
     ?attr_valid:Unsigned.uint64 ->
     ?attr_valid_nsec:Unsigned.uint32 ->
     ('a Nodes.node -> (Profuse.Struct.Attr.T.t structure -> unit) IO.t)
-    -> 'a Nodes.node -> request -> unit IO.t
+    -> 'a Nodes.node -> request -> response list IO.t
 end

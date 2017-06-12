@@ -295,9 +295,9 @@ module Trace(F : FS_LWT) : FS_LWT with type t = F.t = struct
     let dispatch req t =
       Printf.eprintf "    %s\n%!" (Profuse.In.Message.describe req);
       Fs.dispatch req t
-      >>= fun t ->
+      >>= fun (t, response) ->
       Printf.eprintf "    %s\n%!" (F.string_of_state req t);
-      return t
+      return (t, response)
   end
 end
 
@@ -354,8 +354,7 @@ module Dispatch(F : FS_LWT) : FS_LWT with type t = F.t = struct
         | Destroy -> destroy req t
         | Setattr s -> setattr s req t
         | Other _ | Unknown _ ->
-          IO.(Out.write_error log_error req Errno.ENOSYS
-              >>= fun () -> return t)
+          IO.return (t, [`Error (Errno.ENOSYS, log_error)])
       ) (function
         | Unix.Unix_error(e, _, _) as exn ->
           let host = req.chan.host.Host.errno in
@@ -366,20 +365,13 @@ module Dispatch(F : FS_LWT) : FS_LWT with type t = F.t = struct
               Errno.EIO
             | errno::_ -> errno
           in
-          IO.(Out.write_error log_error req errno
-              >>= fun () ->
-              return t
-             )
+          IO.return (t, [`Error (errno, log_error)])
         | Errno.Error { Errno.errno = errno :: _ } ->
-          IO.(Out.write_error log_error req errno
-              >>= fun () ->
-              return t
-             )
+          IO.return (t, [`Error (errno, log_error)])
         | (Destroy k) as exn -> IO.fail exn
         | exn ->
           log_error ("Unknown exception caught: "^(Printexc.to_string exn));
-          IO.(Out.write_error log_error req Errno.EIO
-              >>= fun () -> fail exn)
+          IO.return (t, [`Error (Errno.EIO, log_error); `Raise exn])
       )
   end
 end
