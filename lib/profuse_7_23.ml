@@ -1581,3 +1581,11 @@ module Out = struct
 end
 
 type 'a request = (In.Hdr.T.t, 'a) packet
+
+type 'a response = [
+  | `Reply of ('a request -> char Ctypes.CArray.t)
+  | `Ack
+  | `Drop
+  | `Error of Errno.t * (string -> unit)
+  | `Raise of exn
+]

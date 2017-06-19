@@ -639,3 +639,11 @@ module Out : sig
     val describe : ('a,t) packet -> string
   end
 end
+
+type 'a response = [
+  | `Reply of ('a request -> char Ctypes.CArray.t)
+  | `Ack
+  | `Drop
+  | `Error of Errno.t * (string -> unit)
+  | `Raise of exn
+]

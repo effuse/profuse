@@ -20,6 +20,7 @@ end
 
 type socket = {
   id    : int;
+  fd    : Unix.file_descr;
   read  : int -> uint8 Ctypes.CArray.t Lwt.t;
   write : uint8 Ctypes.ptr -> int -> int Lwt.t;
   nwrite: uint8 Ctypes.ptr -> int -> int Lwt.t;
@@ -28,6 +29,7 @@ type socket = {
 
 let null_socket = {
   id = -1;
+  fd    = Unix.stdout;
   read  = (fun _ -> Lwt.return (Ctypes.CArray.make uint8_t 0));
   write = (fun _ len -> Lwt.return len);
   nwrite= (fun _ len -> Lwt.return len);
@@ -37,18 +39,20 @@ let null_socket = {
 let socket_table = ref (Array.make 0 null_socket)
 
 (* TODO: release socket *)
-let new_socket ~read ~write ~nwrite ~nread =
+let new_socket ~fd ~read ~write ~nwrite ~nread =
   let table = !socket_table in
   let next_id = Array.length table in
   let table = Array.init (next_id + 1) (fun i ->
     if i <> next_id
     then table.(i)
-    else { id = next_id; read; write; nwrite; nread }
+    else { id = next_id; fd; read; write; nwrite; nread }
   )  in
   socket_table := table;
   table.(next_id)
 
 let socket_id { id } = id
+
+let socket_fd { fd } = fd
 
 let get_socket k =
   (!socket_table).(k)
@@ -295,9 +299,9 @@ module Trace(F : FS_LWT) : FS_LWT with type t = F.t = struct
     let dispatch req t =
       Printf.eprintf "    %s\n%!" (Profuse.In.Message.describe req);
       Fs.dispatch req t
-      >>= fun t ->
+      >>= fun (t, response) ->
       Printf.eprintf "    %s\n%!" (F.string_of_state req t);
-      return t
+      return (t, response)
   end
 end
 
@@ -354,8 +358,7 @@ module Dispatch(F : FS_LWT) : FS_LWT with type t = F.t = struct
         | Destroy -> destroy req t
         | Setattr s -> setattr s req t
         | Other _ | Unknown _ ->
-          IO.(Out.write_error log_error req Errno.ENOSYS
-              >>= fun () -> return t)
+          IO.return (t, [`Error (Errno.ENOSYS, log_error)])
       ) (function
         | Unix.Unix_error(e, _, _) as exn ->
           let host = req.chan.host.Host.errno in
@@ -366,20 +369,13 @@ module Dispatch(F : FS_LWT) : FS_LWT with type t = F.t = struct
               Errno.EIO
             | errno::_ -> errno
           in
-          IO.(Out.write_error log_error req errno
-              >>= fun () ->
-              return t
-             )
+          IO.return (t, [`Error (errno, log_error)])
         | Errno.Error { Errno.errno = errno :: _ } ->
-          IO.(Out.write_error log_error req errno
-              >>= fun () ->
-              return t
-             )
+          IO.return (t, [`Error (errno, log_error)])
         | (Destroy k) as exn -> IO.fail exn
         | exn ->
           log_error ("Unknown exception caught: "^(Printexc.to_string exn));
-          IO.(Out.write_error log_error req Errno.EIO
-              >>= fun () -> fail exn)
+          IO.return (t, [`Error (Errno.EIO, log_error); `Raise exn])
       )
   end
 end

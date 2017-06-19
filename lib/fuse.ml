@@ -24,6 +24,7 @@ module Struct = Profuse.Struct
 
 type 'a structure = 'a Ctypes_static.structure
 type request = In.Message.t Profuse.request
+type response = In.Message.t Profuse.response
 
 module type IO = sig
   type 'a t
@@ -51,7 +52,7 @@ end
 
 module type RO_SIMPLE = sig
   module IO : IO
-  type 'a req_handler = request -> 'a -> 'a IO.t
+  type 'a req_handler = request -> 'a -> ('a * response list) IO.t
   type t
 
   val getattr    : t req_handler
@@ -131,7 +132,7 @@ module type FS_IO = sig
   val negotiate_mount :
     In.Init.T.t structure -> request -> t -> (request * t) IO.t
 
-  val dispatch : request -> t -> t IO.t
+  val dispatch : request -> t -> (t * response list) IO.t
 end
 
 module type STATE = sig
@@ -152,15 +153,16 @@ end
 module Zero(State : STATE)(IO : IO)
   : RW_FULL with module IO = IO and type t = State.t = struct
   module IO = IO
-  type 'a req_handler = In.Message.t Profuse.request -> 'a -> 'a IO.t
+  type 'a req_handler = request -> 'a -> ('a * response list) IO.t
   type t = State.t
 
   let enosys req st =
     (* Throw away error messages during the write. *)
     let log_error _msg = () in
-    IO.(Out.write_error log_error req Errno.ENOSYS >>= fun () -> return st)
+    IO.return (st, [`Error (Errno.ENOSYS, log_error)])
 
-  let drop _req st = IO.return st
+  let drop _req st =
+    IO.return (st, [`Drop])
 
   let getattr      = enosys
   let opendir _    = enosys
@@ -269,10 +271,7 @@ module Support(IO : IO) = struct
   let enosys req st =
     (* Throw away error messages during the write. *)
     let log_error _msg = () in
-    IO.(Out.write_error log_error req Errno.ENOSYS
-        >>= fun () ->
-        return st
-       )
+    IO.return (st, [`Error (Errno.ENOSYS, log_error)])
 
   let store_entry
     ?(entry_valid=Unsigned.UInt64.zero)
@@ -300,10 +299,10 @@ module Support(IO : IO) = struct
     >>= fun store_attr ->
     let nodeid = Unsigned.UInt64.of_int64 node.Nodes.id in
     let generation = Unsigned.UInt64.of_int64 node.Nodes.gen in
-    IO.Out.write_reply req
+    IO.return [`Reply
       (Profuse.Out.Entry.create ~nodeid ~generation
          ~entry_valid ~entry_valid_nsec
          ~attr_valid ~attr_valid_nsec
-         ~store_attr)
+         ~store_attr)]
   )
 end
