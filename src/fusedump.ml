@@ -191,10 +191,9 @@ let parse_packet host query_table fd =
     in
     Some (now, packet)
 
-let parse_session filename =
+let packet_stream_of_fd fd =
   let header_len = 4 + 1 + 1 + 2 in
   let bheader = Bytes.create header_len in
-  with_open_fd filename @@ fun fd ->
   let header_read = Unix.read fd bheader 0 header_len in
   let header = Bytes.to_string bheader in
   (if header_read <> header_len then failwith "couldn't read header");
@@ -211,11 +210,15 @@ let parse_session filename =
     | c -> failf "unknown host type '%c'" c
   in
   let query_table = Hashtbl.create 128 in
-  let rec read_next session = match parse_packet host query_table fd with
-    | None -> List.rev session
-    | Some packet -> read_next (packet::session)
+  let rec read_next () = match parse_packet host query_table fd with
+    | None -> `Eof
+    | Some packet -> `Next(packet, read_next)
   in
-  read_next []
+  read_next ()
+
+let rec iter f = function
+  | `Eof -> ()
+  | `Next(packet, rest) -> f packet; iter f (rest ())
 
 let pretty_print time (t, p) =
   Printf.printf "%s%s\n%!"
@@ -228,8 +231,9 @@ let pretty_print time (t, p) =
 
 let show time session_file =
   try
-    let session = parse_session session_file in
-    List.iter (pretty_print time) session;
+    with_open_fd session_file @@ fun fd ->
+    let session = packet_stream_of_fd fd in
+    iter (pretty_print time) session;
     `Ok ()
   with exn ->
     `Error (false,
