@@ -46,6 +46,7 @@ let fuse_versions : (string * (string * (module Cstubs.Types.BINDINGS))) list = 
   "7_23", ("fuse_kernel.h.7_23", (module Profuse_types_7_23.C));
   "7_24", ("fuse_kernel.h.7_24", (module Profuse_types_7_24.C));
   "7_25", ("fuse_kernel.h.7_25", (module Profuse_types_7_25.C));
+  "7_26", ("fuse_kernel.h.7_26", (module Profuse_types_7_26.C));
 ]
 
 let resolve_version : string -> (string * (module Cstubs.Types.BINDINGS)) =
