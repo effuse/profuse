@@ -710,3 +710,95 @@ struct
     module type Bmap = Bmap
   end
 end
+
+
+module Types_7_26 =
+struct
+  type 'a structure = 'a Ctypes_static.structure
+  module Struct = Types_7_23.Struct
+
+  module In =
+  struct
+    open Types_7_23.In
+    type opcode_t = [
+      Types_7_23.In.opcode_t
+      | `FUSE_LSEEK
+    ]
+    module type Opcode_ops =
+    sig
+      include Opcode_ops
+      val fuse_lseek : Unsigned.uint32
+    end
+    module type Opcode = sig
+      type t = opcode_t
+      include Opcode_ops
+
+    end
+    module type Hdr = Hdr
+    module type Init_flags = sig
+      include Init_flags
+      val fuse_parallel_dirops : Unsigned.uint32
+      val fuse_handle_killpriv : Unsigned.uint32
+      val fuse_posix_acl : Unsigned.uint32
+    end
+    module type Init = sig
+      module Flags : Init_flags
+      include Types_7_8.In.Init_
+    end
+    module type Open = Open
+    module type Read = Read
+    module type Release = Release
+    module type Access = Access
+    module type Forget = Forget
+    module type Flush = Flush
+    module type Create = Create
+    module type Mknod = Mknod
+    module type Mkdir = Mkdir
+    module type Rename = Rename
+    module type Link = Link
+    module type Write = Write
+    module type Fsync = Fsync
+    module type Lk = Lk
+    module type Interrupt = Interrupt
+    module type Bmap = Bmap
+    module type Setattr_valid = Setattr_valid
+    module type Setattr = Setattr
+    module type Getxattr = Getxattr
+    module type Setxattr = Setxattr
+    module type Lseek = sig
+      type t
+      val t : t structure Ctypes.typ
+
+      val fh : (Unsigned.uint64, t structure) Ctypes.field
+      val offset : (Unsigned.uint64, t structure) Ctypes.field
+      val whence : (Unsigned.uint32, t structure) Ctypes.field
+      val padding : (Unsigned.uint32, t structure) Ctypes.field
+    end
+  end
+  module Out =
+  struct
+    open Types_7_23.Out
+
+    module type Hdr = Hdr
+
+    module type Notify_inval_entry = Notify_inval_entry
+    module type Notify_inval_inode = Notify_inval_inode
+    module type Notify_delete = Notify_delete
+    module type Write = Write
+    module type Open_flags = Open_flags
+    module type Open = Open
+    module type Init = Init
+    module type Entry = Entry
+    module type Attr = Attr
+    module type Statfs = Statfs
+    module type Getxattr = Getxattr
+    module type Lk = Lk
+    module type Bmap = Bmap
+    module type Lseek = sig
+      type t
+      val t : t structure Ctypes.typ
+
+      val offset : (Unsigned.uint64, t structure) Ctypes.field
+    end
+  end
+end

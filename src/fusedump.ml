@@ -17,7 +17,7 @@
 
 let version = "0.5.0"
 
-module Profuse = Profuse_7_23
+module Profuse = Profuse_7_26
 
 type request = Profuse.In.Message.t Profuse.request
 type reply = (Profuse.Out.Hdr.T.t, Profuse.Out.Message.t) Profuse.packet
@@ -204,8 +204,8 @@ let parse_session filename =
   let minor = int_of_char header.[7] in
   (if major <> 7
    then failf "only FUSE major version 7 supported (not %d)" major
-   else if minor <> 23
-   then failf "only FUSE version 7.23 supported (not 7.%d)" minor);
+   else if minor <> 26
+   then failf "only FUSE version 7.26 supported (not 7.%d)" minor);
   let host = match header.[5] with
     | 'L' -> Profuse.Host.linux_4_0_5
     | c -> failf "unknown host type '%c'" c

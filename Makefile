@@ -31,10 +31,11 @@ endif
 
 TYPES=.mli .cmi .cmti
 
-VERSIONS=_7_8 _7_23
+VERSIONS=_7_8 _7_23 _7_26
 
 INSTALL:=$(addprefix profuse_7_8, $(TYPES)) \
          $(addprefix profuse_7_23, $(TYPES)) \
+         $(addprefix profuse_7_26, $(TYPES)) \
 	 $(addprefix profuse_signatures, $(TYPES)) \
          $(foreach versioned,$(addprefix $(MOD_NAME), $(VERSIONS)),\
              $(addprefix $(versioned), $(TYPES)))\
