@@ -15,7 +15,7 @@
  *
  *)
 
-module Profuse = Profuse_7_23
+module Profuse = Profuse_7_26
 
 module Nodes = Nodes
 
