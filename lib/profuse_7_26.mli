@@ -3,7 +3,7 @@ include Profuse_signatures.S
 module Types : sig
   type 'a structure = 'a Ctypes_static.structure
 
-  open Profuse_signatures.Types_7_23
+  open Profuse_signatures.Types_7_26
   module Struct : sig
     open Struct
     module Kstatfs : Kstatfs

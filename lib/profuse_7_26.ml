@@ -17,7 +17,7 @@
 
 open Ctypes
 open Unsigned
-module Types = Profuse_types_7_23.C(Profuse_types_detected_7_23)
+module Types = Profuse_types_7_26.C(Profuse_types_detected_7_26)
 
 type 'a structure = 'a Types.structure
 
@@ -245,6 +245,7 @@ module In = struct
       | `FUSE_SYMLINK -> "FUSE_SYMLINK"
       | `FUSE_UNLINK -> "FUSE_UNLINK"
       | `FUSE_WRITE -> "FUSE_WRITE"
+      | `FUSE_LSEEK -> "FUSE_LSEEK"
       | `Unknown i -> "UnknownOpcode("^(Int32.to_string i)^")"
 
     let returns = function
@@ -773,7 +774,7 @@ module In = struct
          | `FUSE_FALLOCATE    -> Other opcode
          | `FUSE_IOCTL        -> Other opcode
          | `FUSE_POLL         -> Other opcode
-
+         | `FUSE_LSEEK        -> Other opcode
          | `Unknown i        -> unknown i
        )}
 
@@ -1502,6 +1503,7 @@ module Out = struct
          | `FUSE_FALLOCATE    -> Other opcode
          | `FUSE_IOCTL        -> Other opcode
          | `FUSE_POLL         -> Other opcode
+         | `FUSE_LSEEK        -> Other opcode
 
          | `Unknown opcode   -> unknown opcode len buf
        )}
